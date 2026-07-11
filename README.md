@@ -52,6 +52,7 @@ Camera / native vision code must be **guarded** so it never poisons the Expo Go 
 | [docs/VISION.md](docs/VISION.md) | Long-term intelligence thesis |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Folder map, frozen interfaces, data model |
 | [docs/METRICS.md](docs/METRICS.md) | What we claim (and refuse) to measure |
+| [docs/AUDIO.md](docs/AUDIO.md) | TTS engine + iOS silent-switch notes |
 
 ## Getting started
 
