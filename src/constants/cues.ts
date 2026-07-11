@@ -1,8 +1,7 @@
-import type { CueDefinition, CueType } from '@/types';
+import type { CueDefinition, CueId } from '@/types';
+import { pick, randomInt, type Rng } from '@/utils/random';
 
-import { pick, randomInt } from '@/utils/rng';
-
-/** Spoken values for the `color` variable cue. Short + TTS-friendly. */
+/** Spoken values for the `color` variable cue. Kept short + TTS-friendly. */
 export const COLOR_WORDS = [
   'Red',
   'Blue',
@@ -13,156 +12,128 @@ export const COLOR_WORDS = [
   'Orange',
 ] as const;
 
-/** Inclusive range for the `number` variable cue. */
+/** Range for the `number` variable cue (jersey-style numbers). */
 export const NUMBER_RANGE = { min: 1, max: 30 } as const;
 
 /**
- * Core cue catalog — sport-agnostic spatial calls.
- * "Man on" is a soccer-flavored example label, not a product-category lock.
- * `color` / `number` are opt-in (not in DEFAULT_ENABLED_CUES).
+ * The cue catalog. This is the single source of truth for cue labels, audio
+ * phrasing, color-coding, and selection metadata. To add a cue type later,
+ * extend the `CueId` union and add an entry here.
  */
-export const CUE_CATALOG: readonly CueDefinition[] = [
-  {
+export const CUES: Record<CueId, CueDefinition> = {
+  check_left: {
     id: 'check_left',
-    type: 'check_left',
     label: 'Check Left',
-    description: 'Shoulder-check over your left side.',
-    spokenLabel: 'Check left',
-    hudLabel: 'LEFT',
-    category: 'check',
+    shortLabel: 'Left',
+    category: 'direction',
     side: 'left',
+    description: 'Shoulder-check over your left side.',
+    defaultPhrase: 'Check left',
+    speak: () => 'Check left',
     colorToken: 'cueLeft',
   },
-  {
+  check_right: {
     id: 'check_right',
-    type: 'check_right',
     label: 'Check Right',
-    description: 'Shoulder-check over your right side.',
-    spokenLabel: 'Check right',
-    hudLabel: 'RIGHT',
-    category: 'check',
+    shortLabel: 'Right',
+    category: 'direction',
     side: 'right',
+    description: 'Shoulder-check over your right side.',
+    defaultPhrase: 'Check right',
+    speak: () => 'Check right',
     colorToken: 'cueRight',
   },
-  {
-    id: 'scan',
-    type: 'scan',
-    label: 'Scan',
-    description: 'Quick head swivel - take in the whole field or court.',
-    spokenLabel: 'Scan',
-    hudLabel: 'SCAN',
-    category: 'scan',
-    side: 'none',
-    colorToken: 'cueAction',
-  },
-  {
-    id: 'turn',
-    type: 'turn',
-    label: 'Turn',
-    description: 'Turn and play forward into space.',
-    spokenLabel: 'Turn',
-    hudLabel: 'TURN',
-    category: 'action',
-    side: 'none',
-    colorToken: 'cueAction',
-  },
-  {
+  man_on: {
     id: 'man_on',
-    type: 'man_on',
     label: 'Man On',
-    description: 'Pressure incoming - protect the ball and play quick.',
-    spokenLabel: 'Man on',
-    hudLabel: 'MAN ON',
+    shortLabel: 'Man On',
     category: 'action',
     side: 'none',
+    description: 'Pressure incoming — shield the ball, play quick.',
+    defaultPhrase: 'Man on',
+    speak: () => 'Man on',
     colorToken: 'cueAlert',
   },
-  {
-    id: 'open_body',
-    type: 'open_body',
-    label: 'Open Body',
-    description: 'Open your hips to receive across your body.',
-    spokenLabel: 'Open body',
-    hudLabel: 'OPEN',
-    category: 'body',
+  turn: {
+    id: 'turn',
+    label: 'Turn',
+    shortLabel: 'Turn',
+    category: 'action',
     side: 'none',
-    colorToken: 'cueNeutral',
+    description: 'Space behind you — turn and drive forward.',
+    defaultPhrase: 'Turn',
+    speak: () => 'Turn',
+    colorToken: 'cueAction',
   },
-  {
+  scan: {
+    id: 'scan',
+    label: 'Scan',
+    shortLabel: 'Scan',
+    category: 'action',
+    side: 'none',
+    description: 'Quick head-on-a-swivel scan of the whole pitch.',
+    defaultPhrase: 'Scan',
+    speak: () => 'Scan',
+    colorToken: 'cueAction',
+  },
+  open_body: {
+    id: 'open_body',
+    label: 'Open Body',
+    shortLabel: 'Open',
+    category: 'action',
+    side: 'none',
+    description: 'Open your hips to receive across your body.',
+    defaultPhrase: 'Open body',
+    speak: () => 'Open body',
+    colorToken: 'cueAction',
+  },
+  color: {
     id: 'color',
-    type: 'color',
     label: 'Color',
-    description: 'React to the called color (cone, bib, or target).',
-    spokenLabel: 'Color',
-    hudLabel: 'COLOR',
+    shortLabel: 'Color',
     category: 'variable',
     side: 'none',
+    description: 'React to the called color (cone / bib / target).',
+    defaultPhrase: 'Color',
+    speak: (rng: Rng) => pick(rng, COLOR_WORDS),
     colorToken: 'cueVariableColor',
   },
-  {
+  number: {
     id: 'number',
-    type: 'number',
     label: 'Number',
-    description: 'React to the called number (player, cone, or target).',
-    spokenLabel: 'Number',
-    hudLabel: 'NUMBER',
+    shortLabel: 'Number',
     category: 'variable',
     side: 'none',
+    description: 'React to the called number (find the player / target).',
+    defaultPhrase: 'Number',
+    speak: (rng: Rng) => String(randomInt(rng, NUMBER_RANGE.min, NUMBER_RANGE.max)),
     colorToken: 'cueVariableNumber',
   },
-] as const;
+};
 
-/** Stable display order for setup / settings / history. */
-export const CUE_ORDER: readonly CueType[] = CUE_CATALOG.map((c) => c.id);
-
-export const CUE_BY_ID: Readonly<Record<CueType, CueDefinition>> =
-  Object.fromEntries(CUE_CATALOG.map((c) => [c.id, c])) as Record<
-    CueType,
-    CueDefinition
-  >;
-
-/** Catalog keyed by id — preferred lookup for HUD / Display components. */
-export const CUES: Readonly<Record<CueType, CueDefinition>> = CUE_BY_ID;
-
-export const ALL_CUE_TYPES: readonly CueType[] = [...CUE_ORDER];
-
-/** Default mix excludes variable cues (opt-in via setup). */
-export const DEFAULT_ENABLED_CUES: readonly CueType[] = [
+/** Stable display order for setup/settings/history. */
+export const CUE_ORDER: CueId[] = [
   'check_left',
   'check_right',
-  'scan',
-  'turn',
   'man_on',
+  'turn',
+  'scan',
   'open_body',
+  'color',
+  'number',
 ];
 
-export function getCueDefinition(id: CueType): CueDefinition {
-  return CUE_BY_ID[id];
+export const ALL_CUE_IDS: CueId[] = [...CUE_ORDER];
+
+export function getCue(id: CueId): CueDefinition {
+  return CUES[id];
 }
 
-/** Catalog entries in display order, optionally filtered to an enabled set. */
-export function listCues(ids?: readonly CueType[]): CueDefinition[] {
-  if (!ids) return [...CUE_CATALOG];
-  const enabled = new Set(ids);
-  return CUE_ORDER.filter((id) => enabled.has(id)).map((id) => CUE_BY_ID[id]);
+export function listCues(ids: CueId[]): CueDefinition[] {
+  return CUE_ORDER.filter((id) => ids.includes(id)).map((id) => CUES[id]);
 }
 
-export function isDirectionalCheck(type: CueType): boolean {
-  return type === 'check_left' || type === 'check_right';
-}
-
-export function isVariableCue(type: CueType): boolean {
-  return type === 'color' || type === 'number';
-}
-
-/**
- * Resolve the exact phrase to speak (and show) for a cue.
- * Variable cues randomize; fixed cues return spokenLabel.
- */
-export function resolveCuePhrase(id: CueType, random: () => number): string {
-  if (id === 'color') return pick(random, COLOR_WORDS);
-  if (id === 'number') {
-    return String(randomInt(random, NUMBER_RANGE.min, NUMBER_RANGE.max));
-  }
-  return getCueDefinition(id).spokenLabel;
+/** Resolve the phrase to speak for a cue (handles variable cues). */
+export function resolveCuePhrase(id: CueId, rng: Rng): string {
+  return CUES[id].speak(rng);
 }

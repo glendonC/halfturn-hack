@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import type { CueDefinition, CueType } from '@/types';
-import { glass, glassRadius, glassType, light, spacing } from '@/theme';
+import type { CueDefinition } from '@/types';
+import { colors, glass, glassRadius, glassType, light, spacing } from '@/theme';
 
 interface GlassCueChipProps {
   cue: CueDefinition;
@@ -10,29 +10,13 @@ interface GlassCueChipProps {
   disabled?: boolean;
 }
 
-const CHIP_COLORS: Record<CueType, string> = {
-  check_left: '#22D3EE',
-  check_right: '#FB923C',
-  scan: '#A3E635',
-  turn: '#A3E635',
-  man_on: '#FB7185',
-  open_body: '#C8F542',
-  color: '#C084FC',
-  number: '#FACC15',
-};
-
 /**
- * Toggleable cue pill. Cue color accents pop against the light glass so the
- * meaning is legible before the word. Translucent fill (not blur) keeps a wrap
- * of eight chips light.
+ * Toggleable cue pill. Reuses the drill's own cue color-coding as the accent
+ * that pops against the light glass — the meaning is legible before the word.
+ * Kept as a translucent fill (not a blur layer) so a wrap of eight stays light.
  */
-export function GlassCueChip({
-  cue,
-  selected,
-  onToggle,
-  disabled = false,
-}: GlassCueChipProps) {
-  const accent = CHIP_COLORS[cue.id] ?? light.inkSoft;
+export function GlassCueChip({ cue, selected, onToggle, disabled = false }: GlassCueChipProps) {
+  const accent = colors[cue.colorToken];
   return (
     <Pressable
       onPress={() => onToggle(cue.id)}
@@ -48,20 +32,8 @@ export function GlassCueChip({
         },
       ]}
     >
-      <View
-        style={[
-          styles.dot,
-          { backgroundColor: accent, opacity: selected ? 1 : 0.4 },
-        ]}
-      />
-      <Text
-        style={[
-          styles.label,
-          { color: selected ? light.ink : light.inkMuted },
-        ]}
-      >
-        {cue.label}
-      </Text>
+      <View style={[styles.dot, { backgroundColor: accent, opacity: selected ? 1 : 0.4 }]} />
+      <Text style={[styles.label, { color: selected ? light.ink : light.inkMuted }]}>{cue.label}</Text>
     </Pressable>
   );
 }

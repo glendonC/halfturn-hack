@@ -2,64 +2,44 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 import { CUE_ORDER } from '@/constants/cues';
-import { createDefaultDrillConfig } from '@/constants/defaults';
-import type { CueType, DrillConfig } from '@/types';
-
-import { useDrillStore } from './drillStore';
+import { createDefaultDrillConfig, DEFAULT_DRILL_CONFIG, MIN_INTERVAL_SPAN } from '@/constants/defaults';
+import type { CueId, DrillConfig } from '@/types';
 import { zustandStorage } from './storage';
-
-const MIN_INTERVAL_SPAN_MS = 500;
 
 interface DrillConfigStore {
   config: DrillConfig;
   setConfig: (patch: Partial<DrillConfig>) => void;
   /** Toggle a cue type for the next drill (keeps catalog order). */
-  toggleCue: (id: CueType) => void;
+  toggleCue: (id: CueId) => void;
   /** Set interval bounds while keeping min <= max with a minimum span. */
-  setInterval: (minMs: number, maxMs: number) => void;
+  setInterval: (minSec: number, maxSec: number) => void;
   reset: () => void;
-  /** Pull latest config from the drill store (after a live run mutates it). */
-  syncFromDrillStore: () => void;
 }
 
-/**
- * Durable drill setup config. Writes through to useDrillStore so setup UI and
- * the engine stay in sync.
- */
 export const useDrillConfigStore = create<DrillConfigStore>()(
   persist(
-    (set, get) => ({
-      config: createDefaultDrillConfig(),
-
-      setConfig: (patch) => {
-        useDrillStore.getState().setConfig(patch);
-        set({ config: useDrillStore.getState().config });
-      },
-
-      toggleCue: (id) => {
-        const enabled = get().config.enabledCues;
-        const has = enabled.includes(id);
-        const next = has ? enabled.filter((x) => x !== id) : [...enabled, id];
-        if (next.length === 0) return;
-        const enabledCues = CUE_ORDER.filter((c) => next.includes(c));
-        get().setConfig({ enabledCues });
-      },
-
-      setInterval: (minMs, maxMs) => {
-        const lo = Math.min(minMs, maxMs);
-        const hi = Math.max(minMs, maxMs, lo + MIN_INTERVAL_SPAN_MS);
-        get().setConfig({ intervalMs: { min: lo, max: hi } });
-      },
-
-      reset: () => {
-        const config = createDefaultDrillConfig();
-        useDrillStore.getState().setConfig(config);
-        set({ config });
-      },
-
-      syncFromDrillStore: () => {
-        set({ config: useDrillStore.getState().config });
-      },
+    (set) => ({
+      config: DEFAULT_DRILL_CONFIG,
+      setConfig: (patch) => set((s) => ({ config: { ...s.config, ...patch } })),
+      toggleCue: (id) =>
+        set((s) => {
+          const has = s.config.enabledCues.includes(id);
+          const next = has
+            ? s.config.enabledCues.filter((x) => x !== id)
+            : [...s.config.enabledCues, id];
+          // Keep at least one cue enabled.
+          if (next.length === 0) return s;
+          return {
+            config: { ...s.config, enabledCues: CUE_ORDER.filter((c) => next.includes(c)) },
+          };
+        }),
+      setInterval: (minSec, maxSec) =>
+        set((s) => {
+          const lo = Math.min(minSec, maxSec);
+          const hi = Math.max(minSec, maxSec, lo + MIN_INTERVAL_SPAN);
+          return { config: { ...s.config, intervalMinSec: lo, intervalMaxSec: hi } };
+        }),
+      reset: () => set({ config: DEFAULT_DRILL_CONFIG }),
     }),
     {
       name: 'halfturn-drill-config',
@@ -67,15 +47,8 @@ export const useDrillConfigStore = create<DrillConfigStore>()(
       storage: zustandStorage,
       partialize: (s) => ({ config: s.config }),
       migrate: (persisted) => {
-        const p = persisted as { config?: Partial<DrillConfig> } | undefined;
-        return {
-          config: createDefaultDrillConfig(p?.config ?? {}),
-        };
-      },
-      onRehydrateStorage: () => (state) => {
-        if (!state) return;
-        // Seed the runtime drill store from the durable setup snapshot.
-        useDrillStore.getState().setConfig(state.config);
+        const p = persisted as { config?: Partial<DrillConfig> & Record<string, unknown> } | undefined;
+        return { config: createDefaultDrillConfig(p?.config ?? {}) };
       },
     },
   ),

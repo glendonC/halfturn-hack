@@ -111,9 +111,6 @@ export default function TrainScreen() {
   const settings = useSettings();
   const profile = useProfile();
   const config = useDrillConfigStore((s) => s.config);
-  const durationSec = Math.round(config.durationMs / 1000);
-  const intervalMinSec = config.intervalMs.min / 1000;
-  const intervalMaxSec = config.intervalMs.max / 1000;
   const setConfig = useDrillConfigStore((s) => s.setConfig);
   const toggleCue = useDrillConfigStore((s) => s.toggleCue);
   const setInterval = useDrillConfigStore((s) => s.setInterval);
@@ -124,7 +121,7 @@ export default function TrainScreen() {
   useFocusEffect(useCallback(() => setActive(null), []));
 
   const vocab = settings.enabledVocabulary;
-  const isTurnReact = config.mode === 'turn_react';
+  const isTurnReact = config.mode === 'turn-react';
   const current = active ? SECTIONS.find((s) => s.key === active)! : null;
   // Base mood follows the mode; while editing a section, the whole screen takes
   // that section's accent so its squircle, underglow, and backdrop theme together.
@@ -154,15 +151,15 @@ export default function TrainScreen() {
       case 'mode':
         return isTurnReact ? 'Turn & react' : 'Spoken cues';
       case 'duration':
-        return `${Math.round(durationSec / 60)}m`;
+        return `${Math.round(config.durationSec / 60)}m`;
       case 'interval':
-        return `${formatSeconds(intervalMinSec)}–${formatSeconds(intervalMaxSec)}`;
+        return `${formatSeconds(config.intervalMinSec)}–${formatSeconds(config.intervalMaxSec)}`;
       case 'cues':
         return String(activeCueCount);
       case 'balance':
         return `${100 - rightPct}/${rightPct}`;
       case 'options':
-        return String((config.spokenCountdown && config.countdownSec > 0 ? 1 : 0) + (config.avoidLastN > 0 ? 1 : 0));
+        return String((config.countdownEnabled ? 1 : 0) + (config.avoidImmediateRepeat ? 1 : 0));
     }
   };
 
@@ -170,11 +167,11 @@ export default function TrainScreen() {
   // highlight; the connective copy carries the meaning so nothing needs a label,
   // and trailing punctuation travels with its token so it still reads as prose.
   const secLabel = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
-  const durationText = `${Math.round(durationSec / 60)} minute`;
+  const durationText = `${Math.round(config.durationSec / 60)} minute`;
   const intervalText =
-    intervalMinSec === intervalMaxSec
-      ? `${secLabel(intervalMinSec)} seconds`
-      : `${secLabel(intervalMinSec)} to ${secLabel(intervalMaxSec)} seconds`;
+    config.intervalMinSec === config.intervalMaxSec
+      ? `${secLabel(config.intervalMinSec)} seconds`
+      : `${secLabel(config.intervalMinSec)} to ${secLabel(config.intervalMaxSec)} seconds`;
   const activeCues = config.enabledCues.filter((c) => vocab.includes(c));
   const cueExamples = activeCues.slice(0, 2).map((id) => CUES[id].label).join(' and ');
   const evenBalance = rightPct === 50;
@@ -372,9 +369,6 @@ function ParamToken({
 
 function renderSection(key: SectionKey, ctx: SectionCtx) {
   const { config, setConfig, toggleCue, setInterval, vocab, accent } = ctx;
-  const durationSec = Math.round(config.durationMs / 1000);
-  const intervalMinSec = config.intervalMs.min / 1000;
-  const intervalMaxSec = config.intervalMs.max / 1000;
   switch (key) {
     case 'mode':
       return (
@@ -391,9 +385,9 @@ function renderSection(key: SectionKey, ctx: SectionCtx) {
             icon={Icons.Camera}
             title="Turn & react"
             description="Phone propped nearby. Half-turn to read each cue on screen."
-            selected={config.mode === 'turn_react'}
+            selected={config.mode === 'turn-react'}
             accent={accent}
-            onPress={() => setConfig({ mode: 'turn_react' })}
+            onPress={() => setConfig({ mode: 'turn-react' })}
           />
         </View>
       );
@@ -402,19 +396,19 @@ function renderSection(key: SectionKey, ctx: SectionCtx) {
         <>
           <GlassSegmented<number>
             options={DURATION_PRESETS.map((sec) => ({ label: `${Math.round(sec / 60)}m`, value: sec }))}
-            value={durationSec}
-            onChange={(sec) => setConfig({ durationMs: sec * 1000 })}
+            value={config.durationSec}
+            onChange={(sec) => setConfig({ durationSec: sec })}
             accent={accent}
           />
           <GlassSlider
             label="Custom length"
-            value={durationSec}
+            value={config.durationSec}
             min={DURATION_BOUNDS.min}
             max={DURATION_BOUNDS.max}
             step={DURATION_BOUNDS.step}
-            valueLabel={formatDuration(durationSec)}
+            valueLabel={formatDuration(config.durationSec)}
             accent={accent}
-            onValueChange={(v) => setConfig({ durationMs: Math.round(v) * 1000 })}
+            onValueChange={(v) => setConfig({ durationSec: Math.round(v) })}
           />
         </>
       );
@@ -423,23 +417,23 @@ function renderSection(key: SectionKey, ctx: SectionCtx) {
         <>
           <GlassSlider
             label="Minimum"
-            value={intervalMinSec}
+            value={config.intervalMinSec}
             min={INTERVAL_BOUNDS.min}
             max={INTERVAL_BOUNDS.max}
             step={INTERVAL_BOUNDS.step}
-            valueLabel={formatSeconds(intervalMinSec)}
+            valueLabel={formatSeconds(config.intervalMinSec)}
             accent={accent}
-            onValueChange={(v) => setInterval(v * 1000, intervalMaxSec * 1000)}
+            onValueChange={(v) => setInterval(v, config.intervalMaxSec)}
           />
           <GlassSlider
             label="Maximum"
-            value={intervalMaxSec}
+            value={config.intervalMaxSec}
             min={INTERVAL_BOUNDS.min}
             max={INTERVAL_BOUNDS.max}
             step={INTERVAL_BOUNDS.step}
-            valueLabel={formatSeconds(intervalMaxSec)}
+            valueLabel={formatSeconds(config.intervalMaxSec)}
             accent={accent}
-            onValueChange={(v) => setInterval(intervalMinSec * 1000, v * 1000)}
+            onValueChange={(v) => setInterval(config.intervalMinSec, v)}
           />
         </>
       );
@@ -475,18 +469,16 @@ function renderSection(key: SectionKey, ctx: SectionCtx) {
           <GlassToggleRow
             label="Spoken countdown"
             description="3-2-1 before the first cue."
-            value={config.spokenCountdown && config.countdownSec > 0}
-            onValueChange={(v) =>
-              setConfig({ spokenCountdown: v, countdownSec: v ? Math.max(config.countdownSec, 3) : 0 })
-            }
+            value={config.countdownEnabled}
+            onValueChange={(v) => setConfig({ countdownEnabled: v })}
             accent={accent}
           />
           <Divider />
           <GlassToggleRow
             label="Avoid immediate repeats"
             description="Don't fire the same cue twice in a row."
-            value={config.avoidLastN > 0}
-            onValueChange={(v) => setConfig({ avoidLastN: v ? 1 : 0 })}
+            value={config.avoidImmediateRepeat}
+            onValueChange={(v) => setConfig({ avoidImmediateRepeat: v })}
             accent={accent}
           />
         </>

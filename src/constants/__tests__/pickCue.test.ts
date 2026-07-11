@@ -1,13 +1,14 @@
 import {
   COLOR_WORDS,
-  CUE_CATALOG,
+  CUE_ORDER,
+  CUES,
   DEFAULT_ENABLED_CUES,
   getCueDefinition,
   isDirectionalCheck,
   isVariableCue,
   NUMBER_RANGE,
   resolveCuePhrase,
-} from '../cues';
+} from '../index';
 import {
   clampLeftRightBalance,
   createDefaultDrillConfig,
@@ -21,14 +22,14 @@ import {
 import { createRng } from '@/utils/rng';
 
 describe('cue catalog', () => {
-  it('covers the CueType set exactly once each', () => {
-    const ids = CUE_CATALOG.map((c) => c.id);
+  it('covers the CueId set exactly once each', () => {
+    const ids = [...CUE_ORDER];
     expect(ids).toEqual([
       'check_left',
       'check_right',
-      'scan',
-      'turn',
       'man_on',
+      'turn',
+      'scan',
       'open_body',
       'color',
       'number',
@@ -43,13 +44,13 @@ describe('cue catalog', () => {
     expect(isVariableCue('scan')).toBe(false);
   });
 
-  it('exposes label, description, spoken, and HUD fields for every cue', () => {
-    for (const cue of CUE_CATALOG) {
+  it('exposes label, description, phrase, and short fields for every cue', () => {
+    for (const id of CUE_ORDER) {
+      const cue = CUES[id];
       expect(cue.label.length).toBeGreaterThan(0);
       expect(cue.description.length).toBeGreaterThan(0);
-      expect(cue.spokenLabel.length).toBeGreaterThan(0);
-      expect(cue.hudLabel.length).toBeGreaterThan(0);
-      expect(cue.type).toBe(cue.id);
+      expect(cue.defaultPhrase.length).toBeGreaterThan(0);
+      expect(cue.shortLabel.length).toBeGreaterThan(0);
       expect(getCueDefinition(cue.id)).toEqual(cue);
     }
   });
@@ -61,7 +62,7 @@ describe('cue catalog', () => {
     expect(isDirectionalCheck('man_on')).toBe(false);
   });
 
-  it('resolveCuePhrase returns fixed spokenLabel and randomizes variables', () => {
+  it('resolveCuePhrase returns fixed phrases and randomizes variables', () => {
     expect(resolveCuePhrase('scan', () => 0)).toBe('Scan');
     const color = resolveCuePhrase('color', createRng(1));
     expect((COLOR_WORDS as readonly string[]).includes(color)).toBe(true);
@@ -77,8 +78,8 @@ describe('defaults + balance helpers', () => {
     expect(config.mode).toBe('audio');
     expect(config.enabledCues).toEqual([...DEFAULT_ENABLED_CUES]);
     expect(config.leftRightBalance).toBe(0.5);
-    expect(config.haptics).toBe(true);
-    expect(config.spokenCountdown).toBe(true);
+    expect(config.countdownEnabled).toBe(true);
+    expect(config.avoidImmediateRepeat).toBe(true);
   });
 
   it('clamps left/right balance into [0, 1]', () => {
@@ -116,7 +117,6 @@ describe('pickNextCue', () => {
         leftRightBalance: 0.5,
         leftCount: 0,
         rightCount: 0,
-        // Force first branch off scan via deterministic sequence
         random: () => (i % 2 === 0 ? 0.1 : 0.9),
       }),
     );
@@ -137,7 +137,6 @@ describe('pickNextCue', () => {
   });
 
   it('biases directional checks toward the lagging side', () => {
-    // Heavy right history + target 0.5 ⇒ prefer left
     const pLeft = directionalLeftProbability({
       leftCount: 1,
       rightCount: 9,
@@ -153,7 +152,7 @@ describe('pickNextCue', () => {
         leftCount: 1,
         rightCount: 9,
         leftRightBalance: 0.5,
-        random: () => (i + 0.5) / n, // sweep [0,1)
+        random: () => (i + 0.5) / n,
       });
       if (cue === 'check_left') left += 1;
     }

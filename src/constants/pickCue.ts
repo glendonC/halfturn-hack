@@ -1,14 +1,17 @@
-import type { CueType } from '@/types';
+import type { CueId } from '@/types';
 
-import { isDirectionalCheck } from './cues';
 import { clampLeftRightBalance } from './defaults';
+
+function isDirectionalCheck(type: CueId): boolean {
+  return type === 'check_left' || type === 'check_right';
+}
 
 export type RandomFn = () => number;
 
 export interface PickNextCueArgs {
-  enabled: readonly CueType[];
+  enabled: readonly CueId[];
   /** Recent cue types, newest last — used for repeat avoidance */
-  recent: readonly CueType[];
+  recent: readonly CueId[];
   /** Target P(left | directional check), 0–1 */
   leftRightBalance: number;
   /** Session counts of directional checks so far */
@@ -43,12 +46,12 @@ export function directionalLeftProbability(args: {
 }
 
 export function pickDirectionalCheck(args: {
-  options: readonly CueType[];
+  options: readonly CueId[];
   leftCount: number;
   rightCount: number;
   leftRightBalance: number;
   random: RandomFn;
-}): CueType {
+}): CueId {
   const { options, leftCount, rightCount, random } = args;
   const leftRightBalance = clampLeftRightBalance(args.leftRightBalance);
   const hasLeft = options.includes('check_left');
@@ -73,12 +76,12 @@ export function pickDirectionalCheck(args: {
 }
 
 function weightForCue(
-  cue: CueType,
+  cue: CueId,
   args: {
     leftCount: number;
     rightCount: number;
     leftRightBalance: number;
-    pool: readonly CueType[];
+    pool: readonly CueId[];
   },
 ): number {
   if (!isDirectionalCheck(cue)) return 1;
@@ -104,7 +107,7 @@ function weightForCue(
  *
  * Pure / unit-testable — no React Native imports.
  */
-export function pickNextCue(args: PickNextCueArgs): CueType {
+export function pickNextCue(args: PickNextCueArgs): CueId {
   const {
     enabled,
     recent,

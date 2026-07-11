@@ -1,33 +1,38 @@
-import type { DrillConfig, CueType, Settings } from '@/types';
+import type { CueId, DrillConfig, Settings } from '@/types';
 
-import { ALL_CUE_TYPES, DEFAULT_ENABLED_CUES } from './cues';
+import { ALL_CUE_IDS } from './cues';
 
 /** Slider/control bounds, shared by setup + settings screens. */
+export const DURATION_BOUNDS = { min: 60, max: 1800, step: 30 } as const; // 1–30 min
+export const INTERVAL_BOUNDS = { min: 1, max: 12, step: 0.5 } as const; // seconds
 export const VOLUME_BOUNDS = { min: 0, max: 1, step: 0.05 } as const;
 export const RATE_BOUNDS = { min: 0.5, max: 1.5, step: 0.05 } as const;
 export const PITCH_BOUNDS = { min: 0.7, max: 1.6, step: 0.05 } as const;
 
-/** Duration presets / bounds in seconds for the Train setup brief. */
-export const DURATION_BOUNDS = { min: 60, max: 1800, step: 30 } as const;
+/** Quick-pick drill lengths (seconds): 3 / 5 / 10 / 15 min. */
 export const DURATION_PRESETS = [180, 300, 600, 900] as const;
-/** Interval bounds in seconds for cue spacing sliders. */
-export const INTERVAL_BOUNDS = { min: 1, max: 12, step: 0.5 } as const;
 
-/** Duration presets (ms) for setup UI later */
-export const DURATION_PRESETS_MS = {
-  short: 60_000,
-  standard: 180_000,
-  long: 300_000,
-} as const;
+/** Minimum interval span so min/max sliders never invert. */
+export const MIN_INTERVAL_SPAN = 0.5;
 
-/** Persisted app-wide speech / session defaults. */
+export const DEFAULT_DRILL_CONFIG: DrillConfig = {
+  durationSec: 300,
+  intervalMinSec: 3,
+  intervalMaxSec: 6,
+  enabledCues: ['check_left', 'check_right', 'man_on', 'turn', 'scan', 'open_body'],
+  leftRightBalance: 0.5,
+  avoidImmediateRepeat: true,
+  countdownEnabled: true,
+  mode: 'audio',
+};
+
 export const DEFAULT_SETTINGS: Settings = {
-  cueVolume: 1,
-  speechRate: 1,
-  speechPitch: 1,
+  cueVolume: 1.0,
+  speechRate: 1.0,
+  speechPitch: 1.0,
   voiceId: null,
   language: 'en-US',
-  enabledVocabulary: [...ALL_CUE_TYPES],
+  enabledVocabulary: [...ALL_CUE_IDS],
   audioOutputMode: 'headphones',
   audioSource: 'tts',
   hapticsEnabled: true,
@@ -36,13 +41,7 @@ export const DEFAULT_SETTINGS: Settings = {
   turnReactLandscape: false,
 };
 
-export type DurationPreset = keyof typeof DURATION_PRESETS_MS;
-
-/** Default random interval band between cues */
-export const DEFAULT_INTERVAL_MS = {
-  min: 2_500,
-  max: 5_000,
-} as const;
+export const DEFAULT_LEFT_RIGHT_BALANCE = 0.5;
 
 /** Reaction window placeholders (Phase 2) — versioned with metrics later */
 export const DEFAULT_REACTION_WINDOW_MS = {
@@ -50,25 +49,64 @@ export const DEFAULT_REACTION_WINDOW_MS = {
   late: 1_200,
 } as const;
 
-export const DEFAULT_LEFT_RIGHT_BALANCE = 0.5;
-
-export const DEFAULT_COUNTDOWN_SEC = 3;
-
+/**
+ * Merge overrides onto defaults. Also tolerates older persisted shapes that used
+ * ms-based duration/interval fields or turn_react mode spelling.
+ */
 export function createDefaultDrillConfig(
-  overrides: Partial<DrillConfig> = {},
+  overrides: Partial<DrillConfig> | (Partial<DrillConfig> & Record<string, unknown>) = {},
 ): DrillConfig {
-  return {
-    durationMs: DURATION_PRESETS_MS.standard,
-    intervalMs: { ...DEFAULT_INTERVAL_MS },
-    enabledCues: [...DEFAULT_ENABLED_CUES],
-    leftRightBalance: DEFAULT_LEFT_RIGHT_BALANCE,
-    countdownSec: DEFAULT_COUNTDOWN_SEC,
-    spokenCountdown: true,
-    haptics: true,
-    avoidLastN: 1,
-    mode: 'audio',
-    ...overrides,
-  };
+  const raw = overrides as Partial<DrillConfig> & Record<string, unknown>;
+  const next: DrillConfig = { ...DEFAULT_DRILL_CONFIG };
+
+  if (typeof raw.durationSec === 'number') {
+    next.durationSec = raw.durationSec;
+  } else if (typeof raw.durationMs === 'number') {
+    next.durationSec = Math.round(raw.durationMs / 1000);
+  }
+
+  if (typeof raw.intervalMinSec === 'number' && typeof raw.intervalMaxSec === 'number') {
+    next.intervalMinSec = raw.intervalMinSec;
+    next.intervalMaxSec = raw.intervalMaxSec;
+  } else if (
+    raw.intervalMs &&
+    typeof raw.intervalMs === 'object' &&
+    typeof (raw.intervalMs as { min?: number }).min === 'number' &&
+    typeof (raw.intervalMs as { max?: number }).max === 'number'
+  ) {
+    const band = raw.intervalMs as { min: number; max: number };
+    next.intervalMinSec = band.min / 1000;
+    next.intervalMaxSec = band.max / 1000;
+  }
+
+  if (Array.isArray(raw.enabledCues)) {
+    next.enabledCues = raw.enabledCues as CueId[];
+  }
+  if (typeof raw.leftRightBalance === 'number') {
+    next.leftRightBalance = raw.leftRightBalance;
+  }
+
+  if (typeof raw.avoidImmediateRepeat === 'boolean') {
+    next.avoidImmediateRepeat = raw.avoidImmediateRepeat;
+  } else if (typeof raw.avoidLastN === 'number') {
+    next.avoidImmediateRepeat = raw.avoidLastN > 0;
+  }
+
+  if (typeof raw.countdownEnabled === 'boolean') {
+    next.countdownEnabled = raw.countdownEnabled;
+  } else if (typeof raw.spokenCountdown === 'boolean' || typeof raw.countdownSec === 'number') {
+    const spoken = typeof raw.spokenCountdown === 'boolean' ? raw.spokenCountdown : true;
+    const sec = typeof raw.countdownSec === 'number' ? raw.countdownSec : 3;
+    next.countdownEnabled = spoken && sec > 0;
+  }
+
+  if (raw.mode === 'audio' || raw.mode === 'turn-react') {
+    next.mode = raw.mode;
+  } else if (raw.mode === 'turn_react') {
+    next.mode = 'turn-react';
+  }
+
+  return next;
 }
 
 /** Clamp balance into [0, 1]. */
@@ -97,6 +135,6 @@ export function leftShare(leftCount: number, rightCount: number): number | null 
   return leftCount / total;
 }
 
-export function filterEnabledCues(enabled: readonly CueType[]): CueType[] {
+export function filterEnabledCues(enabled: readonly CueId[]): CueId[] {
   return enabled.filter((id, index) => enabled.indexOf(id) === index);
 }
