@@ -7,7 +7,10 @@ import {
   type AudioCueEngine,
 } from '@/services/audio';
 import {
+  CAPTURE_ENABLED,
   computeScanVerification,
+  emitCaptureToConsole,
+  finalizeCapture,
   getPoseVerifierAsync,
   type PoseVerifier,
 } from '@/services/vision';
@@ -147,6 +150,20 @@ export function useDrillEngine(): UseDrillEngineResult {
         }
       } catch (err) {
         console.warn('[drill] verification failed', err);
+      }
+
+      // Dev-only: complete the derived-trace capture when a real pipeline ran.
+      if (CAPTURE_ENABLED && verifier?.available) {
+        try {
+          const bundle = finalizeCapture(
+            store.cueEvents,
+            actualDurationSec,
+            Date.now(),
+          );
+          if (bundle) emitCaptureToConsole(bundle);
+        } catch (err) {
+          console.warn('[drill] capture emit failed', err);
+        }
       }
 
       // Hand finish + persist to the store facade (keeps SQLite path in one place).

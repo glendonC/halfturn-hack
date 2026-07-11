@@ -89,6 +89,16 @@ export {
   type FrameStat,
   type VisionDiagnostics,
 } from './diagnostics';
+export {
+  CAPTURE_ENABLED,
+  finalizeCapture,
+  emitCaptureToConsole,
+  resetCapture,
+  serializeBundle,
+  toCaptureChunks,
+  fromCaptureChunks,
+  type DerivedCaptureBundle,
+} from './frameCapture';
 
 /**
  * Env intent flag (EXPO_PUBLIC_VISION=1). Prefer {@link canUseNativeVision} at

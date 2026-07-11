@@ -1,3 +1,4 @@
+import { CAPTURE_ENABLED, recordVerifierRun } from './frameCapture';
 import type { BackendStartConfig, PerceptionBackend, RawPoseFrame } from './PerceptionBackend';
 import type { PoseVerifier } from './PoseVerifier';
 import { smoothPoseSamples } from './sampleSmoothing';
@@ -135,6 +136,18 @@ export class RealPoseVerifier implements PoseVerifier {
     const scans = detectScans(detectInput, this.cfg);
     this.lastQuality = computeTrackingQuality(this.samples, this.cfg);
 
+    // Dev-only: stash the DERIVED trace (yaw samples + scans, never landmarks)
+    // for finalize to complete with the cue timeline. Inert unless capture is on.
+    if (CAPTURE_ENABLED) {
+      recordVerifierRun({
+        engineLabel: this.engine,
+        calibration: this.calibration,
+        scanDetectConfig: this.cfg,
+        enrichment: this.enrichment,
+        samples: this.samples,
+        scans,
+      });
+    }
     return scans;
   }
 
