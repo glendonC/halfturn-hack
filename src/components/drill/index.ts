@@ -3,22 +3,16 @@ export { TurnReactLayout } from './TurnReactLayout';
 export { CueDisplay } from './CueDisplay';
 export { CueFlashProbe, CUE_FLASH_ENABLED } from './CueFlashProbe';
 export { TurnReactCueDisplay } from './TurnReactCueDisplay';
-export { CountdownHud } from './CountdownHud';
 export { CueSurface } from './CueSurface';
 export { CUE_CATEGORY_FLOOD, HUD_NEUTRAL } from './cueColors';
 export { DRILL_LAYOUTS } from './drillLayouts';
 export type { DrillLayoutProps } from './layoutProps';
 export { DrillCountdownView } from './DrillCountdownView';
 export { DrillReadyView } from './DrillReadyView';
-export { DrillSetup } from './DrillSetup';
 export { DrillTimer } from './DrillTimer';
 export { FinishedSummary } from './FinishedSummary';
 export { PausedOverlay } from './PausedOverlay';
 export { TransportControls } from './TransportControls';
-/** @deprecated Prefer CueDisplay — kept for any leftover call sites. */
-export { AudioCueSurface } from './AudioCueSurface';
-/** @deprecated Prefer TurnReactCueDisplay — kept for any leftover call sites. */
-export { TurnReactCueSurface } from './TurnReactCueSurface';
 export {
   formatDurationMs,
   summarizeCueDistribution,
