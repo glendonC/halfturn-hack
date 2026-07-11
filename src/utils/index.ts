@@ -3,6 +3,7 @@ export {
   formatClock,
   formatDuration,
   formatSeconds,
+  formatSessionDate,
   pluralize,
 } from './format';
 export { createId, generateId, sessionId } from './id';
@@ -20,5 +21,5 @@ export {
   aggregateCueCounts,
   leftRightSplit,
   weeklySessionCounts,
-  type CueCounts,
 } from './stats';
+export type { CueCounts } from '@/types';

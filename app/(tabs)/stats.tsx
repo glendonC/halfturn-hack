@@ -18,11 +18,11 @@ import {
   getHistoryStats,
   listSessions,
   type HistoryStats,
-  type StoredSessionSummary,
 } from '@/services/db';
 import { accents, colors, glassRadius, glassType, glow, light, spacing, type AccentKey } from '@/theme';
 import { formatDuration, pluralize } from '@/utils/format';
 import { aggregateCueCounts, leftRightSplit, weeklySessionCounts } from '@/utils/stats';
+import type { DrillSessionSummary } from '@/types';
 
 /** Space the floating nav reserves at the bottom. */
 const NAV_CLEARANCE = 96;
@@ -45,7 +45,7 @@ function StatTile({ icon, value, label, accent }: { icon: IconComponent; value: 
 
 export default function StatsScreen() {
   const insets = useSafeAreaInsets();
-  const [sessions, setSessions] = useState<StoredSessionSummary[] | null>(null);
+  const [sessions, setSessions] = useState<DrillSessionSummary[] | null>(null);
   const [stats, setStats] = useState<HistoryStats | null>(null);
 
   const load = useCallback(async () => {

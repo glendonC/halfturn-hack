@@ -1,138 +1,146 @@
+import { useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
-import {
-  ActivityIndicator,
-  FlatList,
-  Pressable,
-  RefreshControl,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
-import { useFocusEffect, useRouter } from 'expo-router';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { formatDurationMs } from '@/components/drill/sessionStats';
-import {
-  formatSessionWhen,
-  listSessions,
-  shortDistributionLabel,
-  type StoredSessionSummary,
-} from '@/services/db';
-import { colors, spacing, typography } from '@/theme';
+import { GlassScreen } from '@/components/glass';
+import { CUE_ORDER, CUES } from '@/constants/cues';
+import { deleteSession, listSessions } from '@/services/db';
+import { accents, colors, glass, glassRadius, glassType, glow, light, spacing } from '@/theme';
+import type { CueCounts, DrillSessionSummary } from '@/types';
+import { formatDuration, formatSessionDate, pluralize } from '@/utils/format';
+
+/** Slim multi-segment bar showing a session's cue mix at a glance. */
+function MiniBar({ counts, total }: { counts: CueCounts; total: number }) {
+  if (total <= 0) return <View style={styles.miniBar} />;
+  return (
+    <View style={styles.miniBar}>
+      {CUE_ORDER.map((id) => {
+        const c = counts[id] ?? 0;
+        if (c === 0) return null;
+        return <View key={id} style={{ flex: c, backgroundColor: colors[CUES[id].colorToken] }} />;
+      })}
+    </View>
+  );
+}
 
 export default function HistoryScreen() {
-  const insets = useSafeAreaInsets();
-  const router = useRouter();
-  const [sessions, setSessions] = useState<StoredSessionSummary[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
+  const [sessions, setSessions] = useState<DrillSessionSummary[] | null>(null);
 
-  const load = useCallback(async (isRefresh = false) => {
-    if (isRefresh) setRefreshing(true);
-    else setLoading(true);
+  const load = useCallback(async () => {
     try {
-      const rows = await listSessions();
-      setSessions(rows);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
+      const list = await listSessions();
+      setSessions(list);
+    } catch (err) {
+      console.warn('[history] load failed', err);
+      setSessions([]);
     }
   }, []);
 
   useFocusEffect(
     useCallback(() => {
-      void load();
+      load();
     }, [load]),
   );
 
-  return (
-    <View style={[styles.root, { paddingTop: insets.top + spacing.lg }]}>
-      <Text style={styles.brand}>HalfTurn</Text>
-      <Text style={styles.title}>History</Text>
-      <Text style={styles.subtitle}>On-device sessions only — nothing leaves this phone.</Text>
+  const confirmDelete = (id: string) => {
+    Alert.alert('Delete session?', 'This removes the drill from your history.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          await deleteSession(id);
+          load();
+        },
+      },
+    ]);
+  };
 
-      {loading && sessions.length === 0 ? (
-        <ActivityIndicator color={colors.accent} style={{ marginTop: 40 }} />
-      ) : (
-        <FlatList
-          data={sessions}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={{
-            paddingBottom: insets.bottom + 40,
-            flexGrow: 1,
-          }}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={() => void load(true)}
-              tintColor={colors.accent}
-            />
-          }
-          ListEmptyComponent={
-            <View style={styles.empty}>
-              <Text style={styles.emptyTitle}>No sessions yet</Text>
-              <Text style={styles.emptyBody}>
-                Finish a Train drill and it will show up here.
+  return (
+    <GlassScreen padded={false} accent="home">
+      <FlatList
+        data={sessions ?? []}
+        keyExtractor={(item) => item.id}
+        contentContainerStyle={styles.list}
+        showsVerticalScrollIndicator={false}
+        ListHeaderComponent={
+          <View>
+            <Text style={styles.overline}>Your sessions</Text>
+            <Text style={styles.title}>History</Text>
+          </View>
+        }
+        renderItem={({ item }) => (
+          <Pressable onLongPress={() => confirmDelete(item.id)} delayLongPress={350}>
+            <View style={styles.cardShadow}>
+              <View style={styles.card}>
+                <View style={styles.cardHeader}>
+                  <Text style={styles.date}>{formatSessionDate(item.startedAt)}</Text>
+                  <View style={styles.badges}>
+                    {item.verification ? (
+                      <Text style={styles.verifiedTag}>◉ {item.verification.scansDetected} turns</Text>
+                    ) : null}
+                    {!item.completed ? <Text style={styles.stoppedTag}>stopped</Text> : null}
+                  </View>
+                </View>
+                <View style={styles.metaRow}>
+                  <Text style={styles.meta}>{formatDuration(item.actualDurationSec)}</Text>
+                  <Text style={styles.dot}>·</Text>
+                  <Text style={styles.meta}>{pluralize(item.totalCues, 'cue')}</Text>
+                </View>
+                <MiniBar counts={item.cueCounts} total={item.totalCues} />
+              </View>
+            </View>
+          </Pressable>
+        )}
+        ListEmptyComponent={
+          sessions === null ? (
+            <Text style={styles.empty}>Loading…</Text>
+          ) : (
+            <View style={styles.emptyWrap}>
+              <Text style={styles.emptyTitle}>No drills yet</Text>
+              <Text style={styles.empty}>
+                Finish a session on the Home tab and it'll show up here. Long-press a session to delete it.
               </Text>
             </View>
-          }
-          renderItem={({ item }) => (
-            <Pressable
-              onPress={() => router.push(`/session/${item.id}`)}
-              style={({ pressed }) => [styles.card, pressed && styles.pressed]}
-            >
-              <Text style={styles.cardWhen}>
-                {formatSessionWhen(item.startedAtWallMs)}
-              </Text>
-              <Text style={styles.cardMeta}>
-                {formatDurationMs(item.durationDrillMs)} · {item.cueCount} cues
-              </Text>
-              <Text style={styles.cardDist} numberOfLines={2}>
-                {shortDistributionLabel(item.distribution)}
-              </Text>
-            </Pressable>
-          )}
-        />
-      )}
-    </View>
+          )
+        }
+      />
+    </GlassScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: colors.bg,
-    paddingHorizontal: spacing.lg,
-  },
-  brand: {
-    ...typography.caption,
-    color: colors.accent,
-    textTransform: 'uppercase',
-  },
-  title: { ...typography.title, color: colors.text },
-  subtitle: {
-    ...typography.body,
-    color: colors.textMuted,
-    marginBottom: spacing.md,
-  },
+  list: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: spacing.huge * 2, gap: spacing.md },
+  overline: { ...glassType.overline, marginTop: spacing.lg, color: accents.home.solid },
+  title: { ...glassType.hero, fontSize: 44, marginTop: spacing.xs, marginBottom: spacing.lg },
+
+  cardShadow: { borderRadius: glassRadius.card, ...glow.card },
   card: {
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-    gap: 4,
-  },
-  cardWhen: { color: colors.text, fontSize: 18, fontWeight: '700' },
-  cardMeta: { color: colors.accent, fontWeight: '600' },
-  cardDist: { color: colors.textMuted, marginTop: 2 },
-  empty: {
-    marginTop: 48,
-    alignItems: 'flex-start',
+    backgroundColor: glass.fill,
+    borderRadius: glassRadius.card,
+    borderCurve: 'continuous',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: glass.border,
+    padding: spacing.lg,
     gap: spacing.sm,
   },
-  emptyTitle: { color: colors.text, fontSize: 20, fontWeight: '700' },
-  emptyBody: { color: colors.textMuted, fontSize: 16, lineHeight: 22 },
-  pressed: { opacity: 0.88 },
+  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  date: { ...glassType.subtitle, fontSize: 16 },
+  badges: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  verifiedTag: { ...glassType.caption, color: accents.field.solid, fontWeight: '700' },
+  stoppedTag: { ...glassType.caption, color: accents.data.solid, fontWeight: '700' },
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  meta: { ...glassType.label, color: light.inkMuted },
+  dot: { color: light.inkFaint },
+  miniBar: {
+    flexDirection: 'row',
+    height: 8,
+    borderRadius: glassRadius.pill,
+    overflow: 'hidden',
+    backgroundColor: 'rgba(24,20,37,0.06)',
+    marginTop: spacing.xs,
+  },
+  empty: { ...glassType.body, textAlign: 'center', lineHeight: 22 },
+  emptyWrap: { alignItems: 'center', gap: spacing.sm, paddingTop: spacing.huge, paddingHorizontal: spacing.lg },
+  emptyTitle: { ...glassType.title, color: light.inkSoft },
 });

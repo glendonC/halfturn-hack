@@ -29,10 +29,30 @@ export function formatSeconds(seconds: number): string {
   return Number.isInteger(seconds) ? `${seconds}s` : `${seconds.toFixed(1)}s`;
 }
 
-export function pluralize(
-  count: number,
-  singular: string,
-  plural = `${singular}s`,
-): string {
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+function startOfDay(d: Date): number {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+}
+
+/** Friendly history label: "Today · 3:45 PM", "Yesterday · 9:10 AM", "Jun 18". */
+export function formatSessionDate(epochMs: number, now: number = Date.now()): string {
+  const then = new Date(epochMs);
+  const dayDiff = Math.round((startOfDay(new Date(now)) - startOfDay(then)) / DAY_MS);
+  const time = then.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  if (dayDiff === 0) return `Today · ${time}`;
+  if (dayDiff === 1) return `Yesterday · ${time}`;
+  if (dayDiff < 7) {
+    return `${then.toLocaleDateString(undefined, { weekday: 'long' })} · ${time}`;
+  }
+  const sameYear = then.getFullYear() === new Date(now).getFullYear();
+  return then.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    ...(sameYear ? {} : { year: 'numeric' }),
+  });
+}
+
+export function pluralize(count: number, singular: string, plural = `${singular}s`): string {
   return `${count} ${count === 1 ? singular : plural}`;
 }
