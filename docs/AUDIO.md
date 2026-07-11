@@ -17,6 +17,8 @@ The scheduler also **floors** the gap to the next cue using `estimateSpeechMs(ph
 
 `AudioCueEngine.estimateMs` is the seam: `TtsCueEngine` uses the current voice rate; a future `ClipCueEngine` can return clip durations instead.
 
+`getAudioCueEngine('tts' | 'clips')` selects the backend. Clip mode attaches a TTS fallback when a manifest entry is missing so drills never go silent mid-session. No large voice-pack binaries ship in the hack MVP — only the manifest / factory seam.
+
 ## Onset beep (turn-react)
 
 `primeBeep` / `playBeep` / `releaseBeep` play a short Expo-Go-safe `assets/sounds/beep.wav` via `expo-audio`. Audio-mode MVP does **not** beep on every cue (TTS is the signal). Turn-react primes and plays the beep as the directionless reaction anchor.
