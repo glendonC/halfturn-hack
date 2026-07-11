@@ -2,18 +2,28 @@ import { useRouter } from 'expo-router';
 import { useEffect, useRef } from 'react';
 
 import { CountdownHud, DRILL_LAYOUTS } from '@/components/drill';
+import { useDrillBrightness, useTurnReactOrientation } from '@/hooks';
 import { MODE_LAYOUT, useDrillEngine } from '@/services/drill';
-import { useDrillStore } from '@/state';
+import { useDrillStore, useSettingsStore } from '@/state';
 
 /**
  * Thin active-drill route: engine owns lifecycle; layout from MODE_LAYOUT.
+ * Opt-in field ergonomics (brightness / landscape) apply while running/paused.
  */
 export default function ActiveDrillScreen() {
   const router = useRouter();
   const engine = useDrillEngine();
   const mode = useDrillStore((s) => s.config.mode);
   const durationMs = useDrillStore((s) => s.config.durationMs);
+  const brightnessBoost = useSettingsStore((s) => s.settings.brightnessBoost);
+  const turnReactLandscape = useSettingsStore((s) => s.settings.turnReactLandscape);
   const started = useRef(false);
+
+  const isRunning = engine.status === 'running' || engine.status === 'paused';
+  useDrillBrightness(brightnessBoost && isRunning);
+  useTurnReactOrientation(
+    turnReactLandscape && mode === 'turn_react' && isRunning,
+  );
 
   useEffect(() => {
     if (started.current) return;

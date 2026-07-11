@@ -40,6 +40,8 @@ export default function ProfileScreen() {
   const patchAudio = useSettingsStore((s) => s.patchAudio);
   const patchDrillDefaults = useSettingsStore((s) => s.patchDrillDefaults);
   const setKeepAwakeDefault = useSettingsStore((s) => s.setKeepAwakeDefault);
+  const setBrightnessBoost = useSettingsStore((s) => s.setBrightnessBoost);
+  const setTurnReactLandscape = useSettingsStore((s) => s.setTurnReactLandscape);
   const toggleDefaultCue = useSettingsStore((s) => s.toggleDefaultCue);
   const clearHistory = useSettingsStore((s) => s.clearHistory);
   const [clearing, setClearing] = useState(false);
@@ -98,7 +100,7 @@ export default function ProfileScreen() {
       <Text style={styles.brand}>HalfTurn</Text>
       <Text style={styles.title}>Profile</Text>
       <Text style={styles.subtitle}>
-        Voice, keep-awake, and drill defaults. Stored on this device only.
+        Voice, field ergonomics, and drill defaults. Stored on this device only.
       </Text>
 
       <Section title="Voice">
@@ -228,6 +230,16 @@ export default function ProfileScreen() {
           label="Keep screen awake in drills"
           value={settings.keepAwakeDefault}
           onValueChange={(v) => void setKeepAwakeDefault(v)}
+        />
+        <ToggleRow
+          label="Brightness boost while drilling"
+          value={settings.brightnessBoost}
+          onValueChange={(v) => void setBrightnessBoost(v)}
+        />
+        <ToggleRow
+          label="Landscape for Turn & React"
+          value={settings.turnReactLandscape}
+          onValueChange={(v) => void setTurnReactLandscape(v)}
         />
       </Section>
 

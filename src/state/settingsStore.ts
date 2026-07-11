@@ -19,6 +19,8 @@ export interface SettingsStoreState {
   patchAudio: (patch: Partial<AudioCueEngineOptions>) => Promise<void>;
   patchDrillDefaults: (patch: Partial<DrillConfig>) => Promise<void>;
   setKeepAwakeDefault: (value: boolean) => Promise<void>;
+  setBrightnessBoost: (value: boolean) => Promise<void>;
+  setTurnReactLandscape: (value: boolean) => Promise<void>;
   toggleDefaultCue: (cue: CueType) => Promise<void>;
   clearHistory: () => Promise<void>;
 }
@@ -70,6 +72,24 @@ export const useSettingsStore = create<SettingsStoreState>((set, get) => ({
     const next: AppSettings = {
       ...get().settings,
       keepAwakeDefault: value,
+    };
+    set({ settings: next });
+    await persistAndApply(next);
+  },
+
+  setBrightnessBoost: async (value) => {
+    const next: AppSettings = {
+      ...get().settings,
+      brightnessBoost: value,
+    };
+    set({ settings: next });
+    await persistAndApply(next);
+  },
+
+  setTurnReactLandscape: async (value) => {
+    const next: AppSettings = {
+      ...get().settings,
+      turnReactLandscape: value,
     };
     set({ settings: next });
     await persistAndApply(next);

@@ -25,6 +25,10 @@ export interface AppSettings {
   drill: DrillConfig;
   /** When false, skip activateKeepAwake during countdown/running */
   keepAwakeDefault: boolean;
+  /** Max screen brightness while a drill runs (outdoor). Off by default. */
+  brightnessBoost: boolean;
+  /** Landscape lock during Turn & React. Off by default. */
+  turnReactLandscape: boolean;
 }
 
 export interface SessionRow {

@@ -41,6 +41,8 @@ export function createDefaultAppSettings(): AppSettings {
     audio: { ...DEFAULT_AUDIO_OPTIONS },
     drill: createDefaultDrillConfig(),
     keepAwakeDefault: true,
+    brightnessBoost: false,
+    turnReactLandscape: false,
   };
 }
 
@@ -126,6 +128,14 @@ export function parseAppSettings(json: string | null | undefined): AppSettings {
         typeof raw.keepAwakeDefault === 'boolean'
           ? raw.keepAwakeDefault
           : defaults.keepAwakeDefault,
+      brightnessBoost:
+        typeof raw.brightnessBoost === 'boolean'
+          ? raw.brightnessBoost
+          : defaults.brightnessBoost,
+      turnReactLandscape:
+        typeof raw.turnReactLandscape === 'boolean'
+          ? raw.turnReactLandscape
+          : defaults.turnReactLandscape,
     };
   } catch {
     return defaults;
