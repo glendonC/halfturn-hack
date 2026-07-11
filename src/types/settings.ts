@@ -1,4 +1,4 @@
-import type { CueType } from './cues';
+import type { CueId } from './drill';
 
 /** How cue audio is routed. Affects the audio-session mix/duck behavior. */
 export type AudioOutputMode = 'headphones' | 'speaker';
@@ -19,7 +19,7 @@ export interface Settings {
   /** BCP-47 language for TTS, e.g. "en-US". */
   language: string;
   /** Master cue vocabulary enabled app-wide; drills pick from this subset. */
-  enabledVocabulary: CueType[];
+  enabledVocabulary: CueId[];
   /** Audio routing mode (duck background music on headphones, etc.). */
   audioOutputMode: AudioOutputMode;
   /** Cue audio source: TTS now, recorded clips later. */

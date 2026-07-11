@@ -1,27 +1,28 @@
-export type { DrillClocks, DrillMs, WallMs } from './clocks';
 export type {
   CueCategory,
   CueColorToken,
+  CueCounts,
   CueDefinition,
-  CueId,
-  CueSide,
-  CueType,
-} from './cues';
-export type {
   CueEvent,
+  CueId,
   DrillConfig,
   DrillMode,
   DrillSession,
-  ScanMetrics,
+  DrillSessionSummary,
+  DrillStatus,
   ScanVerification,
-  SessionMetricsSummary,
-} from './session';
+  Side,
+} from './drill';
+export { DRILL_SESSION_SCHEMA_VERSION } from './drill';
+/** @deprecated Prefer CueId — kept for gradual call-site renames. */
+export type { CueId as CueType, Side as CueSide } from './drill';
 export type {
   AudioOutputMode,
   CueAudioSource,
   Settings,
 } from './settings';
 export type { Profile } from './profile';
+export type { DrillClocks, DrillMs, WallMs } from './clocks';
 export type {
   VerificationOutcome,
   VerificationResult,
