@@ -23,8 +23,9 @@ export async function saveSession(input: SaveSessionInput): Promise<void> {
       `INSERT OR REPLACE INTO sessions (
         id, started_at_wall_ms, ended_at_wall_ms, duration_drill_ms, mode,
         config_json, cue_count, distribution_json, verification_json,
-        synced_at, server_id, dirty, deleted_at, created_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        synced_at, server_id, dirty, deleted_at, created_at,
+        completed, schema_version
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       session.id,
       session.started_at_wall_ms,
       session.ended_at_wall_ms,
@@ -39,6 +40,8 @@ export async function saveSession(input: SaveSessionInput): Promise<void> {
       session.dirty,
       session.deleted_at,
       session.created_at,
+      session.completed,
+      session.schema_version,
     );
 
     await db.runAsync(`DELETE FROM cue_events WHERE session_id = ?`, input.id);
@@ -47,8 +50,9 @@ export async function saveSession(input: SaveSessionInput): Promise<void> {
       await db.runAsync(
         `INSERT INTO cue_events (
           id, session_id, cue_id, cue_label, sequence_index,
-          onset_wall_ms, onset_drill_ms, planned_offset_ms, verification_json
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          onset_wall_ms, onset_drill_ms, planned_offset_ms, verification_json,
+          category, side
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         cue.id,
         cue.session_id,
         cue.cue_id,
@@ -58,6 +62,8 @@ export async function saveSession(input: SaveSessionInput): Promise<void> {
         cue.onset_drill_ms,
         cue.planned_offset_ms,
         cue.verification_json,
+        cue.category,
+        cue.side,
       );
     }
   });

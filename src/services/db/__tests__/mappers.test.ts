@@ -2,9 +2,13 @@ import { createDefaultDrillConfig } from '@/constants';
 import { DEFAULT_AUDIO_OPTIONS } from '@/services/audio/types';
 
 import {
+  CONFIG_SNAPSHOT_VERSION,
+  DRILL_SESSION_SCHEMA_VERSION,
   createDefaultAppSettings,
   parseAppSettings,
+  parseConfig,
   parseDistribution,
+  serializeConfig,
   serializeDistribution,
   sessionToRow,
   shortDistributionLabel,
@@ -39,6 +43,20 @@ describe('distribution serializers', () => {
   });
 });
 
+describe('config envelope', () => {
+  it('wraps config with a version and still parses bare legacy JSON', () => {
+    const config = createDefaultDrillConfig({ durationMs: 120_000 });
+    const wrapped = JSON.parse(serializeConfig(config)) as {
+      v: number;
+      config: { durationMs: number };
+    };
+    expect(wrapped.v).toBe(CONFIG_SNAPSHOT_VERSION);
+    expect(wrapped.config.durationMs).toBe(120_000);
+    expect(parseConfig(serializeConfig(config)).durationMs).toBe(120_000);
+    expect(parseConfig(JSON.stringify(config)).durationMs).toBe(120_000);
+  });
+});
+
 describe('settings + session mappers', () => {
   it('parses settings with defaults for missing fields', () => {
     const parsed = parseAppSettings(
@@ -58,7 +76,7 @@ describe('settings + session mappers', () => {
     expect(parseAppSettings(null)).toEqual(createDefaultAppSettings());
   });
 
-  it('maps a save payload into session + cue rows with sync placeholders null', () => {
+  it('maps a save payload into session + cue rows with category/side/completed', () => {
     const input: SaveSessionInput = {
       id: 'session_1',
       startedAtWallMs: 1000,
@@ -67,6 +85,7 @@ describe('settings + session mappers', () => {
       mode: 'audio',
       config: createDefaultDrillConfig(),
       distribution: [{ cueId: 'scan', label: 'SCAN', count: 1 }],
+      completed: true,
       cues: [
         {
           id: 'cue_1',
@@ -86,6 +105,8 @@ describe('settings + session mappers', () => {
     expect(row.deleted_at).toBeNull();
     expect(row.verification_json).toBeNull();
     expect(row.cue_count).toBe(1);
+    expect(row.completed).toBe(1);
+    expect(row.schema_version).toBe(DRILL_SESSION_SCHEMA_VERSION);
 
     const cues = cueEventsToRows(input.id, input.cues);
     expect(cues[0]).toMatchObject({
@@ -95,6 +116,8 @@ describe('settings + session mappers', () => {
       sequence_index: 0,
       onset_drill_ms: 100,
       planned_offset_ms: 100,
+      category: 'scan',
+      side: 'none',
     });
   });
 
@@ -112,9 +135,10 @@ describe('settings + session mappers', () => {
       },
     ]);
     expect(cues[0]?.cue_label).toBe('Red');
+    expect(cues[0]?.category).toBe('variable');
   });
 
-  it('maps planned_offset_ms through detail rows', () => {
+  it('maps planned_offset_ms and category/side through detail rows', () => {
     const session = sessionToRow(
       {
         id: 'session_1',
@@ -125,27 +149,69 @@ describe('settings + session mappers', () => {
         config: createDefaultDrillConfig(),
         distribution: [],
         cues: [],
+        completed: false,
       },
       3000,
     ) satisfies SessionRow;
+    expect(session.completed).toBe(0);
+
     const cueRows: CueEventRow[] = [
       {
         id: 'cue_1',
         session_id: 'session_1',
-        cue_id: 'scan',
-        cue_label: 'Scan',
+        cue_id: 'check_left',
+        cue_label: 'Check left',
         sequence_index: 0,
         onset_wall_ms: 1100,
         onset_drill_ms: 105,
         planned_offset_ms: 100,
         verification_json: null,
+        category: 'check',
+        side: 'left',
       },
     ];
     const detail = rowsToDetail(session, cueRows);
+    expect(detail.completed).toBe(false);
     expect(detail.cues[0]).toMatchObject({
-      label: 'Scan',
+      label: 'Check left',
       onsetDrillMs: 105,
       plannedOffsetMs: 100,
+      category: 'check',
+      side: 'left',
     });
+  });
+
+  it('backfills category/side from the catalog when columns are empty', () => {
+    const session = sessionToRow(
+      {
+        id: 'session_1',
+        startedAtWallMs: 1,
+        endedAtWallMs: 2,
+        durationDrillMs: 1,
+        mode: 'audio',
+        config: createDefaultDrillConfig(),
+        distribution: [],
+        cues: [],
+        completed: true,
+      },
+      3,
+    );
+    const detail = rowsToDetail(session, [
+      {
+        id: 'cue_1',
+        session_id: 'session_1',
+        cue_id: 'check_right',
+        cue_label: 'Check right',
+        sequence_index: 0,
+        onset_wall_ms: 1,
+        onset_drill_ms: 1,
+        planned_offset_ms: 1,
+        verification_json: null,
+        category: '',
+        side: '',
+      },
+    ]);
+    expect(detail.cues[0]?.category).toBe('check');
+    expect(detail.cues[0]?.side).toBe('right');
   });
 });

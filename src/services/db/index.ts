@@ -13,6 +13,8 @@ export {
   serializeDistribution,
   shortDistributionLabel,
   SETTINGS_KEY,
+  CONFIG_SNAPSHOT_VERSION,
+  DRILL_SESSION_SCHEMA_VERSION,
   cueEventsToRows,
   rowToSummary,
   rowsToDetail,

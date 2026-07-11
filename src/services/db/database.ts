@@ -62,6 +62,15 @@ CREATE TABLE IF NOT EXISTS settings_kv (
 ALTER TABLE cue_events ADD COLUMN planned_offset_ms INTEGER NOT NULL DEFAULT 0;
 `);
   },
+  // ---- v3: category/side on cues; completed + schema_version on sessions ----
+  async (db) => {
+    await db.execAsync(`
+ALTER TABLE cue_events ADD COLUMN category TEXT NOT NULL DEFAULT '';
+ALTER TABLE cue_events ADD COLUMN side TEXT NOT NULL DEFAULT 'none';
+ALTER TABLE sessions ADD COLUMN completed INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE sessions ADD COLUMN schema_version INTEGER NOT NULL DEFAULT 1;
+`);
+  },
 ];
 
 async function migrate(db: SQLiteDatabase): Promise<void> {

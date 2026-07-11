@@ -1,7 +1,20 @@
 import type { AudioCueEngineOptions } from '@/services/audio';
-import type { CueEvent, CueType, DrillConfig, DrillMode } from '@/types';
+import type {
+  CueCategory,
+  CueEvent,
+  CueSide,
+  CueType,
+  DrillConfig,
+  DrillMode,
+} from '@/types';
 
 import type { CueDistributionRow } from '@/components/drill/sessionStats';
+
+/** Version envelope for the per-session config snapshot. */
+export const CONFIG_SNAPSHOT_VERSION = 1;
+
+/** Session row schema version written into sessions.schema_version. */
+export const DRILL_SESSION_SCHEMA_VERSION = 1;
 
 /** Persisted app settings (single JSON blob in settings_kv). */
 export interface AppSettings {
@@ -28,6 +41,9 @@ export interface SessionRow {
   dirty: number;
   deleted_at: number | null;
   created_at: number;
+  /** 1 = ran to planned duration; 0 = stopped early. Old rows backfill as 1. */
+  completed: number;
+  schema_version: number;
 }
 
 export interface CueEventRow {
@@ -40,6 +56,8 @@ export interface CueEventRow {
   onset_drill_ms: number;
   planned_offset_ms: number;
   verification_json: string | null;
+  category: string;
+  side: string;
 }
 
 export interface StoredSessionSummary {
@@ -51,6 +69,8 @@ export interface StoredSessionSummary {
   cueCount: number;
   distribution: CueDistributionRow[];
   config: DrillConfig;
+  completed: boolean;
+  schemaVersion: number;
 }
 
 export interface StoredSessionDetail extends StoredSessionSummary {
@@ -63,6 +83,8 @@ export interface StoredSessionDetail extends StoredSessionSummary {
     onsetWallMs: number;
     onsetDrillMs: number;
     plannedOffsetMs: number;
+    category: CueCategory;
+    side: CueSide;
   }>;
 }
 
@@ -75,4 +97,7 @@ export interface SaveSessionInput {
   config: DrillConfig;
   cues: CueEvent[];
   distribution: CueDistributionRow[];
+  /** True when the drill ran to planned duration. */
+  completed: boolean;
+  schemaVersion?: number;
 }

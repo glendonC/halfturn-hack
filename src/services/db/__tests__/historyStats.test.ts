@@ -9,6 +9,8 @@ function summary(
     startedAtWallMs: 1,
     endedAtWallMs: 2,
     distribution: [],
+    completed: true,
+    schemaVersion: 1,
     config: {
       durationMs: 60_000,
       intervalMs: { min: 2000, max: 4000 },

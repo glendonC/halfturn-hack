@@ -21,6 +21,7 @@ import {
 } from '@/services/audio';
 import {
   saveSession,
+  DRILL_SESSION_SCHEMA_VERSION,
   type AppSettings,
 } from '@/services/db';
 import type { PoseVerifier } from '@/services/vision';
@@ -151,6 +152,7 @@ function finishSession(
   ) => void,
   get: () => DrillStoreState,
   wallNow: WallMs,
+  completed: boolean,
 ): void {
   clocks.pause(wallNow);
   const durationDrillMs = clocks.drillNow(wallNow);
@@ -171,7 +173,7 @@ function finishSession(
   });
 
   const snapshot = get();
-  void persistFinishedSession(snapshot)
+  void persistFinishedSession(snapshot, completed)
     .then(() => {
       if (get().sessionId === snapshot.sessionId) {
         set({ persistStatus: 'saved', persistError: null });
@@ -187,7 +189,10 @@ function finishSession(
     });
 }
 
-async function persistFinishedSession(state: DrillStoreState): Promise<void> {
+async function persistFinishedSession(
+  state: DrillStoreState,
+  completed: boolean,
+): Promise<void> {
   if (!state.sessionId || state.startedAtWallMs == null) return;
   await saveSession({
     id: state.sessionId,
@@ -198,6 +203,8 @@ async function persistFinishedSession(state: DrillStoreState): Promise<void> {
     config: state.config,
     cues: state.cueEvents,
     distribution: summarizeCueDistribution(state.cueEvents),
+    completed,
+    schemaVersion: DRILL_SESSION_SCHEMA_VERSION,
   });
 }
 
@@ -353,7 +360,7 @@ export const useDrillStore = create<DrillStoreState>((set, get) => ({
     ) {
       return;
     }
-    finishSession(set, get, Date.now());
+    finishSession(set, get, Date.now(), false);
   },
 
   reset: () => {
@@ -400,7 +407,7 @@ export const useDrillStore = create<DrillStoreState>((set, get) => ({
 
     if (drillNow >= state.config.durationMs) {
       set({ timeRemainingMs: 0, durationDrillMs: drillNow });
-      finishSession(set, get, wallNow);
+      finishSession(set, get, wallNow, true);
       return;
     }
 
