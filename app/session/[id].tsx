@@ -88,19 +88,34 @@ export default function SessionDetailScreen() {
           )}
 
           <Text style={styles.section}>Cue timeline</Text>
+          <Text style={styles.meta}>
+            Spoken phrase at onset (variable cues show the resolved value).
+          </Text>
           {session.cues.length === 0 ? (
             <Text style={styles.meta}>Empty timeline</Text>
           ) : (
             session.cues.map((cue) => (
               <View key={cue.id} style={styles.timelineRow}>
                 <Text style={styles.timelineIndex}>#{cue.index + 1}</Text>
-                <Text style={styles.timelineLabel}>{cue.label}</Text>
+                <View style={styles.timelineBody}>
+                  <Text style={styles.timelineLabel}>{cue.label}</Text>
+                  <Text style={styles.timelineMeta}>
+                    {cue.cueId}
+                    {cue.plannedOffsetMs !== cue.onsetDrillMs
+                      ? ` · planned ${(cue.plannedOffsetMs / 1000).toFixed(1)}s`
+                      : ''}
+                  </Text>
+                </View>
                 <Text style={styles.timelineTime}>
                   {(cue.onsetDrillMs / 1000).toFixed(1)}s
                 </Text>
               </View>
             ))
           )}
+
+          <Text style={styles.honesty}>
+            No pose verification on these sessions — rates stay blank, not zero.
+          </Text>
         </ScrollView>
       )}
     </View>
@@ -152,6 +167,14 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
   },
   timelineIndex: { color: colors.textMuted, width: 36, fontWeight: '600' },
+  timelineBody: { flex: 1, gap: 2 },
   timelineLabel: { color: colors.text, flex: 1, fontWeight: '700' },
+  timelineMeta: { color: colors.textMuted, fontSize: 13 },
   timelineTime: { color: colors.textMuted, fontVariant: ['tabular-nums'] },
+  honesty: {
+    color: colors.textMuted,
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: spacing.sm,
+  },
 });

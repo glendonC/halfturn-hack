@@ -60,6 +60,28 @@ export function FinishedSummary() {
         ))
       )}
 
+      <Text style={styles.sectionTitle}>Cue timeline</Text>
+      {cueEvents.length === 0 ? (
+        <Text style={styles.empty}>Empty timeline</Text>
+      ) : (
+        cueEvents.map((cue) => (
+          <View key={cue.id} style={styles.timelineRow}>
+            <Text style={styles.timelineIndex}>#{cue.index + 1}</Text>
+            <View style={styles.timelineBody}>
+              <Text style={styles.timelinePhrase}>{cue.phrase}</Text>
+              <Text style={styles.timelineMeta}>{cue.cueId}</Text>
+            </View>
+            <Text style={styles.timelineTime}>
+              {(cue.onsetDrillMs / 1000).toFixed(1)}s
+            </Text>
+          </View>
+        ))
+      )}
+
+      <Text style={styles.honesty}>
+        Verification metrics stay empty for audio-only sessions (not zero).
+      </Text>
+
       <Pressable
         onPress={reset}
         style={({ pressed }) => [styles.primaryBtn, pressed && styles.pressed]}
@@ -120,6 +142,29 @@ const styles = StyleSheet.create({
   },
   distLabel: { color: colors.text, fontSize: 18, fontWeight: '600' },
   distCount: { color: colors.accent, fontSize: 18, fontWeight: '800' },
+  timelineRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: 10,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
+  timelineIndex: { color: colors.textMuted, width: 36, fontWeight: '600' },
+  timelineBody: { flex: 1, gap: 2 },
+  timelinePhrase: { color: colors.text, fontSize: 17, fontWeight: '700' },
+  timelineMeta: { color: colors.textMuted, fontSize: 13 },
+  timelineTime: {
+    color: colors.textMuted,
+    fontVariant: ['tabular-nums'],
+    fontWeight: '600',
+  },
+  honesty: {
+    color: colors.textMuted,
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: spacing.sm,
+  },
   primaryBtn: {
     marginTop: spacing.xl,
     backgroundColor: colors.accent,
