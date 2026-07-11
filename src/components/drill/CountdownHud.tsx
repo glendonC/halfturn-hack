@@ -4,23 +4,21 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDrillStore } from '@/state';
 import type { UseDrillEngineResult } from '@/services/drill';
 
-import { COUNTDOWN_FLOOD, HUD_NEUTRAL } from './cueColors';
+import { HUD_NEUTRAL } from './cueColors';
 import { DrillCountdownView } from './DrillCountdownView';
 
+/**
+ * Optional cancel chrome around the countdown digits.
+ * Active prefers DrillCountdownView directly; kept for leftover call sites.
+ */
 export function CountdownHud({
   engine,
 }: {
   engine: UseDrillEngineResult;
 }) {
   const insets = useSafeAreaInsets();
-  const mode = useDrillStore((s) => s.config.mode);
   const storeCountdown = useDrillStore((s) => s.countdownRemainingSec);
   const value = engine.countdownValue ?? storeCountdown;
-
-  const hint =
-    mode === 'turn_react'
-      ? 'Face the phone · turn to read'
-      : 'Eyes up · headphones on';
 
   return (
     <View
@@ -32,8 +30,7 @@ export function CountdownHud({
         },
       ]}
     >
-      <Text style={styles.eyebrow}>Get set</Text>
-      <DrillCountdownView value={value} hint={hint} />
+      <DrillCountdownView value={value} />
       <Pressable
         onPress={engine.stop}
         style={({ pressed }) => [styles.stop, pressed && styles.pressed]}
@@ -47,16 +44,8 @@ export function CountdownHud({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: COUNTDOWN_FLOOD.bg,
     paddingHorizontal: 24,
     justifyContent: 'space-between',
-  },
-  eyebrow: {
-    color: HUD_NEUTRAL.muted,
-    fontSize: 16,
-    fontWeight: '700',
-    letterSpacing: 1.2,
-    textTransform: 'uppercase',
   },
   stop: {
     minHeight: 56,

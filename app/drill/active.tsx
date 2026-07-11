@@ -1,64 +1,67 @@
 import { useRouter } from 'expo-router';
-import { useEffect, useRef } from 'react';
+import { useEffect } from 'react';
 
-import { CountdownHud, DRILL_LAYOUTS } from '@/components/drill';
+import { DrillCountdownView, DrillReadyView, DRILL_LAYOUTS } from '@/components/drill';
 import { useDrillBrightness, useTurnReactOrientation } from '@/hooks';
 import { MODE_LAYOUT, useDrillEngine } from '@/services/drill';
 import { useDrillStore, useSettingsStore } from '@/state';
 
 /**
- * Thin active-drill route: engine owns lifecycle; layout from MODE_LAYOUT.
- * Opt-in field ergonomics (brightness / landscape) apply while running/paused.
+ * Thin orchestrator for the active drill: wires the engine to the right view
+ * for the current status, and — while running — picks the layout for the run's
+ * mode. Ready → countdown → layout; lifecycle lives in `useDrillEngine`.
  */
 export default function ActiveDrillScreen() {
   const router = useRouter();
   const engine = useDrillEngine();
+  const { status } = engine;
+  const config = useDrillStore((s) => s.config);
   const mode = useDrillStore((s) => s.config.mode);
   const durationMs = useDrillStore((s) => s.config.durationMs);
+  const cueCount = useDrillStore((s) => s.cuesFired);
   const brightnessBoost = useSettingsStore((s) => s.settings.brightnessBoost);
   const turnReactLandscape = useSettingsStore((s) => s.settings.turnReactLandscape);
-  const started = useRef(false);
 
-  const isRunning = engine.status === 'running' || engine.status === 'paused';
+  // Opt-in field ergonomics (default off): boost brightness while the drill runs,
+  // and rotate Turn & React to landscape for a bigger cue on a mounted phone.
+  // Both gate on isRunning so the portrait Ready/Countdown screens are unaffected.
+  const isRunning = status === 'running' || status === 'paused';
   useDrillBrightness(brightnessBoost && isRunning);
   useTurnReactOrientation(
     turnReactLandscape && mode === 'turn_react' && isRunning,
   );
 
+  // Start each visit from a clean ready state when arriving idle/finished.
   useEffect(() => {
-    if (started.current) return;
     const s = useDrillStore.getState().status;
-    if (s === 'ready') {
-      started.current = true;
-      engine.start();
-      return;
-    }
-    if (s === 'idle' || s === 'finished') {
-      router.replace('/');
-    }
+    if (s === 'finished' || s === 'idle') useDrillStore.getState().reset();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // When the drill finishes, hand off to the summary screen.
   useEffect(() => {
-    if (engine.status === 'finished') {
-      router.replace('/drill/summary');
-    }
-  }, [engine.status, router]);
+    if (status === 'finished') router.replace('/drill/summary');
+  }, [status, router]);
 
-  if (engine.status === 'finished') return null;
-  if (engine.status === 'countdown') {
-    return <CountdownHud engine={engine} />;
-  }
-  if (engine.status === 'running' || engine.status === 'paused') {
-    const Layout = DRILL_LAYOUTS[MODE_LAYOUT[mode]];
+  if (status === 'idle' || status === 'ready') {
     return (
-      <Layout
-        engine={engine}
-        durationMs={durationMs}
-        cueCount={engine.cueCount}
+      <DrillReadyView
+        config={config}
+        onStart={engine.start}
+        onTest={engine.testAudio}
+        onBack={() => router.back()}
       />
     );
   }
+  if (status === 'countdown') {
+    return <DrillCountdownView value={engine.countdownValue} />;
+  }
+  if (status === 'finished') return null;
 
-  return null;
+  // Pick the layout the run's mode maps to — no branch on the mode itself, so a
+  // new mode is additive (a MODE_LAYOUT entry + a DRILL_LAYOUTS entry).
+  const Layout = DRILL_LAYOUTS[MODE_LAYOUT[mode]];
+  return (
+    <Layout engine={engine} durationMs={durationMs} cueCount={cueCount} />
+  );
 }

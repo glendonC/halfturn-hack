@@ -1,41 +1,36 @@
 import { StyleSheet, Text, View } from 'react-native';
 
-import { COUNTDOWN_FLOOD, HUD_NEUTRAL } from './cueColors';
+import { colors, typography } from '@/theme';
 
-/**
- * Pre-roll countdown digits. Parent may wrap with cancel / safe-area chrome.
- */
-export function DrillCountdownView({
-  value,
-  hint,
-}: {
-  value: number;
-  hint?: string;
-}) {
+interface DrillCountdownViewProps {
+  /** 3 / 2 / 1 then 0 (rendered as "GO"); null shows nothing. */
+  value: number | null;
+}
+
+/** The 3-2-1-GO pre-roll shown while the engine warms audio + verifier. */
+export function DrillCountdownView({ value }: DrillCountdownViewProps) {
+  const text = value === 0 ? 'GO' : value != null ? String(value) : '';
   return (
-    <View style={styles.center}>
-      <Text style={styles.number}>{value}</Text>
-      {hint ? <Text style={styles.hint}>{hint}</Text> : null}
+    <View style={styles.wrap}>
+      <Text style={styles.kicker}>GET READY</Text>
+      <Text style={styles.number}>{text}</Text>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  center: {
+  wrap: {
     flex: 1,
-    justifyContent: 'center',
+    backgroundColor: colors.background,
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 12,
   },
-  number: {
-    fontSize: 160,
-    fontWeight: '900',
-    color: COUNTDOWN_FLOOD.text,
-    lineHeight: 170,
+  kicker: {
+    ...typography.title,
+    color: colors.textMuted,
+    letterSpacing: 4,
+    fontWeight: '800',
   },
-  hint: {
-    color: HUD_NEUTRAL.muted,
-    fontSize: 18,
-    fontWeight: '600',
-  },
+  number: { fontSize: 160, fontWeight: '900', color: colors.primary },
 });
