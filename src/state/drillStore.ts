@@ -1,0 +1,370 @@
+import * as Haptics from 'expo-haptics';
+import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
+import { create } from 'zustand';
+
+import { createDefaultDrillConfig, getCueDefinition } from '@/constants';
+import {
+  createInitialSchedulerSnapshot,
+  fireCueAt,
+  remainingDrillMs,
+  shouldFireCue,
+  type SchedulerSnapshot,
+} from '@/services/drill';
+import { TtsCueEngine, type AudioCueEngine } from '@/services/audio';
+import type {
+  CueDefinition,
+  CueEvent,
+  CueType,
+  DrillConfig,
+  DrillMs,
+  WallMs,
+} from '@/types';
+import { createId, createRng, PausableDrillClocks } from '@/utils';
+
+export type DrillStatus =
+  | 'idle'
+  | 'ready'
+  | 'countdown'
+  | 'running'
+  | 'paused'
+  | 'finished';
+
+const KEEP_AWAKE_TAG = 'halfturn-drill';
+
+let audioEngine: AudioCueEngine = new TtsCueEngine();
+let clocks = new PausableDrillClocks();
+let rng: () => number = Math.random;
+let scheduler: SchedulerSnapshot | null = null;
+let countdownEndsAtWallMs: WallMs | null = null;
+
+/** Test seam — swap TTS / clocks without touching UI. */
+export function __setDrillAudioEngineForTests(engine: AudioCueEngine): void {
+  audioEngine = engine;
+}
+
+export function getDrillAudioEngine(): AudioCueEngine {
+  return audioEngine;
+}
+
+export interface DrillStoreState {
+  status: DrillStatus;
+  config: DrillConfig;
+  currentCue: CueDefinition | null;
+  lastCueType: CueType | null;
+  timeRemainingMs: number;
+  countdownRemainingSec: number;
+  cuesFired: number;
+  cueEvents: CueEvent[];
+  sessionId: string | null;
+  startedAtWallMs: WallMs | null;
+  endedAtWallMs: WallMs | null;
+  durationDrillMs: DrillMs;
+
+  setConfig: (patch: Partial<DrillConfig>) => void;
+  enterReady: () => void;
+  startCountdown: () => void;
+  beginRunning: () => void;
+  pause: () => void;
+  resume: () => void;
+  stop: () => void;
+  reset: () => void;
+  tick: (wallNow?: WallMs) => void;
+  testSound: () => Promise<void>;
+}
+
+function baseState(config: DrillConfig = createDefaultDrillConfig()) {
+  return {
+    status: 'idle' as DrillStatus,
+    config,
+    currentCue: null,
+    lastCueType: null,
+    timeRemainingMs: config.durationMs,
+    countdownRemainingSec: config.countdownSec,
+    cuesFired: 0,
+    cueEvents: [] as CueEvent[],
+    sessionId: null as string | null,
+    startedAtWallMs: null as WallMs | null,
+    endedAtWallMs: null as WallMs | null,
+    durationDrillMs: 0 as DrillMs,
+  };
+}
+
+async function setKeepAwake(active: boolean): Promise<void> {
+  try {
+    if (active) {
+      await activateKeepAwakeAsync(KEEP_AWAKE_TAG);
+    } else {
+      deactivateKeepAwake(KEEP_AWAKE_TAG);
+    }
+  } catch {
+    // Keep-awake is best-effort (web / unsupported).
+  }
+}
+
+async function fireHaptic(enabled: boolean): Promise<void> {
+  if (!enabled) return;
+  try {
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+  } catch {
+    // Haptics unavailable on some platforms.
+  }
+}
+
+function finishSession(
+  set: (partial: Partial<DrillStoreState>) => void,
+  get: () => DrillStoreState,
+  wallNow: WallMs,
+): void {
+  clocks.pause(wallNow);
+  const durationDrillMs = clocks.drillNow(wallNow);
+  void setKeepAwake(false);
+  void audioEngine.stop();
+  scheduler = null;
+  countdownEndsAtWallMs = null;
+  set({
+    status: 'finished',
+    timeRemainingMs: 0,
+    durationDrillMs,
+    endedAtWallMs: wallNow,
+  });
+  void get;
+}
+
+export const useDrillStore = create<DrillStoreState>((set, get) => ({
+  ...baseState(),
+
+  setConfig: (patch) => {
+    const { status, config } = get();
+    if (
+      status === 'countdown' ||
+      status === 'running' ||
+      status === 'paused'
+    ) {
+      return;
+    }
+    const next = { ...config, ...patch };
+    if (patch.intervalMs) {
+      next.intervalMs = { ...config.intervalMs, ...patch.intervalMs };
+    }
+    if (patch.enabledCues) {
+      next.enabledCues = [...patch.enabledCues];
+    }
+    set({
+      config: next,
+      timeRemainingMs: next.durationMs,
+      countdownRemainingSec: next.countdownSec,
+    });
+  },
+
+  enterReady: () => {
+    const { status, config } = get();
+    if (status !== 'idle' && status !== 'finished') return;
+    set({
+      ...baseState(config),
+      status: 'ready',
+      timeRemainingMs: config.durationMs,
+      countdownRemainingSec: config.countdownSec,
+    });
+  },
+
+  startCountdown: () => {
+    const { status, config } = get();
+    if (status !== 'ready' && status !== 'idle') return;
+    const wallNow = Date.now();
+    countdownEndsAtWallMs = wallNow + config.countdownSec * 1000;
+    void setKeepAwake(true);
+    void audioEngine.prepare();
+    set({
+      status: 'countdown',
+      countdownRemainingSec: config.countdownSec,
+      currentCue: null,
+      lastCueType: null,
+      cuesFired: 0,
+      cueEvents: [],
+      sessionId: createId('session'),
+      startedAtWallMs: null,
+      endedAtWallMs: null,
+      durationDrillMs: 0,
+      timeRemainingMs: config.durationMs,
+    });
+    if (config.countdownSec <= 0) {
+      get().beginRunning();
+    }
+  },
+
+  beginRunning: () => {
+    const { status, config, sessionId } = get();
+    if (status !== 'countdown' && status !== 'ready') return;
+
+    const wallNow = Date.now();
+    rng = createRng(config.seed);
+    clocks = new PausableDrillClocks();
+    clocks.start(wallNow);
+    scheduler = createInitialSchedulerSnapshot(config, rng);
+    countdownEndsAtWallMs = null;
+
+    void setKeepAwake(true);
+    void audioEngine.prepare();
+
+    set({
+      status: 'running',
+      sessionId: sessionId ?? createId('session'),
+      startedAtWallMs: wallNow,
+      endedAtWallMs: null,
+      countdownRemainingSec: 0,
+      timeRemainingMs: config.durationMs,
+      durationDrillMs: 0,
+      currentCue: null,
+      cuesFired: 0,
+      cueEvents: [],
+      lastCueType: null,
+    });
+  },
+
+  pause: () => {
+    const { status, config } = get();
+    if (status !== 'running') return;
+    const wallNow = Date.now();
+    clocks.pause(wallNow);
+    void setKeepAwake(false);
+    void audioEngine.stop();
+    set({
+      status: 'paused',
+      durationDrillMs: clocks.drillNow(wallNow),
+      timeRemainingMs: remainingDrillMs(config.durationMs, clocks.drillNow(wallNow)),
+    });
+  },
+
+  resume: () => {
+    const { status, config } = get();
+    if (status !== 'paused') return;
+    const wallNow = Date.now();
+    clocks.resume(wallNow);
+    void setKeepAwake(true);
+    set({
+      status: 'running',
+      durationDrillMs: clocks.drillNow(wallNow),
+      timeRemainingMs: remainingDrillMs(config.durationMs, clocks.drillNow(wallNow)),
+    });
+  },
+
+  stop: () => {
+    const { status } = get();
+    if (
+      status !== 'countdown' &&
+      status !== 'running' &&
+      status !== 'paused'
+    ) {
+      return;
+    }
+    finishSession(set, get, Date.now());
+  },
+
+  reset: () => {
+    void setKeepAwake(false);
+    void audioEngine.stop();
+    scheduler = null;
+    countdownEndsAtWallMs = null;
+    clocks = new PausableDrillClocks();
+    set(baseState(get().config));
+  },
+
+  tick: (wallNowArg) => {
+    const wallNow = wallNowArg ?? Date.now();
+    const state = get();
+
+    if (state.status === 'countdown') {
+      if (countdownEndsAtWallMs == null) return;
+      const remainingMs = Math.max(0, countdownEndsAtWallMs - wallNow);
+      const remainingSec = Math.ceil(remainingMs / 1000);
+      if (remainingMs <= 0) {
+        set({ countdownRemainingSec: 0 });
+        get().beginRunning();
+        return;
+      }
+      if (remainingSec !== state.countdownRemainingSec) {
+        set({ countdownRemainingSec: remainingSec });
+      }
+      return;
+    }
+
+    if (state.status !== 'running' || scheduler == null) return;
+
+    const drillNow = clocks.drillNow(wallNow);
+    const timeRemainingMs = remainingDrillMs(state.config.durationMs, drillNow);
+
+    if (drillNow >= state.config.durationMs) {
+      set({ timeRemainingMs: 0, durationDrillMs: drillNow });
+      finishSession(set, get, wallNow);
+      return;
+    }
+
+    let nextScheduler = scheduler;
+    let currentCue = state.currentCue;
+    let lastCueType = state.lastCueType;
+    let cueEvents = state.cueEvents;
+    let cuesFired = state.cuesFired;
+
+    // Catch up if tick lagged (fire at most a few cues per tick).
+    let guard = 0;
+    while (
+      shouldFireCue(nextScheduler, drillNow, state.config.durationMs) &&
+      guard < 3
+    ) {
+      guard += 1;
+      const fired = fireCueAt({
+        config: state.config,
+        snapshot: nextScheduler,
+        onsetDrillMs: nextScheduler.nextCueAtDrillMs,
+        onsetWallMs: wallNow,
+        random: rng,
+        id: createId('cue'),
+      });
+      nextScheduler = fired.snapshot;
+      currentCue = fired.cue;
+      lastCueType = fired.cue.type;
+      cueEvents = [...cueEvents, fired.event];
+      cuesFired = nextScheduler.cuesFired;
+
+      void audioEngine.speakCue(fired.cue);
+      void fireHaptic(state.config.haptics);
+    }
+
+    scheduler = nextScheduler;
+    set({
+      timeRemainingMs,
+      durationDrillMs: drillNow,
+      currentCue,
+      lastCueType,
+      cueEvents,
+      cuesFired,
+    });
+  },
+
+  testSound: async () => {
+    await audioEngine.prepare();
+    await audioEngine.testSound();
+  },
+}));
+
+/** Selectors for thin hooks / UI */
+export function selectDrillStatus(s: DrillStoreState): DrillStatus {
+  return s.status;
+}
+
+export function selectCurrentCueLabel(s: DrillStoreState): string | null {
+  if (s.status === 'countdown' && s.countdownRemainingSec > 0) {
+    return String(s.countdownRemainingSec);
+  }
+  return s.currentCue?.hudLabel ?? s.currentCue?.spokenLabel ?? null;
+}
+
+export function formatRemainingClock(ms: number): string {
+  const totalSec = Math.ceil(ms / 1000);
+  const m = Math.floor(totalSec / 60);
+  const s = totalSec % 60;
+  return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
+// Re-export for convenience in tests / setup screens later
+export { getCueDefinition };
