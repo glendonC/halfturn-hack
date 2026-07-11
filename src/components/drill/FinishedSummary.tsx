@@ -6,7 +6,13 @@ import { colors, spacing, typography } from '@/theme';
 
 import { formatDurationMs, summarizeCueDistribution } from './sessionStats';
 
-export function FinishedSummary() {
+export function FinishedSummary({
+  onDone,
+  onRepeat,
+}: {
+  onDone: () => void;
+  onRepeat?: () => void;
+}) {
   const insets = useSafeAreaInsets();
   const cueEvents = useDrillStore((s) => s.cueEvents);
   const durationDrillMs = useDrillStore((s) => s.durationDrillMs);
@@ -14,7 +20,6 @@ export function FinishedSummary() {
   const config = useDrillStore((s) => s.config);
   const persistStatus = useDrillStore((s) => s.persistStatus);
   const persistError = useDrillStore((s) => s.persistError);
-  const reset = useDrillStore((s) => s.reset);
 
   const distribution = summarizeCueDistribution(cueEvents);
 
@@ -82,12 +87,22 @@ export function FinishedSummary() {
         Verification metrics stay empty for audio-only sessions (not zero).
       </Text>
 
-      <Pressable
-        onPress={reset}
-        style={({ pressed }) => [styles.primaryBtn, pressed && styles.pressed]}
-      >
-        <Text style={styles.primaryBtnText}>Back to setup</Text>
-      </Pressable>
+      <View style={styles.actions}>
+        {onRepeat ? (
+          <Pressable
+            onPress={onRepeat}
+            style={({ pressed }) => [styles.secondaryBtn, pressed && styles.pressed]}
+          >
+            <Text style={styles.secondaryBtnText}>Repeat</Text>
+          </Pressable>
+        ) : null}
+        <Pressable
+          onPress={onDone}
+          style={({ pressed }) => [styles.primaryBtn, pressed && styles.pressed]}
+        >
+          <Text style={styles.primaryBtnText}>Done</Text>
+        </Pressable>
+      </View>
     </ScrollView>
   );
 }
@@ -165,8 +180,11 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     marginTop: spacing.sm,
   },
-  primaryBtn: {
+  actions: {
     marginTop: spacing.xl,
+    gap: spacing.sm,
+  },
+  primaryBtn: {
     backgroundColor: colors.accent,
     paddingVertical: 18,
     borderRadius: 12,
@@ -174,6 +192,19 @@ const styles = StyleSheet.create({
   },
   primaryBtnText: {
     color: colors.bg,
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  secondaryBtn: {
+    paddingVertical: 18,
+    borderRadius: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  secondaryBtnText: {
+    color: colors.text,
     fontSize: 18,
     fontWeight: '800',
   },

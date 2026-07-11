@@ -12,7 +12,7 @@ const TICK_MS = 100;
 
 /**
  * Binds the drill store to a wall-clock ticker while countdown/running.
- * Call from the Train screen (or session HUD later).
+ * Call from the active drill screen (or Train setup before navigate).
  */
 export function useDrillSession(): DrillStoreState {
   const status = useDrillStore((s) => s.status);

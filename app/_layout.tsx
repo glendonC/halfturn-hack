@@ -34,6 +34,11 @@ export default function RootLayout() {
         }}
       >
         <Stack.Screen name="(tabs)" />
+        <Stack.Screen
+          name="drill/active"
+          options={{ gestureEnabled: false, animation: 'fade' }}
+        />
+        <Stack.Screen name="drill/summary" options={{ presentation: 'card' }} />
         <Stack.Screen name="session/[id]" options={{ presentation: 'card' }} />
       </Stack>
     </>

@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router';
 import { useMemo, type ReactNode } from 'react';
 import {
   Pressable,
@@ -24,6 +25,7 @@ const BALANCE_PRESETS = [
 const INTERVAL_STEP_MS = 500;
 
 export function DrillSetup() {
+  const router = useRouter();
   const insets = useSafeAreaInsets();
   const config = useDrillStore((s) => s.config);
   const setConfig = useDrillStore((s) => s.setConfig);
@@ -220,7 +222,10 @@ export function DrillSetup() {
       <Pressable
         style={({ pressed }) => [styles.primaryBtn, pressed && styles.pressed]}
         onPress={() => {
-          void patchDrillDefaults(config).finally(() => startCountdown());
+          void patchDrillDefaults(config).finally(() => {
+            startCountdown();
+            router.push('/drill/active');
+          });
         }}
       >
         <Text style={styles.primaryBtnText}>Start drill</Text>
