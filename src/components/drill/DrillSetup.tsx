@@ -215,7 +215,7 @@ export function DrillSetup() {
           </Text>
         )}
         <Text style={[styles.hint, { marginTop: spacing.sm }]}>
-          Voice rate / pitch live in Settings and apply to the next drill.
+          Voice rate / pitch live in Profile and apply to the next drill.
         </Text>
       </Section>
 
