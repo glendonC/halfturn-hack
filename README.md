@@ -78,9 +78,20 @@ npm run typecheck # tsc --noEmit
 | **Audio + turn-react preview** | `npm start` → Expo Go | Off. `NullPoseVerifier` / `NullBackend` only. |
 | **Native pose (Phase 2)** | Custom client via `eas.json` `development` profile (`expo-dev-client`) with `EXPO_PUBLIC_VISION=1` | Gated by `canUseNativeVision()` — never loads on Expo Go. |
 
-`eas.json` already defines a development profile that sets `EXPO_PUBLIC_VISION=1`. VisionCamera / MediaPipe packages are **not** installed yet; the unlock gate and registry are ready for later issues (#26–#27). Do not set `EXPO_PUBLIC_VISION` when developing the audio path in Expo Go.
+`eas.json` already defines a development profile that sets `EXPO_PUBLIC_VISION=1`. Native packages (`react-native-vision-camera`, `react-native-mediapipe-posedetection`, `react-native-worklets-core`) are installed but **never evaluated on Expo Go** — `LazyCameraVerifier` dynamic-imports `CameraVerifierView` only when `canUseNativeVision()` is true. Run `npm run guard:expo-go` to verify no native camera imports leak onto the Expo Go graph.
 
-- **Audio MVP:** Expo Go is fine — no native vision deps required at runtime.
+```bash
+# Expo Go (audio / NullPoseVerifier)
+npm start
+
+# Custom client with pose (requires EAS/dev-client build first)
+EXPO_PUBLIC_VISION=1 npx expo start --dev-client
+# or: eas build --profile development
+```
+
+Fetch the pose model before native builds (`npm run fetch-model` / postinstall). Do not set `EXPO_PUBLIC_VISION` when developing the audio path in Expo Go.
+
+- **Audio MVP:** Expo Go is fine — native vision deps stay unloaded.
 - **Turn & React verification:** requires a custom/dev client. Audio must still run in Expo Go via `NullPoseVerifier`.
 
 ## Privacy

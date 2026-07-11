@@ -10,8 +10,8 @@ import { canUseNativeVision } from '../runtimeGuard';
 /**
  * MediaPipe Pose Landmarker backend bridge (dev-client path).
  *
- * No native package imports in this file — CameraVerifierView (once linked)
- * calls feedRawFrame() / toRawPoseFrame(); this backend forwards to the active
+ * No native package imports in this file — CameraVerifierView calls
+ * feedRawFrame() / toRawPoseFrame(); this backend forwards to the active
  * RealPoseVerifier. available() is true only when canUseNativeVision() so
  * Expo Go never selects it via the registry.
  *

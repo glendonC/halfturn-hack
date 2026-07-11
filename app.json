@@ -9,9 +9,11 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.halfturn.hack"
     },
     "android": {
+      "package": "com.halfturn.hack",
       "adaptiveIcon": {
         "backgroundColor": "#0B1F17",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
@@ -45,7 +47,23 @@
         }
       ],
       "expo-audio",
-      "expo-sqlite"
+      "expo-sqlite",
+      [
+        "react-native-vision-camera",
+        {
+          "cameraPermissionText": "HalfTurn uses the camera to verify your turns in Turn & React mode. Video is processed on-device only and never leaves your phone.",
+          "enableMicrophonePermission": false,
+          "enableLocation": false,
+          "enableCodeScanner": false,
+          "enableFrameProcessors": true
+        }
+      ],
+      [
+        "react-native-mediapipe-posedetection",
+        {
+          "assetsPaths": ["./assets/models/"]
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

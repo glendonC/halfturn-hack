@@ -56,3 +56,6 @@ recordings/
 *.png
 !docs/**/*.png
 !assets/**/*
+
+# MediaPipe pose model (~5.5 MB) — fetched via npm run fetch-model / postinstall
+assets/models/*.task
