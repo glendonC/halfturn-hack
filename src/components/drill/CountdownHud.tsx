@@ -4,12 +4,18 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useDrillStore } from '@/state';
 
 import { COUNTDOWN_FLOOD, HUD_NEUTRAL } from './cueColors';
+import { DrillCountdownView } from './DrillCountdownView';
 
 export function CountdownHud() {
   const insets = useSafeAreaInsets();
   const countdownRemainingSec = useDrillStore((s) => s.countdownRemainingSec);
   const mode = useDrillStore((s) => s.config.mode);
   const stop = useDrillStore((s) => s.stop);
+
+  const hint =
+    mode === 'turn_react'
+      ? 'Face the phone · turn to read'
+      : 'Eyes up · headphones on';
 
   return (
     <View
@@ -22,14 +28,7 @@ export function CountdownHud() {
       ]}
     >
       <Text style={styles.eyebrow}>Get set</Text>
-      <View style={styles.center}>
-        <Text style={styles.number}>{countdownRemainingSec}</Text>
-        <Text style={styles.hint}>
-          {mode === 'turn_react'
-            ? 'Face the phone · turn to read'
-            : 'Eyes up · headphones on'}
-        </Text>
-      </View>
+      <DrillCountdownView value={countdownRemainingSec} hint={hint} />
       <Pressable
         onPress={stop}
         style={({ pressed }) => [styles.stop, pressed && styles.pressed]}
@@ -53,23 +52,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     letterSpacing: 1.2,
     textTransform: 'uppercase',
-  },
-  center: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 12,
-  },
-  number: {
-    fontSize: 160,
-    fontWeight: '900',
-    color: COUNTDOWN_FLOOD.text,
-    lineHeight: 170,
-  },
-  hint: {
-    color: HUD_NEUTRAL.muted,
-    fontSize: 18,
-    fontWeight: '600',
   },
   stop: {
     minHeight: 56,
