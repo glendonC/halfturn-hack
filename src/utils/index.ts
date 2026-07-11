@@ -16,3 +16,9 @@ export {
   type Rng,
   type Weighted,
 } from './random';
+export {
+  aggregateCueCounts,
+  leftRightSplit,
+  weeklySessionCounts,
+  type CueCounts,
+} from './stats';
