@@ -37,9 +37,11 @@ export {
 } from './types';
 export {
   computeScanMetrics,
+  computeScanVerification,
   computeTrackingQuality,
   detectScans,
   toScanVerification,
+  type ScanVerificationOptions,
 } from './scanDetect';
 export { yawSamplesToPoseSamples } from './yawSampleAdapter';
 export {

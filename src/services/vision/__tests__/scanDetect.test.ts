@@ -1,5 +1,6 @@
 import {
   computeScanMetrics,
+  computeScanVerification,
   computeTrackingQuality,
   detectScans,
 } from '../scanDetect';
@@ -23,8 +24,8 @@ function trace(
   }));
 }
 
-describe('detectScans — sign convention', () => {
-  it('negative yaw is direction left', () => {
+describe('detectScans — sign convention (locks player-left == yawDeg<0)', () => {
+  it('a cued-LEFT half-turn (negative yaw) is detected as direction "left"', () => {
     const samples = trace([0, 0, -30, -40, -45, -40, -30, -10, 0]);
     const scans = detectScans(samples);
     expect(scans).toHaveLength(1);
@@ -34,7 +35,7 @@ describe('detectScans — sign convention', () => {
     expect(scans[0]!.tMonoMs).toBeLessThanOrEqual(scans[0]!.endMonoMs!);
   });
 
-  it('positive yaw is direction right', () => {
+  it('a cued-RIGHT half-turn (positive yaw) is detected as direction "right"', () => {
     const samples = trace([0, 0, 30, 40, 45, 40, 30, 10, 0]);
     const scans = detectScans(samples);
     expect(scans).toHaveLength(1);
@@ -96,6 +97,27 @@ describe('synthetic fixture', () => {
     expect(q.trackedTimeRate).toBe(1);
     expect(q.meanPoseConfidence).toBe(0.9);
     expect(q.effectiveFps).toBeGreaterThan(14);
+  });
+});
+
+describe('computeScanVerification', () => {
+  it('aggregates direction counts and stamps a metrics version', () => {
+    const left = trace([0, 0, -30, -40, -45, -40, -30, -10, 0], { startMs: 0 });
+    const right = trace([0, 0, 30, 40, 45, 40, 30, 10, 0], { startMs: 600 });
+    const scans = detectScans([...left, ...right]);
+    const cues: CueEvent[] = [];
+    const v = computeScanVerification(
+      scans,
+      cues,
+      60,
+      'test-engine',
+      DEFAULT_SCAN_DETECT_CONFIG,
+    );
+    expect(v.scansDetected).toBe(2);
+    expect(v.leftScans).toBe(1);
+    expect(v.rightScans).toBe(1);
+    expect(v.metricsVersion).toBe(1);
+    expect(v.engine).toBe('test-engine');
   });
 });
 
