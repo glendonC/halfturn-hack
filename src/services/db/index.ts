@@ -27,6 +27,11 @@ export {
   saveSession,
   softDeleteSession,
 } from './sessionRepository';
+export {
+  deleteSession,
+  getHistoryStats,
+  type HistoryStats,
+} from './sessionsRepo';
 export { rollupSessions, modeLabel, type HistoryRollup } from './historyStats';
 export {
   loadSettings,
