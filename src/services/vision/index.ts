@@ -11,6 +11,8 @@ import type {
 } from '@/types';
 
 import { pickBackend } from './backends/registry';
+import { useCalibrationStore } from './calibration';
+import { RealPoseVerifier } from './RealPoseVerifier';
 import { canUseNativeVision } from './runtimeGuard';
 
 export type {
@@ -79,6 +81,11 @@ export {
 } from './useFramingCalibration';
 export { LazyCameraVerifier } from './LazyCameraVerifier';
 export type { CameraVerifierProps } from './CameraVerifierView';
+export {
+  RealPoseVerifier,
+  isRealPoseVerifier,
+  DEFAULT_VERIFY_WINDOW_MS,
+} from './RealPoseVerifier';
 
 /**
  * Env intent flag (EXPO_PUBLIC_VISION=1). Prefer {@link canUseNativeVision} at
@@ -101,14 +108,13 @@ export function createPoseVerifier(): PoseVerifier {
 }
 
 /**
- * Async factory: consults the backend registry only when native vision is allowed.
- * RealPoseVerifier is not implemented yet — even an available backend falls
- * back to NullPoseVerifier until a later Phase 2 issue lands it.
+ * Async factory: RealPoseVerifier when native vision is allowed and a backend
+ * is available; otherwise NullPoseVerifier (Expo Go default).
  */
 export async function getPoseVerifierAsync(): Promise<PoseVerifier> {
   if (!canUseNativeVision()) return new NullPoseVerifier();
   const backend = await pickBackend();
   if (backend.id === 'null') return new NullPoseVerifier();
-  // Future: return new RealPoseVerifier(backend, ...)
-  return new NullPoseVerifier();
+  const calibration = useCalibrationStore.getState().profile;
+  return new RealPoseVerifier(backend, calibration);
 }

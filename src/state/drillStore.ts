@@ -24,8 +24,13 @@ import {
   DRILL_SESSION_SCHEMA_VERSION,
   type AppSettings,
 } from '@/services/db';
-import type { PoseVerifier } from '@/services/vision';
-import { createPoseVerifier } from '@/services/vision';
+import {
+  createPoseVerifier,
+  getPoseVerifierAsync,
+  isRealPoseVerifier,
+  type PoseVerifier,
+} from '@/services/vision';
+import { DEFAULT_REACTION_WINDOW_MS } from '@/constants';
 import type {
   CueDefinition,
   CueEvent,
@@ -159,6 +164,10 @@ function finishSession(
   void setKeepAwake(false);
   void audioEngine.stop();
   releaseBeep();
+  if (isRealPoseVerifier(poseVerifier)) {
+    poseVerifier.stop();
+  }
+  poseVerifier = createPoseVerifier();
   scheduler = null;
   countdownEndsAtWallMs = null;
   lastSpokenCountdownSec = null;
@@ -303,6 +312,16 @@ export const useDrillStore = create<DrillStoreState>((set, get) => ({
 
     modeBehavior = getDrillModeBehavior(config.mode);
     poseVerifier = modeBehavior.resolveVerifier();
+    if (config.mode === 'turn_react') {
+      void getPoseVerifierAsync().then((v) => {
+        // Ignore stale resolves if the run already ended.
+        if (get().status !== 'running' && get().status !== 'paused') return;
+        poseVerifier = v;
+        if (isRealPoseVerifier(v)) {
+          v.start(0);
+        }
+      });
+    }
 
     void setKeepAwake(true);
     void audioEngine.prepare();
@@ -331,6 +350,9 @@ export const useDrillStore = create<DrillStoreState>((set, get) => ({
     clocks.pause(wallNow);
     void setKeepAwake(false);
     void audioEngine.stop();
+    if (isRealPoseVerifier(poseVerifier)) {
+      poseVerifier.pause();
+    }
     set({
       status: 'paused',
       durationDrillMs: clocks.drillNow(wallNow),
@@ -344,6 +366,9 @@ export const useDrillStore = create<DrillStoreState>((set, get) => ({
     const wallNow = Date.now();
     clocks.resume(wallNow);
     void setKeepAwake(true);
+    if (isRealPoseVerifier(poseVerifier)) {
+      poseVerifier.resume();
+    }
     set({
       status: 'running',
       durationDrillMs: clocks.drillNow(wallNow),
@@ -366,6 +391,10 @@ export const useDrillStore = create<DrillStoreState>((set, get) => ({
   reset: () => {
     void setKeepAwake(false);
     void audioEngine.stop();
+    if (isRealPoseVerifier(poseVerifier)) {
+      poseVerifier.stop();
+    }
+    poseVerifier = createPoseVerifier();
     scheduler = null;
     countdownEndsAtWallMs = null;
     lastSpokenCountdownSec = null;
@@ -443,10 +472,27 @@ export const useDrillStore = create<DrillStoreState>((set, get) => ({
         priorPhrase,
       );
       const phrase = resolved.phrase;
-      const event =
+      let event: CueEvent =
         phrase === fired.phrase
           ? fired.event
           : { ...fired.event, phrase };
+
+      if (state.config.mode === 'turn_react') {
+        const samples = isRealPoseVerifier(poseVerifier)
+          ? poseVerifier.getYawSamples()
+          : [];
+        event = {
+          ...event,
+          verification: poseVerifier.verifyCue({
+            cue: fired.cue,
+            cueOnsetDrillMs: fired.event.onsetDrillMs,
+            samples,
+            windowMs: DEFAULT_REACTION_WINDOW_MS,
+          }),
+        };
+      } else {
+        event = { ...event, verification: null };
+      }
 
       nextScheduler = fired.snapshot;
       currentCue = fired.cue;

@@ -106,8 +106,8 @@ export default function FramingScreen() {
 
         <Text style={styles.note}>
           {vision
-            ? 'Verification uses NullPoseVerifier until RealPoseVerifier is selected for this run.'
-            : 'Verification stays null on Expo Go (NullPoseVerifier).'}
+            ? 'Pose samples feed RealPoseVerifier when a backend is available; otherwise cues stay unknown.'
+            : 'Verification stays null/unknown on Expo Go (NullPoseVerifier).'}
         </Text>
       </View>
 

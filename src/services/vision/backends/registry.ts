@@ -3,15 +3,13 @@ import { NullBackend } from './NullBackend';
 
 /**
  * Backend priority order. pickBackend() tries each factory and returns the
- * first that reports available(). Native MediaPipe is a STUB SLOT for a later
- * unlock — never statically imported here so Expo Go stays clean.
+ * first that reports available(). MediaPipe is dynamically imported so Expo Go
+ * never evaluates native camera code through this module.
  */
 type BackendFactory = () => Promise<PerceptionBackend>;
 
 const REGISTRY: BackendFactory[] = [
-  // Dev-client unlock later (issue #25+):
-  // () =>
-  //   import('../backends/MediaPipeBackend').then((m) => new m.MediaPipeBackend()),
+  () => import('./MediaPipeBackend').then((m) => new m.MediaPipeBackend()),
   async () => new NullBackend(),
 ];
 
