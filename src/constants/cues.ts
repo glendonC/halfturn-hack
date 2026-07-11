@@ -1,8 +1,25 @@
 import type { CueDefinition, CueType } from '@/types';
 
+import { pick, randomInt } from '@/utils/rng';
+
+/** Spoken values for the `color` variable cue. Short + TTS-friendly. */
+export const COLOR_WORDS = [
+  'Red',
+  'Blue',
+  'Green',
+  'Yellow',
+  'White',
+  'Black',
+  'Orange',
+] as const;
+
+/** Inclusive range for the `number` variable cue. */
+export const NUMBER_RANGE = { min: 1, max: 30 } as const;
+
 /**
  * Core cue catalog — sport-agnostic spatial calls.
  * "Man on" is a soccer-flavored example label, not a product-category lock.
+ * `color` / `number` are opt-in (not in DEFAULT_ENABLED_CUES).
  */
 export const CUE_CATALOG: readonly CueDefinition[] = [
   {
@@ -65,6 +82,26 @@ export const CUE_CATALOG: readonly CueDefinition[] = [
     category: 'body',
     side: 'none',
   },
+  {
+    id: 'color',
+    type: 'color',
+    label: 'Color',
+    description: 'React to the called color (cone, bib, or target).',
+    spokenLabel: 'Color',
+    hudLabel: 'COLOR',
+    category: 'variable',
+    side: 'none',
+  },
+  {
+    id: 'number',
+    type: 'number',
+    label: 'Number',
+    description: 'React to the called number (player, cone, or target).',
+    spokenLabel: 'Number',
+    hudLabel: 'NUMBER',
+    category: 'variable',
+    side: 'none',
+  },
 ] as const;
 
 /** Stable display order for setup / settings / history. */
@@ -78,6 +115,7 @@ export const CUE_BY_ID: Readonly<Record<CueType, CueDefinition>> =
 
 export const ALL_CUE_TYPES: readonly CueType[] = [...CUE_ORDER];
 
+/** Default mix excludes variable cues (opt-in via setup). */
 export const DEFAULT_ENABLED_CUES: readonly CueType[] = [
   'check_left',
   'check_right',
@@ -100,4 +138,20 @@ export function listCues(ids?: readonly CueType[]): CueDefinition[] {
 
 export function isDirectionalCheck(type: CueType): boolean {
   return type === 'check_left' || type === 'check_right';
+}
+
+export function isVariableCue(type: CueType): boolean {
+  return type === 'color' || type === 'number';
+}
+
+/**
+ * Resolve the exact phrase to speak (and show) for a cue.
+ * Variable cues randomize; fixed cues return spokenLabel.
+ */
+export function resolveCuePhrase(id: CueType, random: () => number): string {
+  if (id === 'color') return pick(random, COLOR_WORDS);
+  if (id === 'number') {
+    return String(randomInt(random, NUMBER_RANGE.min, NUMBER_RANGE.max));
+  }
+  return getCueDefinition(id).spokenLabel;
 }

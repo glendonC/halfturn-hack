@@ -4,6 +4,7 @@ import { create } from 'zustand';
 
 import { summarizeCueDistribution } from '@/components/drill/sessionStats';
 import { createDefaultDrillConfig, getCueDefinition } from '@/constants';
+import { isVariableCue } from '@/constants';
 import {
   createInitialSchedulerSnapshot,
   fireCueAt,
@@ -11,7 +12,7 @@ import {
   shouldFireCue,
   type SchedulerSnapshot,
 } from '@/services/drill';
-import { TtsCueEngine, type AudioCueEngine } from '@/services/audio';
+import { TtsCueEngine, phraseToSpeakVars, type AudioCueEngine } from '@/services/audio';
 import {
   saveSession,
   type AppSettings,
@@ -59,6 +60,8 @@ export interface DrillStoreState {
   status: DrillStatus;
   config: DrillConfig;
   currentCue: CueDefinition | null;
+  /** Resolved phrase for the current cue (color/number value or fixed spokenLabel). */
+  currentPhrase: string | null;
   lastCueType: CueType | null;
   timeRemainingMs: number;
   countdownRemainingSec: number;
@@ -89,6 +92,7 @@ function baseState(config: DrillConfig = createDefaultDrillConfig()) {
     status: 'idle' as DrillStatus,
     config,
     currentCue: null,
+    currentPhrase: null,
     lastCueType: null,
     timeRemainingMs: config.durationMs,
     countdownRemainingSec: config.countdownSec,
@@ -244,6 +248,7 @@ export const useDrillStore = create<DrillStoreState>((set, get) => ({
       status: 'countdown',
       countdownRemainingSec: config.countdownSec,
       currentCue: null,
+      currentPhrase: null,
       lastCueType: null,
       cuesFired: 0,
       cueEvents: [],
@@ -286,6 +291,7 @@ export const useDrillStore = create<DrillStoreState>((set, get) => ({
       timeRemainingMs: config.durationMs,
       durationDrillMs: 0,
       currentCue: null,
+      currentPhrase: null,
       cuesFired: 0,
       cueEvents: [],
       lastCueType: null,
@@ -381,6 +387,7 @@ export const useDrillStore = create<DrillStoreState>((set, get) => ({
 
     let nextScheduler = scheduler;
     let currentCue = state.currentCue;
+    let currentPhrase = state.currentPhrase;
     let lastCueType = state.lastCueType;
     let cueEvents = state.cueEvents;
     let cuesFired = state.cuesFired;
@@ -402,11 +409,15 @@ export const useDrillStore = create<DrillStoreState>((set, get) => ({
       });
       nextScheduler = fired.snapshot;
       currentCue = fired.cue;
+      currentPhrase = fired.phrase;
       lastCueType = fired.cue.type;
       cueEvents = [...cueEvents, fired.event];
       cuesFired = nextScheduler.cuesFired;
 
-      void audioEngine.speakCue(fired.cue);
+      void audioEngine.speakCue(
+        fired.cue,
+        phraseToSpeakVars(fired.cue.id, fired.phrase),
+      );
       void fireHaptic(state.config.haptics);
     }
 
@@ -415,6 +426,7 @@ export const useDrillStore = create<DrillStoreState>((set, get) => ({
       timeRemainingMs,
       durationDrillMs: drillNow,
       currentCue,
+      currentPhrase,
       lastCueType,
       cueEvents,
       cuesFired,
@@ -435,6 +447,9 @@ export function selectDrillStatus(s: DrillStoreState): DrillStatus {
 export function selectCurrentCueLabel(s: DrillStoreState): string | null {
   if (s.status === 'countdown' && s.countdownRemainingSec > 0) {
     return String(s.countdownRemainingSec);
+  }
+  if (s.currentCue && isVariableCue(s.currentCue.id) && s.currentPhrase) {
+    return s.currentPhrase;
   }
   return s.currentCue?.hudLabel ?? s.currentCue?.spokenLabel ?? null;
 }

@@ -9,6 +9,7 @@ export const CUE_CATEGORY_FLOOD: Record<
   scan: { bg: '#1F6B3A', text: '#C8F542', label: 'SCAN' },
   action: { bg: '#8C1F18', text: '#FFD6D1', label: 'REACT' },
   body: { bg: '#8A5A00', text: '#FFE6A8', label: 'BODY' },
+  variable: { bg: '#4A2C6A', text: '#E8D6FF', label: 'CALL' },
 };
 
 export const HUD_NEUTRAL = {

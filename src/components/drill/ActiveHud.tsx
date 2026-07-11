@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { isVariableCue } from '@/constants';
 import { formatRemainingClock, useDrillStore } from '@/state';
 
 import { CUE_CATEGORY_FLOOD, HUD_NEUTRAL } from './cueColors';
@@ -9,6 +10,7 @@ export function ActiveHud() {
   const insets = useSafeAreaInsets();
   const status = useDrillStore((s) => s.status);
   const currentCue = useDrillStore((s) => s.currentCue);
+  const currentPhrase = useDrillStore((s) => s.currentPhrase);
   const timeRemainingMs = useDrillStore((s) => s.timeRemainingMs);
   const cuesFired = useDrillStore((s) => s.cuesFired);
   const pause = useDrillStore((s) => s.pause);
@@ -21,7 +23,9 @@ export function ActiveHud() {
   const paused = status === 'paused';
   const label = paused
     ? 'PAUSED'
-    : (currentCue?.hudLabel ?? 'LISTEN');
+    : currentCue && isVariableCue(currentCue.id) && currentPhrase
+      ? currentPhrase.toUpperCase()
+      : (currentCue?.hudLabel ?? 'LISTEN');
 
   return (
     <View

@@ -134,7 +134,7 @@ export function cueEventsToRows(
     id: cue.id,
     session_id: sessionId,
     cue_id: cue.cueId,
-    cue_label: getCueDefinition(cue.cueId).hudLabel,
+    cue_label: cue.phrase || getCueDefinition(cue.cueId).hudLabel,
     sequence_index: cue.index,
     onset_wall_ms: cue.onsetWallMs,
     onset_drill_ms: cue.onsetDrillMs,

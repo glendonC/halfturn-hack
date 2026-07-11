@@ -23,6 +23,7 @@ function event(cueId: CueEvent['cueId']): CueEvent {
     id: cueId,
     cueId,
     index: 0,
+    phrase: cueId,
     onsetWallMs: 0,
     onsetDrillMs: 0,
     verification: null,

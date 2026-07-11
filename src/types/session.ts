@@ -26,6 +26,8 @@ export interface CueEvent {
   id: string;
   cueId: CueId;
   index: number;
+  /** Exact phrase spoken / shown (captures resolved color/number). */
+  phrase: string;
   onsetWallMs: WallMs;
   onsetDrillMs: DrillMs;
   /** null in audio-only or when verifier cannot judge */

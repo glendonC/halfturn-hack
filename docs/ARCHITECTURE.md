@@ -69,17 +69,19 @@ interface DrillClocks {
 ### Audio
 
 ```ts
-type CueType = 'check_left' | 'check_right' | 'man_on' | 'turn' | 'scan' | 'open_body';
-type CueId = CueType; // core ids === CueType for now; color/number later
+type CueType =
+  | 'check_left' | 'check_right' | 'man_on' | 'turn' | 'scan' | 'open_body'
+  | 'color' | 'number'; // variable cues — resolve phrase at fire time
+type CueId = CueType;
 
 interface CueDefinition {
   id: CueId;
   type: CueType;         // same as id for core catalog
   label: string;         // setup chip, e.g. "Check Left"
   description: string;   // one-line athlete instruction
-  spokenLabel: string;   // TTS string
-  hudLabel: string;      // eyes-free HUD, e.g. "LEFT"
-  category: 'check' | 'scan' | 'action' | 'body';
+  spokenLabel: string;   // TTS for fixed cues; placeholder for variable
+  hudLabel: string;      // eyes-free HUD, e.g. "LEFT" (variables show resolved value)
+  category: 'check' | 'scan' | 'action' | 'body' | 'variable';
   side: 'left' | 'right' | 'none';
 }
 

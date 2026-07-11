@@ -1,25 +1,36 @@
+import { isVariableCue } from '@/constants';
 import type { CueDefinition } from '@/types';
 
 import type { SpeakCueVars } from './types';
 
 /**
  * Resolve what TTS (or clips) should say for a cue.
- * Core catalog uses spokenLabel; color/number variants append resolved values.
+ * Fixed cues use spokenLabel. Variable cues speak only the resolved value.
  */
 export function resolveSpokenText(
   cue: CueDefinition,
   vars?: SpeakCueVars,
 ): string {
-  if (!vars) return cue.spokenLabel;
-
-  const extras: string[] = [];
-  if (vars.color != null && String(vars.color).trim() !== '') {
-    extras.push(String(vars.color).trim());
+  if (isVariableCue(cue.id)) {
+    if (cue.id === 'color') {
+      const color = vars?.color != null ? String(vars.color).trim() : '';
+      if (color !== '') return color;
+    }
+    if (cue.id === 'number') {
+      const num = vars?.number != null ? String(vars.number).trim() : '';
+      if (num !== '') return num;
+    }
   }
-  if (vars.number != null && String(vars.number).trim() !== '') {
-    extras.push(String(vars.number).trim());
-  }
 
-  if (extras.length === 0) return cue.spokenLabel;
-  return `${cue.spokenLabel}. ${extras.join('. ')}`;
+  return cue.spokenLabel;
+}
+
+/** Build SpeakCueVars from a resolved phrase for variable cues. */
+export function phraseToSpeakVars(
+  cueId: CueDefinition['id'],
+  phrase: string,
+): SpeakCueVars | undefined {
+  if (cueId === 'color') return { color: phrase };
+  if (cueId === 'number') return { number: phrase };
+  return undefined;
 }

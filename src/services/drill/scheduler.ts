@@ -1,4 +1,9 @@
-import { getCueDefinition, isDirectionalCheck, pickNextCue } from '@/constants';
+import {
+  getCueDefinition,
+  isDirectionalCheck,
+  pickNextCue,
+  resolveCuePhrase,
+} from '@/constants';
 import type {
   CueDefinition,
   CueEvent,
@@ -47,13 +52,15 @@ export function shouldFireCue(
 
 export interface FireCueResult {
   cue: CueDefinition;
+  /** Resolved spoken / HUD phrase for this firing */
+  phrase: string;
   event: CueEvent;
   snapshot: SchedulerSnapshot;
 }
 
 /**
  * Pick + record a cue at the given dual-clock onset; schedule the next interval.
- * Pure — no audio / React.
+ * Pure — no audio / React. Variable cues resolve phrase via rng here.
  */
 export function fireCueAt(args: {
   config: DrillConfig;
@@ -75,12 +82,14 @@ export function fireCueAt(args: {
   });
 
   const cue = getCueDefinition(cueType);
+  const phrase = resolveCuePhrase(cueType, random);
   const index = snapshot.cuesFired;
 
   const event: CueEvent = {
     id,
     cueId: cue.id,
     index,
+    phrase,
     onsetWallMs,
     onsetDrillMs,
     verification: null,
@@ -108,7 +117,7 @@ export function fireCueAt(args: {
     cuesFired: snapshot.cuesFired + 1,
   };
 
-  return { cue, event, snapshot: next };
+  return { cue, phrase, event, snapshot: next };
 }
 
 export function remainingDrillMs(

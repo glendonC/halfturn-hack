@@ -71,6 +71,7 @@ describe('settings + session mappers', () => {
           id: 'cue_1',
           cueId: 'scan',
           index: 0,
+          phrase: 'Scan',
           onsetWallMs: 1100,
           onsetDrillMs: 100,
           verification: null,
@@ -88,9 +89,24 @@ describe('settings + session mappers', () => {
     expect(cues[0]).toMatchObject({
       session_id: 'session_1',
       cue_id: 'scan',
-      cue_label: 'SCAN',
+      cue_label: 'Scan',
       sequence_index: 0,
       onset_drill_ms: 100,
     });
+  });
+
+  it('stores resolved variable phrases as cue_label', () => {
+    const cues = cueEventsToRows('session_1', [
+      {
+        id: 'cue_2',
+        cueId: 'color',
+        index: 0,
+        phrase: 'Red',
+        onsetWallMs: 1,
+        onsetDrillMs: 1,
+        verification: null,
+      },
+    ]);
+    expect(cues[0]?.cue_label).toBe('Red');
   });
 });

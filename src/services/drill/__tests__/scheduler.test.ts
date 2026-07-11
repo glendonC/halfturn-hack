@@ -75,6 +75,7 @@ describe('scheduler fire + repeat avoidance', () => {
 
     expect(fired.event.onsetDrillMs).toBe(1000);
     expect(fired.event.onsetWallMs).toBe(50_000);
+    expect(fired.event.phrase.length).toBeGreaterThan(0);
     expect(fired.event.verification).toBeNull();
     expect(fired.snapshot.cuesFired).toBe(1);
     expect(fired.snapshot.nextCueAtDrillMs).toBe(2000);
@@ -100,5 +101,23 @@ describe('scheduler fire + repeat avoidance', () => {
     });
     const snap = createInitialSchedulerSnapshot(config, () => 0);
     expect(shouldFireCue(snap, 5_000, config.durationMs)).toBe(false);
+  });
+
+  it('resolves a color phrase when variable cues are enabled', () => {
+    const config = createDefaultDrillConfig({
+      enabledCues: ['color'],
+      intervalMs: { min: 1000, max: 1000 },
+    });
+    const fired = fireCueAt({
+      config,
+      snapshot: createInitialSchedulerSnapshot(config, () => 0),
+      onsetDrillMs: 1000,
+      onsetWallMs: 1,
+      random: createRng(9),
+      id: 'cue_color',
+    });
+    expect(fired.cue.id).toBe('color');
+    expect(fired.phrase).toBe(fired.event.phrase);
+    expect(fired.phrase).not.toBe('Color');
   });
 });

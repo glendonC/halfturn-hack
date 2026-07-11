@@ -1,8 +1,12 @@
 import {
+  COLOR_WORDS,
   CUE_CATALOG,
   DEFAULT_ENABLED_CUES,
   getCueDefinition,
   isDirectionalCheck,
+  isVariableCue,
+  NUMBER_RANGE,
+  resolveCuePhrase,
 } from '../cues';
 import {
   clampLeftRightBalance,
@@ -14,9 +18,10 @@ import {
   pickDirectionalCheck,
   pickNextCue,
 } from '../pickCue';
+import { createRng } from '@/utils/rng';
 
 describe('cue catalog', () => {
-  it('covers the core CueType set exactly once each', () => {
+  it('covers the CueType set exactly once each', () => {
     const ids = CUE_CATALOG.map((c) => c.id);
     expect(ids).toEqual([
       'check_left',
@@ -25,8 +30,17 @@ describe('cue catalog', () => {
       'turn',
       'man_on',
       'open_body',
+      'color',
+      'number',
     ]);
     expect(new Set(ids).size).toBe(ids.length);
+  });
+
+  it('keeps variable cues opt-in (not in default mix)', () => {
+    expect(DEFAULT_ENABLED_CUES).not.toContain('color');
+    expect(DEFAULT_ENABLED_CUES).not.toContain('number');
+    expect(isVariableCue('color')).toBe(true);
+    expect(isVariableCue('scan')).toBe(false);
   });
 
   it('exposes label, description, spoken, and HUD fields for every cue', () => {
@@ -45,6 +59,15 @@ describe('cue catalog', () => {
     expect(isDirectionalCheck('check_right')).toBe(true);
     expect(isDirectionalCheck('scan')).toBe(false);
     expect(isDirectionalCheck('man_on')).toBe(false);
+  });
+
+  it('resolveCuePhrase returns fixed spokenLabel and randomizes variables', () => {
+    expect(resolveCuePhrase('scan', () => 0)).toBe('Scan');
+    const color = resolveCuePhrase('color', createRng(1));
+    expect((COLOR_WORDS as readonly string[]).includes(color)).toBe(true);
+    const num = Number(resolveCuePhrase('number', createRng(2)));
+    expect(num).toBeGreaterThanOrEqual(NUMBER_RANGE.min);
+    expect(num).toBeLessThanOrEqual(NUMBER_RANGE.max);
   });
 });
 

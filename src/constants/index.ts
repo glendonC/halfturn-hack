@@ -1,12 +1,16 @@
 export {
   ALL_CUE_TYPES,
+  COLOR_WORDS,
   CUE_BY_ID,
   CUE_CATALOG,
   CUE_ORDER,
   DEFAULT_ENABLED_CUES,
   getCueDefinition,
   isDirectionalCheck,
+  isVariableCue,
   listCues,
+  NUMBER_RANGE,
+  resolveCuePhrase,
 } from './cues';
 export {
   clampLeftRightBalance,

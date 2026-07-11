@@ -13,3 +13,21 @@ export function createRng(seed?: number): () => number {
     return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }
+
+/** Inclusive integer in [min, max]. */
+export function randomInt(
+  random: () => number,
+  min: number,
+  max: number,
+): number {
+  let lo = min;
+  let hi = max;
+  if (hi < lo) [lo, hi] = [hi, lo];
+  return Math.floor(random() * (hi - lo + 1)) + lo;
+}
+
+/** Uniform pick from a non-empty array. */
+export function pick<T>(random: () => number, arr: readonly T[]): T {
+  if (arr.length === 0) throw new Error('pick() called on an empty array');
+  return arr[Math.floor(random() * arr.length)]!;
+}

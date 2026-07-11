@@ -1,7 +1,7 @@
-import { resolveSpokenText } from '../resolveSpokenText';
+import { resolveSpokenText, phraseToSpeakVars } from '../resolveSpokenText';
 import type { CueDefinition } from '@/types';
 
-const baseCue: CueDefinition = {
+const scanCue: CueDefinition = {
   id: 'scan',
   type: 'scan',
   label: 'Scan',
@@ -12,20 +12,49 @@ const baseCue: CueDefinition = {
   side: 'none',
 };
 
+const colorCue: CueDefinition = {
+  id: 'color',
+  type: 'color',
+  label: 'Color',
+  description: 'React to the called color (cone, bib, or target).',
+  spokenLabel: 'Color',
+  hudLabel: 'COLOR',
+  category: 'variable',
+  side: 'none',
+};
+
+const numberCue: CueDefinition = {
+  id: 'number',
+  type: 'number',
+  label: 'Number',
+  description: 'React to the called number (player, cone, or target).',
+  spokenLabel: 'Number',
+  hudLabel: 'NUMBER',
+  category: 'variable',
+  side: 'none',
+};
+
 describe('resolveSpokenText', () => {
-  it('uses the catalog spoken label by default', () => {
-    expect(resolveSpokenText(baseCue)).toBe('Scan');
+  it('uses the catalog spoken label for fixed cues', () => {
+    expect(resolveSpokenText(scanCue)).toBe('Scan');
+    expect(resolveSpokenText(scanCue, { color: 'blue' })).toBe('Scan');
   });
 
-  it('appends resolved color/number variants when provided', () => {
-    expect(resolveSpokenText(baseCue, { color: 'blue' })).toBe('Scan. blue');
-    expect(resolveSpokenText(baseCue, { number: 3 })).toBe('Scan. 3');
-    expect(resolveSpokenText(baseCue, { color: 'red', number: 'two' })).toBe(
-      'Scan. red. two',
-    );
+  it('speaks only the resolved value for variable cues', () => {
+    expect(resolveSpokenText(colorCue, { color: 'Blue' })).toBe('Blue');
+    expect(resolveSpokenText(numberCue, { number: 17 })).toBe('17');
   });
 
-  it('ignores empty variant fields', () => {
-    expect(resolveSpokenText(baseCue, { color: '  ', number: '' })).toBe('Scan');
+  it('falls back to spokenLabel when variable vars are missing', () => {
+    expect(resolveSpokenText(colorCue)).toBe('Color');
+    expect(resolveSpokenText(numberCue, { number: '  ' })).toBe('Number');
+  });
+});
+
+describe('phraseToSpeakVars', () => {
+  it('maps variable phrases into SpeakCueVars', () => {
+    expect(phraseToSpeakVars('color', 'Red')).toEqual({ color: 'Red' });
+    expect(phraseToSpeakVars('number', '12')).toEqual({ number: '12' });
+    expect(phraseToSpeakVars('scan', 'Scan')).toBeUndefined();
   });
 });
