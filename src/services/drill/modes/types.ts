@@ -1,6 +1,9 @@
 import type { AudioCueEngine } from '@/services/audio';
 import type { PoseVerifier } from '@/services/vision';
-import type { CueDefinition, DrillConfig, DrillMode } from '@/types';
+import type { DrillConfig, DrillMode } from '@/types';
+import type { Rng } from '@/utils/random';
+
+import type { ScheduledCue, SchedulerState } from '../CueScheduler';
 
 /**
  * Running-drill layouts. Modes map here via MODE_LAYOUT; active screens pick
@@ -8,15 +11,16 @@ import type { CueDefinition, DrillConfig, DrillMode } from '@/types';
  */
 export type DrillLayout = 'audio-hud' | 'turn-react-surface';
 
-/** Freshly fired cue + phrase before any mode-specific adjustment. */
+/** A picked cue plus the scheduler state to thread forward (pickCue's shape). */
 export interface PickedCue {
-  cue: CueDefinition;
-  phrase: string;
+  cue: ScheduledCue;
+  nextState: SchedulerState;
 }
 
-/** Phrase after mode resolve (turn-react may re-roll color). */
+/** The phrase + threaded scheduler state after any mode-specific adjustment. */
 export interface ResolvedCue {
   phrase: string;
+  nextState: SchedulerState;
 }
 
 /**
@@ -31,19 +35,19 @@ export interface DrillModeBehavior {
   prepareAudio(engine: AudioCueEngine): void;
 
   /**
-   * Adjust a freshly-fired cue's phrase. Audio passes through; turn-react
-   * re-rolls `color` from the readable flood palette (no White/Black).
-   * `priorPhrase` is the previous on-screen / spoken phrase (for avoid-repeat).
+   * Adjust a freshly-picked cue's phrase. Turn-react re-rolls the `color` cue
+   * from the readable full-screen palette; audio passes the cue through.
+   * `priorState` is the scheduler state BEFORE this cue.
    */
   resolveCue(
     picked: PickedCue,
-    rng: () => number,
+    rng: Rng,
     config: DrillConfig,
-    priorPhrase: string | null,
+    priorState: SchedulerState,
   ): ResolvedCue;
 
-  /** Present cue audio: TTS speaks; turn-react plays a directionless beep. */
-  presentCue(cue: CueDefinition, phrase: string, engine: AudioCueEngine): void;
+  /** Present the cue's AUDIO: TTS speaks the phrase; turn-react plays a beep. */
+  presentCue(phrase: string, engine: AudioCueEngine): void;
 
   /** Floor for the next-cue gap so a cue never overruns utterance / reveal. */
   minIntervalFloorMs(phrase: string, engine: AudioCueEngine): number;

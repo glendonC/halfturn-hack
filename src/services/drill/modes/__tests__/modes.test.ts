@@ -14,40 +14,41 @@ jest.mock('@/services/audio', () => ({
 
 import { REVEAL_PAD_MS, REVEAL_WINDOW_MS, TURN_REACT_COLORS } from '@/constants/turnReact';
 import type { AudioCueEngine } from '@/services/audio';
-import { getCueDefinition } from '@/constants';
 import type { DrillConfig } from '@/types';
+import { initialSchedulerState } from '../../CueScheduler';
 
 import { getDrillModeBehavior, MODE_LAYOUT } from '../index';
 import type { PickedCue } from '../types';
 
 const CONFIG = { avoidLastN: 1 } as unknown as DrillConfig;
+const PRIOR = initialSchedulerState();
 
 function fakeEngine(estimate = 800): AudioCueEngine & {
-  spoken: { cueId: string; phrase: string }[];
+  spoken: string[];
 } {
-  const spoken: { cueId: string; phrase: string }[] = [];
+  const spoken: string[] = [];
   return {
     spoken,
     async prepare() {},
     async testSound() {},
-    async speakCue(cue, vars) {
-      const phrase =
-        vars?.color != null
-          ? String(vars.color)
-          : vars?.number != null
-            ? String(vars.number)
-            : cue.spokenLabel;
-      spoken.push({ cueId: cue.id, phrase });
+    async speakCue() {},
+    async speakText(text) {
+      spoken.push(text);
     },
-    async speakText() {},
     async stop() {},
     setOptions() {},
     estimateMs: () => estimate,
   };
 }
 
-function pickedOf(cueId: 'scan' | 'color' | 'turn', phrase: string): PickedCue {
-  return { cue: getCueDefinition(cueId), phrase };
+function pickedOf(
+  cueId: 'scan' | 'color' | 'turn',
+  phrase: string,
+): PickedCue {
+  return {
+    cue: { cueId, side: 'none', phrase },
+    nextState: { lastCueId: cueId, lastPhrase: phrase },
+  };
 }
 
 beforeEach(() => {
@@ -74,15 +75,15 @@ describe('AudioDrillBehavior', () => {
 
   it('passes the picked cue through unchanged', () => {
     const picked = pickedOf('scan', 'Scan');
-    const r = b.resolveCue(picked, () => 0, CONFIG, null);
+    const r = b.resolveCue(picked, () => 0, CONFIG, PRIOR);
     expect(r.phrase).toBe('Scan');
+    expect(r.nextState.lastCueId).toBe('scan');
   });
 
-  it('speaks the cue (no beep) and floors at utterance length + pad', () => {
+  it('speaks the phrase (no beep) and floors at utterance length + pad', () => {
     const engine = fakeEngine(800);
-    const cue = getCueDefinition('scan');
-    b.presentCue(cue, 'Scan', engine);
-    expect(engine.spoken).toEqual([{ cueId: 'scan', phrase: 'Scan' }]);
+    b.presentCue('Scan', engine);
+    expect(engine.spoken).toEqual(['Scan']);
     expect(mockPlayBeep).not.toHaveBeenCalled();
     expect(b.minIntervalFloorMs('Scan', engine)).toBe(1050);
   });
@@ -103,47 +104,48 @@ describe('TurnReactDrillBehavior', () => {
 
   it('passes non-color cues through unchanged', () => {
     const picked = pickedOf('scan', 'Scan');
-    const r = b.resolveCue(picked, () => 0, CONFIG, null);
+    const r = b.resolveCue(picked, () => 0, CONFIG, PRIOR);
     expect(r.phrase).toBe('Scan');
   });
 
   it('re-rolls the color cue from the readable turn-react palette', () => {
-    // rng 0 → index 0 (Red); spoken palette phrase "White" is discarded.
     const picked = pickedOf('color', 'White');
-    const r = b.resolveCue(picked, () => 0, CONFIG, null);
+    const r = b.resolveCue(picked, () => 0, CONFIG, PRIOR);
     expect(names).toContain(r.phrase);
     expect(r.phrase).not.toBe('White');
   });
 
   it('honors avoidLastN against the prior phrase', () => {
-    // First roll → index 0 = Red (repeats prior); re-roll → index near end.
     const values = [0, 0.99];
     let i = 0;
     const rng = () => values[i++ % values.length]!;
-    const r = b.resolveCue(
-      pickedOf('color', 'Red'),
-      rng,
-      CONFIG,
-      TURN_REACT_COLORS[0]!.name,
-    );
+    const prior = {
+      lastCueId: 'color' as const,
+      lastPhrase: TURN_REACT_COLORS[0]!.name,
+    };
+    const r = b.resolveCue(pickedOf('color', 'Red'), rng, CONFIG, prior);
     expect(r.phrase).not.toBe(TURN_REACT_COLORS[0]!.name);
     expect(names).toContain(r.phrase);
   });
 
   it('allows a repeat when avoidLastN is 0', () => {
     const cfg = { avoidLastN: 0 } as unknown as DrillConfig;
+    const prior = {
+      lastCueId: 'color' as const,
+      lastPhrase: TURN_REACT_COLORS[0]!.name,
+    };
     const r = b.resolveCue(
       pickedOf('color', 'Red'),
       () => 0,
       cfg,
-      TURN_REACT_COLORS[0]!.name,
+      prior,
     );
     expect(r.phrase).toBe(TURN_REACT_COLORS[0]!.name);
   });
 
   it('plays a beep (never speaks) and floors at reveal window + pad', () => {
     const engine = fakeEngine(800);
-    b.presentCue(getCueDefinition('color'), 'Blue', engine);
+    b.presentCue('Blue', engine);
     expect(mockPlayBeep).toHaveBeenCalledTimes(1);
     expect(engine.spoken).toEqual([]);
     expect(b.minIntervalFloorMs('Blue', engine)).toBe(

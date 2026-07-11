@@ -1,42 +1,39 @@
-import {
-  getCueDefinition,
-  isDirectionalCheck,
-  pickNextCue,
-  resolveCuePhrase,
-} from '@/constants';
+/**
+ * Store-facing timing wrapper around CueScheduler.
+ * Pick/phrase decisions live in CueScheduler; this tracks when the next cue fires.
+ */
+
+import { getCueDefinition } from '@/constants';
 import type {
   CueDefinition,
   CueEvent,
-  CueType,
   DrillConfig,
   DrillMs,
   WallMs,
 } from '@/types';
+import type { Rng } from '@/utils/random';
 
-import { pickIntervalMs } from './pickInterval';
+import {
+  initialSchedulerState,
+  nextIntervalMs,
+  pickCue,
+  type SchedulerState,
+} from './CueScheduler';
 
 export interface SchedulerSnapshot {
-  recentCueTypes: CueType[];
-  leftCount: number;
-  rightCount: number;
+  pickState: SchedulerState;
   nextCueAtDrillMs: DrillMs;
   cuesFired: number;
 }
 
 export function createInitialSchedulerSnapshot(
   config: DrillConfig,
-  random: () => number,
+  rng: Rng,
 ): SchedulerSnapshot {
   return {
-    recentCueTypes: [],
-    leftCount: 0,
-    rightCount: 0,
+    pickState: initialSchedulerState(),
     // First cue after a random interval from drill start (not at t=0).
-    nextCueAtDrillMs: pickIntervalMs(
-      config.intervalMs.min,
-      config.intervalMs.max,
-      random,
-    ),
+    nextCueAtDrillMs: nextIntervalMs(rng, config),
     cuesFired: 0,
   };
 }
@@ -52,43 +49,39 @@ export function shouldFireCue(
 
 export interface FireCueResult {
   cue: CueDefinition;
-  /** Resolved spoken / HUD phrase for this firing */
+  /** Resolved spoken / HUD phrase for this firing (pre mode-resolve). */
   phrase: string;
   event: CueEvent;
   snapshot: SchedulerSnapshot;
+  /** CueScheduler pick payload for mode resolveCue. */
+  picked: ReturnType<typeof pickCue>;
+  /** Scheduler state before this pick (for mode avoid-repeat). */
+  priorState: SchedulerState;
 }
 
 /**
  * Pick + record a cue at the given dual-clock onset; schedule the next interval.
- * Pure — no audio / React. Variable cues resolve phrase via rng here.
+ * Pure — no audio / React. Mode resolveCue may still rewrite the phrase after.
  */
 export function fireCueAt(args: {
   config: DrillConfig;
   snapshot: SchedulerSnapshot;
   onsetDrillMs: DrillMs;
   onsetWallMs: WallMs;
-  random: () => number;
+  random: Rng;
   id: string;
   /**
    * Minimum gap before the next cue (ms), typically estimated TTS length + pad.
-   * Applied after the random interval sample.
+   * Applied after the random interval sample. Prefer post-resolve phrase from the store.
    */
   intervalFloorMs?: number | ((phrase: string) => number);
 }): FireCueResult {
   const { config, snapshot, onsetDrillMs, onsetWallMs, random, id } = args;
 
-  const cueType = pickNextCue({
-    enabled: config.enabledCues,
-    recent: snapshot.recentCueTypes,
-    leftRightBalance: config.leftRightBalance,
-    leftCount: snapshot.leftCount,
-    rightCount: snapshot.rightCount,
-    avoidLastN: config.avoidLastN,
-    random,
-  });
-
-  const cue = getCueDefinition(cueType);
-  const phrase = resolveCuePhrase(cueType, random);
+  const priorState = snapshot.pickState;
+  const picked = pickCue(random, config, priorState);
+  const cue = getCueDefinition(picked.cue.cueId);
+  const phrase = picked.cue.phrase;
   const index = snapshot.cuesFired;
 
   const event: CueEvent = {
@@ -98,40 +91,50 @@ export function fireCueAt(args: {
     phrase,
     onsetWallMs,
     onsetDrillMs,
-    // Intent at fire time: when the scheduler meant this cue to land.
     plannedOffsetMs: snapshot.nextCueAtDrillMs,
     verification: null,
   };
-
-  const recentCueTypes = [...snapshot.recentCueTypes, cueType].slice(-5);
-  let leftCount = snapshot.leftCount;
-  let rightCount = snapshot.rightCount;
-  if (isDirectionalCheck(cueType)) {
-    if (cueType === 'check_left') leftCount += 1;
-    else rightCount += 1;
-  }
 
   const floor =
     typeof args.intervalFloorMs === 'function'
       ? args.intervalFloorMs(phrase)
       : (args.intervalFloorMs ?? 0);
 
-  const interval = pickIntervalMs(
-    config.intervalMs.min,
-    config.intervalMs.max,
-    random,
-    floor,
-  );
+  const interval = nextIntervalMs(random, config, floor);
 
   const next: SchedulerSnapshot = {
-    recentCueTypes,
-    leftCount,
-    rightCount,
+    pickState: picked.nextState,
     nextCueAtDrillMs: onsetDrillMs + interval,
     cuesFired: snapshot.cuesFired + 1,
   };
 
-  return { cue, phrase, event, snapshot: next };
+  return { cue, phrase, event, snapshot: next, picked, priorState };
+}
+
+/**
+ * After mode resolveCue, thread the updated pick state and recompute the next
+ * gap floor from the final phrase (production fireCue order).
+ */
+export function applyResolvedPhrase(
+  fired: FireCueResult,
+  phrase: string,
+  nextPickState: SchedulerState,
+  config: DrillConfig,
+  random: Rng,
+  floorMs: number,
+): FireCueResult {
+  const interval = nextIntervalMs(random, config, floorMs);
+  const snapshot: SchedulerSnapshot = {
+    pickState: nextPickState,
+    nextCueAtDrillMs: fired.event.onsetDrillMs + interval,
+    cuesFired: fired.snapshot.cuesFired,
+  };
+  return {
+    ...fired,
+    phrase,
+    event: { ...fired.event, phrase },
+    snapshot,
+  };
 }
 
 export function remainingDrillMs(

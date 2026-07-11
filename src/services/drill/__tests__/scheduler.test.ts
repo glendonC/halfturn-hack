@@ -4,6 +4,12 @@ import { createRng } from '@/utils/rng';
 
 import { pickIntervalMs } from '../pickInterval';
 import {
+  buildCandidates,
+  initialSchedulerState,
+  nextIntervalMs,
+  pickCue,
+} from '../CueScheduler';
+import {
   createInitialSchedulerSnapshot,
   fireCueAt,
   remainingDrillMs,
@@ -26,6 +32,38 @@ describe('pickIntervalMs', () => {
 
   it('respects a speech-duration floor above the sampled range', () => {
     expect(pickIntervalMs(1000, 1000, () => 0, 2500)).toBe(2500);
+  });
+});
+
+describe('CueScheduler', () => {
+  it('nextIntervalMs respects floor', () => {
+    const config = createDefaultDrillConfig({
+      intervalMs: { min: 1000, max: 1000 },
+    });
+    expect(nextIntervalMs(() => 0, config, 2500)).toBe(2500);
+  });
+
+  it('pickCue avoids immediate repeat when alternatives exist', () => {
+    const config = createDefaultDrillConfig({
+      enabledCues: ['scan', 'turn'],
+      avoidLastN: 1,
+    });
+    const first = pickCue(() => 0, config, initialSchedulerState());
+    const second = pickCue(() => 0, config, first.nextState);
+    expect(second.cue.cueId).not.toBe(first.cue.cueId);
+  });
+
+  it('buildCandidates zeroes the last cue when avoidLastN > 0', () => {
+    const config = createDefaultDrillConfig({
+      enabledCues: ['scan', 'turn'],
+      avoidLastN: 1,
+    });
+    const c = buildCandidates(config, {
+      lastCueId: 'scan',
+      lastPhrase: 'Scan',
+    });
+    expect(c.find((x) => x.value === 'scan')?.weight).toBe(0);
+    expect(c.find((x) => x.value === 'turn')?.weight).toBeGreaterThan(0);
   });
 });
 
@@ -95,7 +133,6 @@ describe('scheduler fire + repeat avoidance', () => {
       random: () => 0.1,
       id: 'cue_2',
     });
-    // With recent=['scan'|'turn'] and both enabled, avoidLastN=1 forces the other.
     expect(second.cue.type).not.toBe(fired.cue.type);
   });
 

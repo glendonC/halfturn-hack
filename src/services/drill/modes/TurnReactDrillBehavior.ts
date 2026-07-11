@@ -6,16 +6,18 @@ import {
   pickTurnReactColor,
 } from '@/constants/turnReact';
 import { createPoseVerifier, type PoseVerifier } from '@/services/vision';
-import type { CueDefinition, DrillConfig } from '@/types';
+import type { DrillConfig } from '@/types';
+import type { Rng } from '@/utils/random';
 
+import type { SchedulerState } from '../CueScheduler';
 import type { DrillModeBehavior, PickedCue, ResolvedCue } from './types';
 
-/** Re-roll cap for the color palette (matches scheduler variable re-roll spirit). */
+/** Re-roll cap for the color palette (matches CueScheduler's variable re-roll). */
 const COLOR_REROLL_TRIES = 4;
 
 /**
  * Turn-and-react preview: screen is the cue surface; a directionless beep is
- * the only audio. Pose stays NullPoseVerifier until Phase 2 unlock.
+ * the only audio. Pose stays NullPoseVerifier until native unlock.
  */
 export class TurnReactDrillBehavior implements DrillModeBehavior {
   readonly mode = 'turn_react' as const;
@@ -31,26 +33,31 @@ export class TurnReactDrillBehavior implements DrillModeBehavior {
    */
   resolveCue(
     picked: PickedCue,
-    rng: () => number,
+    rng: Rng,
     config: DrillConfig,
-    priorPhrase: string | null,
+    priorState: SchedulerState,
   ): ResolvedCue {
-    if (picked.cue.id !== 'color') {
-      return { phrase: picked.phrase };
+    if (picked.cue.cueId !== 'color') {
+      return { phrase: picked.cue.phrase, nextState: picked.nextState };
     }
     let c = pickTurnReactColor(rng);
     const avoidRepeat = config.avoidLastN > 0;
     for (
       let i = 0;
-      i < COLOR_REROLL_TRIES && avoidRepeat && c.name === priorPhrase;
+      i < COLOR_REROLL_TRIES &&
+      avoidRepeat &&
+      c.name === priorState.lastPhrase;
       i += 1
     ) {
       c = pickTurnReactColor(rng);
     }
-    return { phrase: c.name };
+    return {
+      phrase: c.name,
+      nextState: { ...picked.nextState, lastPhrase: c.name },
+    };
   }
 
-  presentCue(_cue: CueDefinition, _phrase: string, _engine: AudioCueEngine): void {
+  presentCue(_phrase: string, _engine: AudioCueEngine): void {
     playBeep();
   }
 

@@ -14,6 +14,7 @@ import {
   type DrillModeBehavior,
   type SchedulerSnapshot,
 } from '@/services/drill';
+import { nextIntervalMs } from '@/services/drill/CueScheduler';
 import {
   releaseBeep,
   TtsCueEngine,
@@ -465,7 +466,6 @@ export const useDrillStore = create<DrillStoreState>((set, get) => ({
       guard < 3
     ) {
       guard += 1;
-      const priorPhrase = currentPhrase;
       const fired = fireCueAt({
         config: state.config,
         snapshot: nextScheduler,
@@ -473,29 +473,34 @@ export const useDrillStore = create<DrillStoreState>((set, get) => ({
         onsetWallMs: wallNow,
         random: rng,
         id: createId('cue'),
-        intervalFloorMs: (phrase) =>
-          modeBehavior.minIntervalFloorMs(phrase, audioEngine),
       });
       const resolved = modeBehavior.resolveCue(
-        { cue: fired.cue, phrase: fired.phrase },
+        fired.picked,
         rng,
         state.config,
-        priorPhrase,
+        fired.priorState,
       );
       const phrase = resolved.phrase;
-      const event: CueEvent =
-        phrase === fired.phrase
-          ? { ...fired.event, verification: null }
-          : { ...fired.event, phrase, verification: null };
+      const floor = modeBehavior.minIntervalFloorMs(phrase, audioEngine);
+      const gap = nextIntervalMs(rng, state.config, floor);
+      nextScheduler = {
+        pickState: resolved.nextState,
+        nextCueAtDrillMs: fired.event.onsetDrillMs + gap,
+        cuesFired: fired.snapshot.cuesFired,
+      };
+      const event: CueEvent = {
+        ...fired.event,
+        phrase,
+        verification: null,
+      };
 
-      nextScheduler = fired.snapshot;
       currentCue = fired.cue;
       currentPhrase = phrase;
       lastCueType = fired.cue.type;
       cueEvents = [...cueEvents, event];
       cuesFired = nextScheduler.cuesFired;
 
-      modeBehavior.presentCue(fired.cue, phrase, audioEngine);
+      modeBehavior.presentCue(phrase, audioEngine);
       void fireHaptic(state.config.haptics);
     }
 

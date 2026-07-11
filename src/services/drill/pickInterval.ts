@@ -1,6 +1,7 @@
 /**
  * Inclusive random interval in [min, max] milliseconds.
- * `floorMs` enforces a practical minimum (e.g. estimated TTS duration).
+ * Prefer {@link nextIntervalMs} from CueScheduler for drill scheduling.
+ * Kept for existing unit tests and call sites.
  */
 export function pickIntervalMs(
   min: number,

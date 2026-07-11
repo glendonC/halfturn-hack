@@ -1,9 +1,5 @@
-import {
-  phraseToSpeakVars,
-  type AudioCueEngine,
-} from '@/services/audio';
+import type { AudioCueEngine } from '@/services/audio';
 import { createPoseVerifier, type PoseVerifier } from '@/services/vision';
-import type { CueDefinition, DrillConfig } from '@/types';
 
 import type { DrillModeBehavior, PickedCue, ResolvedCue } from './types';
 
@@ -21,17 +17,12 @@ export class AudioDrillBehavior implements DrillModeBehavior {
     /* no extra prep beyond engine.prepare() */
   }
 
-  resolveCue(
-    picked: PickedCue,
-    _rng: () => number,
-    _config: DrillConfig,
-    _priorPhrase: string | null,
-  ): ResolvedCue {
-    return { phrase: picked.phrase };
+  resolveCue(picked: PickedCue): ResolvedCue {
+    return { phrase: picked.cue.phrase, nextState: picked.nextState };
   }
 
-  presentCue(cue: CueDefinition, phrase: string, engine: AudioCueEngine): void {
-    void engine.speakCue(cue, phraseToSpeakVars(cue.id, phrase));
+  presentCue(phrase: string, engine: AudioCueEngine): void {
+    void engine.speakText(phrase);
   }
 
   minIntervalFloorMs(phrase: string, engine: AudioCueEngine): number {
