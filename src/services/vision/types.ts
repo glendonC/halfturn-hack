@@ -60,3 +60,20 @@ export interface TrackingQuality {
   meanPoseConfidence: number;
   effectiveFps: number;
 }
+
+/**
+ * Per-player camera calibration from the framing step.
+ * Resolves neutral (back-to-camera) and which rotation is the player's left.
+ */
+export interface CalibrationProfile {
+  neutralYawBaselineDeg: number;
+  /** +1 or -1 so yawDeg < 0 == player's LEFT. */
+  yawSign: 1 | -1;
+  capturedAtEpochMs: number;
+}
+
+export const DEFAULT_CALIBRATION: CalibrationProfile = {
+  neutralYawBaselineDeg: 0,
+  yawSign: 1,
+  capturedAtEpochMs: 0,
+};
