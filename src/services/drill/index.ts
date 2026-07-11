@@ -6,14 +6,7 @@ export {
   type ScheduledCue,
   type SchedulerState,
 } from './CueScheduler';
-export {
-  createInitialSchedulerSnapshot,
-  fireCueAt,
-  remainingDrillMs,
-  shouldFireCue,
-  type FireCueResult,
-  type SchedulerSnapshot,
-} from './scheduler';
+export { useDrillEngine, type UseDrillEngineResult } from './useDrillEngine';
 export {
   getDrillModeBehavior,
   MODE_LAYOUT,
@@ -24,4 +17,3 @@ export {
   type PickedCue,
   type ResolvedCue,
 } from './modes';
-export { useDrillEngine, type UseDrillEngineResult } from './useDrillEngine';

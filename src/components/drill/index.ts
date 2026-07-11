@@ -12,8 +12,3 @@ export { DrillReadyView } from './DrillReadyView';
 export { DrillTimer } from './DrillTimer';
 export { PausedOverlay } from './PausedOverlay';
 export { TransportControls } from './TransportControls';
-export {
-  formatDurationMs,
-  summarizeCueDistribution,
-  type CueDistributionRow,
-} from './sessionStats';

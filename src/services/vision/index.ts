@@ -39,7 +39,6 @@ export {
   detectScans,
   type ScanVerificationOptions,
 } from './scanDetect';
-export { yawSamplesToPoseSamples } from './yawSampleAdapter';
 export {
   DEFAULT_ONE_EURO_CONFIG,
   OneEuroFilter,

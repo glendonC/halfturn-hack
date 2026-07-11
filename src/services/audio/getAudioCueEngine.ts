@@ -1,9 +1,7 @@
-import type { CueAudioSource, Settings } from '@/types';
-import { DEFAULT_SETTINGS } from '@/constants/defaults';
+import type { CueAudioSource } from '@/types';
 
 import type { AudioCueEngine } from './AudioCueEngine';
 import { TtsCueEngine } from './TtsCueEngine';
-import type { AudioCueEngineOptions } from './types';
 
 let engine: AudioCueEngine | null = null;
 
@@ -16,20 +14,6 @@ export function getAudioCueEngine(
 ): AudioCueEngine {
   if (!engine) engine = new TtsCueEngine();
   return engine;
-}
-
-/** Map a legacy audio options bag into Settings speech fields. */
-export function speechSettingsFromAudio(
-  audio: AudioCueEngineOptions,
-  patch: Partial<Settings> = {},
-): Settings {
-  return {
-    ...DEFAULT_SETTINGS,
-    cueVolume: audio.volume,
-    speechRate: audio.rate,
-    speechPitch: audio.pitch,
-    ...patch,
-  };
 }
 
 export type { CueAudioSource };

@@ -28,13 +28,6 @@ export {
   signedBlindSideBalance,
   VOLUME_BOUNDS,
 } from './defaults';
-export {
-  directionalLeftProbability,
-  pickDirectionalCheck,
-  pickNextCue,
-  type PickNextCueArgs,
-  type RandomFn,
-} from './pickCue';
 export { REVEAL_PAD_MS, REVEAL_WINDOW_MS } from './turnReact';
 export {
   MIN_TRACKING_CONFIDENCE,
