@@ -10,7 +10,6 @@ export type { DrillLayoutProps } from './layoutProps';
 export { DrillCountdownView } from './DrillCountdownView';
 export { DrillReadyView } from './DrillReadyView';
 export { DrillTimer } from './DrillTimer';
-export { FinishedSummary } from './FinishedSummary';
 export { PausedOverlay } from './PausedOverlay';
 export { TransportControls } from './TransportControls';
 export {

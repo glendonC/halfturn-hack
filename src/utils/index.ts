@@ -5,7 +5,7 @@ export {
   formatSeconds,
   pluralize,
 } from './format';
-export { createId } from './id';
+export { createId, generateId, sessionId } from './id';
 export { createRng, pick, randomInt } from './rng';
 export {
   chance,

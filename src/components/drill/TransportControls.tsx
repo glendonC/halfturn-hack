@@ -1,6 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import type { DrillStatus } from '@/state';
+import type { DrillStatus } from '@/types';
 
 import { HUD_NEUTRAL } from './cueColors';
 

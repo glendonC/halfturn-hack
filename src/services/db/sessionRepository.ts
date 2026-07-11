@@ -1,3 +1,6 @@
+import { summarizeCueDistribution } from '@/components/drill/sessionStats';
+import type { DrillSession } from '@/types';
+
 import { getDatabase } from './database';
 import {
   cueEventsToRows,
@@ -13,10 +16,32 @@ import type {
   StoredSessionSummary,
 } from './types';
 
-export async function saveSession(input: SaveSessionInput): Promise<void> {
+function toSaveInput(session: DrillSession): SaveSessionInput {
+  return {
+    id: session.id,
+    startedAtWallMs: session.startedAt,
+    endedAtWallMs: session.endedAt,
+    durationDrillMs: session.actualDurationSec * 1000,
+    mode: session.config.mode,
+    config: session.config,
+    cues: session.events,
+    distribution: summarizeCueDistribution(session.events),
+    completed: session.completed,
+    schemaVersion: session.schemaVersion,
+    verification: session.verification,
+  };
+}
+
+export async function saveSession(
+  input: SaveSessionInput | DrillSession,
+): Promise<void> {
+  const payload: SaveSessionInput =
+    'startedAt' in input && 'events' in input
+      ? toSaveInput(input)
+      : input;
   const db = await getDatabase();
-  const session = sessionToRow(input);
-  const cues = cueEventsToRows(input.id, input.cues);
+  const session = sessionToRow(payload);
+  const cues = cueEventsToRows(payload.id, payload.cues);
 
   await db.withTransactionAsync(async () => {
     await db.runAsync(
@@ -44,7 +69,7 @@ export async function saveSession(input: SaveSessionInput): Promise<void> {
       session.schema_version,
     );
 
-    await db.runAsync(`DELETE FROM cue_events WHERE session_id = ?`, input.id);
+    await db.runAsync(`DELETE FROM cue_events WHERE session_id = ?`, payload.id);
 
     for (const cue of cues) {
       await db.runAsync(

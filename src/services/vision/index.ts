@@ -4,10 +4,12 @@
  */
 
 import { pickBackend } from './backends/registry';
+import { DEFAULT_ONE_EURO_CONFIG } from './OneEuroFilter';
 import { useCalibrationStore } from './calibration';
 import { NullPoseVerifier, type PoseVerifier } from './PoseVerifier';
 import { RealPoseVerifier } from './RealPoseVerifier';
 import { canUseNativeVision } from './runtimeGuard';
+import { DEFAULT_SCAN_DETECT_CONFIG, type EnrichmentConfig } from './types';
 
 export type {
   VerificationOutcome,
@@ -106,6 +108,12 @@ export {
  */
 export const VISION_ENABLED = process.env.EXPO_PUBLIC_VISION === '1';
 
+export const REACTION_ONSET_ENABLED = process.env.EXPO_PUBLIC_ENRICH === '1';
+export const RUNTIME_ENRICHMENT: EnrichmentConfig = {
+  smoothing: process.env.EXPO_PUBLIC_SMOOTH === '1' ? DEFAULT_ONE_EURO_CONFIG : null,
+  reactionMode: REACTION_ONSET_ENABLED ? 'onset' : 'peak',
+};
+
 /** Synchronous factory — always the no-op verifier (Expo-Go-safe). */
 export function createPoseVerifier(): PoseVerifier {
   return new NullPoseVerifier();
@@ -120,5 +128,11 @@ export async function getPoseVerifierAsync(): Promise<PoseVerifier> {
   const backend = await pickBackend();
   if (backend.id === 'null') return new NullPoseVerifier();
   const calibration = useCalibrationStore.getState().profile;
-  return new RealPoseVerifier(backend, calibration);
+  return new RealPoseVerifier(
+    backend,
+    calibration,
+    DEFAULT_SCAN_DETECT_CONFIG,
+    undefined,
+    RUNTIME_ENRICHMENT,
+  );
 }
