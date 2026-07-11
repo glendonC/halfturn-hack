@@ -29,8 +29,10 @@ describe('cue catalog', () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
-  it('exposes spoken + HUD labels for every cue', () => {
+  it('exposes label, description, spoken, and HUD fields for every cue', () => {
     for (const cue of CUE_CATALOG) {
+      expect(cue.label.length).toBeGreaterThan(0);
+      expect(cue.description.length).toBeGreaterThan(0);
       expect(cue.spokenLabel.length).toBeGreaterThan(0);
       expect(cue.hudLabel.length).toBeGreaterThan(0);
       expect(cue.type).toBe(cue.id);

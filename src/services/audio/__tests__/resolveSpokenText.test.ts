@@ -4,6 +4,8 @@ import type { CueDefinition } from '@/types';
 const baseCue: CueDefinition = {
   id: 'scan',
   type: 'scan',
+  label: 'Scan',
+  description: 'Quick head swivel - take in the whole field or court.',
   spokenLabel: 'Scan',
   hudLabel: 'SCAN',
   category: 'scan',

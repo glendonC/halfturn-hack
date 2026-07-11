@@ -147,7 +147,7 @@ export default function SettingsScreen() {
                 style={[styles.chip, active && styles.chipActive]}
               >
                 <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                  {cue.hudLabel}
+                  {cue.label}
                 </Text>
               </Pressable>
             );

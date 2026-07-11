@@ -131,7 +131,7 @@ export function DrillSetup() {
           {CUE_CATALOG.map((cue) => (
             <Chip
               key={cue.id}
-              label={cue.hudLabel}
+              label={cue.label}
               active={config.enabledCues.includes(cue.id)}
               onPress={() => toggleCue(cue.id)}
             />

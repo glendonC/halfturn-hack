@@ -69,13 +69,18 @@ interface DrillClocks {
 ### Audio
 
 ```ts
-type CueId = 'check_left' | 'check_right' | 'man_on' | 'turn' | 'scan' | 'open_body' | string;
+type CueType = 'check_left' | 'check_right' | 'man_on' | 'turn' | 'scan' | 'open_body';
+type CueId = CueType; // core ids === CueType for now; color/number later
 
 interface CueDefinition {
   id: CueId;
-  label: string;       // "Check left"
-  ttsText: string;     // spoken string
-  side?: 'left' | 'right' | 'none';
+  type: CueType;         // same as id for core catalog
+  label: string;         // setup chip, e.g. "Check Left"
+  description: string;   // one-line athlete instruction
+  spokenLabel: string;   // TTS string
+  hudLabel: string;      // eyes-free HUD, e.g. "LEFT"
+  category: 'check' | 'scan' | 'action' | 'body';
+  side: 'left' | 'right' | 'none';
 }
 
 interface AudioCuePlayer {

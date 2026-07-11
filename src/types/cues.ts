@@ -27,6 +27,10 @@ export type CueCategory = 'check' | 'scan' | 'action' | 'body';
 export interface CueDefinition {
   id: CueId;
   type: CueType;
+  /** Title-case label for setup / settings chips */
+  label: string;
+  /** One-line athlete instruction (sport-agnostic; soccer only as example) */
+  description: string;
   /** Spoken TTS string */
   spokenLabel: string;
   /** Short eyes-free / HUD label */
