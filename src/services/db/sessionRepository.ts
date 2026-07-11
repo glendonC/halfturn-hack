@@ -47,8 +47,8 @@ export async function saveSession(input: SaveSessionInput): Promise<void> {
       await db.runAsync(
         `INSERT INTO cue_events (
           id, session_id, cue_id, cue_label, sequence_index,
-          onset_wall_ms, onset_drill_ms, verification_json
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+          onset_wall_ms, onset_drill_ms, planned_offset_ms, verification_json
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         cue.id,
         cue.session_id,
         cue.cue_id,
@@ -56,6 +56,7 @@ export async function saveSession(input: SaveSessionInput): Promise<void> {
         cue.sequence_index,
         cue.onset_wall_ms,
         cue.onset_drill_ms,
+        cue.planned_offset_ms,
         cue.verification_json,
       );
     }

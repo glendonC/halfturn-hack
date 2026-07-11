@@ -9,8 +9,9 @@ import {
   sessionToRow,
   shortDistributionLabel,
   cueEventsToRows,
+  rowsToDetail,
 } from '../mappers';
-import type { SaveSessionInput } from '../types';
+import type { CueEventRow, SaveSessionInput, SessionRow } from '../types';
 
 describe('distribution serializers', () => {
   it('round-trips distribution rows', () => {
@@ -74,6 +75,7 @@ describe('settings + session mappers', () => {
           phrase: 'Scan',
           onsetWallMs: 1100,
           onsetDrillMs: 100,
+          plannedOffsetMs: 100,
           verification: null,
         },
       ],
@@ -92,6 +94,7 @@ describe('settings + session mappers', () => {
       cue_label: 'Scan',
       sequence_index: 0,
       onset_drill_ms: 100,
+      planned_offset_ms: 100,
     });
   });
 
@@ -104,9 +107,45 @@ describe('settings + session mappers', () => {
         phrase: 'Red',
         onsetWallMs: 1,
         onsetDrillMs: 1,
+        plannedOffsetMs: 1,
         verification: null,
       },
     ]);
     expect(cues[0]?.cue_label).toBe('Red');
+  });
+
+  it('maps planned_offset_ms through detail rows', () => {
+    const session = sessionToRow(
+      {
+        id: 'session_1',
+        startedAtWallMs: 1000,
+        endedAtWallMs: 2000,
+        durationDrillMs: 900,
+        mode: 'audio',
+        config: createDefaultDrillConfig(),
+        distribution: [],
+        cues: [],
+      },
+      3000,
+    ) satisfies SessionRow;
+    const cueRows: CueEventRow[] = [
+      {
+        id: 'cue_1',
+        session_id: 'session_1',
+        cue_id: 'scan',
+        cue_label: 'Scan',
+        sequence_index: 0,
+        onset_wall_ms: 1100,
+        onset_drill_ms: 105,
+        planned_offset_ms: 100,
+        verification_json: null,
+      },
+    ];
+    const detail = rowsToDetail(session, cueRows);
+    expect(detail.cues[0]).toMatchObject({
+      label: 'Scan',
+      onsetDrillMs: 105,
+      plannedOffsetMs: 100,
+    });
   });
 });

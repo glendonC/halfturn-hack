@@ -138,6 +138,7 @@ export function cueEventsToRows(
     sequence_index: cue.index,
     onset_wall_ms: cue.onsetWallMs,
     onset_drill_ms: cue.onsetDrillMs,
+    planned_offset_ms: cue.plannedOffsetMs,
     verification_json: cue.verification
       ? JSON.stringify(cue.verification)
       : null,
@@ -172,6 +173,7 @@ export function rowsToDetail(
         index: c.sequence_index,
         onsetWallMs: c.onset_wall_ms,
         onsetDrillMs: c.onset_drill_ms,
+        plannedOffsetMs: c.planned_offset_ms,
       })),
   };
 }

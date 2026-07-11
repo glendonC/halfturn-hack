@@ -75,6 +75,7 @@ describe('scheduler fire + repeat avoidance', () => {
 
     expect(fired.event.onsetDrillMs).toBe(1000);
     expect(fired.event.onsetWallMs).toBe(50_000);
+    expect(fired.event.plannedOffsetMs).toBe(1000);
     expect(fired.event.phrase.length).toBeGreaterThan(0);
     expect(fired.event.verification).toBeNull();
     expect(fired.snapshot.cuesFired).toBe(1);

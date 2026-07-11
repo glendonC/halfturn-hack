@@ -30,6 +30,8 @@ export interface CueEvent {
   phrase: string;
   onsetWallMs: WallMs;
   onsetDrillMs: DrillMs;
+  /** Scheduler's planned drill-clock offset for this cue (may differ from onset if late). */
+  plannedOffsetMs: DrillMs;
   /** null in audio-only or when verifier cannot judge */
   verification?: VerificationResult | null;
 }

@@ -92,6 +92,8 @@ export function fireCueAt(args: {
     phrase,
     onsetWallMs,
     onsetDrillMs,
+    // Intent at fire time: when the scheduler meant this cue to land.
+    plannedOffsetMs: snapshot.nextCueAtDrillMs,
     verification: null,
   };
 

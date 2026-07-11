@@ -26,6 +26,7 @@ function event(cueId: CueEvent['cueId']): CueEvent {
     phrase: cueId,
     onsetWallMs: 0,
     onsetDrillMs: 0,
+    plannedOffsetMs: 0,
     verification: null,
   };
 }

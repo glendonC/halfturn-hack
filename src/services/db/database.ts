@@ -5,7 +5,14 @@ const DB_NAME = 'halfturn.db';
 
 let dbPromise: Promise<SQLiteDatabase> | null = null;
 
-const MIGRATIONS = `
+/**
+ * Forward-only migration ladder. Index i upgrades to user_version = i + 1.
+ * Never edit a shipped migration — append a new one.
+ */
+const MIGRATIONS: Array<(db: SQLiteDatabase) => Promise<void>> = [
+  // ---- v1: initial schema ----
+  async (db) => {
+    await db.execAsync(`
 PRAGMA foreign_keys = ON;
 
 CREATE TABLE IF NOT EXISTS sessions (
@@ -47,13 +54,36 @@ CREATE TABLE IF NOT EXISTS settings_kv (
   key TEXT PRIMARY KEY NOT NULL,
   value_json TEXT NOT NULL
 );
-`;
+`);
+  },
+  // ---- v2: planned_offset_ms on cue_events ----
+  async (db) => {
+    await db.execAsync(`
+ALTER TABLE cue_events ADD COLUMN planned_offset_ms INTEGER NOT NULL DEFAULT 0;
+`);
+  },
+];
+
+async function migrate(db: SQLiteDatabase): Promise<void> {
+  await db.execAsync('PRAGMA foreign_keys = ON;');
+  const row = await db.getFirstAsync<{ user_version: number }>(
+    'PRAGMA user_version',
+  );
+  let version = row?.user_version ?? 0;
+  for (let i = version; i < MIGRATIONS.length; i += 1) {
+    await db.withTransactionAsync(async () => {
+      await MIGRATIONS[i](db);
+    });
+    version = i + 1;
+    await db.execAsync(`PRAGMA user_version = ${version}`);
+  }
+}
 
 export async function getDatabase(): Promise<SQLiteDatabase> {
   if (!dbPromise) {
     dbPromise = (async () => {
       const db = await openDatabaseAsync(DB_NAME);
-      await db.execAsync(MIGRATIONS);
+      await migrate(db);
       return db;
     })();
   }

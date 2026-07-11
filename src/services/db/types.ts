@@ -38,6 +38,7 @@ export interface CueEventRow {
   sequence_index: number;
   onset_wall_ms: number;
   onset_drill_ms: number;
+  planned_offset_ms: number;
   verification_json: string | null;
 }
 
@@ -56,10 +57,12 @@ export interface StoredSessionDetail extends StoredSessionSummary {
   cues: Array<{
     id: string;
     cueId: CueType;
+    /** Resolved spoken phrase (cue_label column). */
     label: string;
     index: number;
     onsetWallMs: number;
     onsetDrillMs: number;
+    plannedOffsetMs: number;
   }>;
 }
 
