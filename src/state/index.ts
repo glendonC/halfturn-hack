@@ -7,4 +7,9 @@ export {
   useDrillStore,
   type DrillStatus,
   type DrillStoreState,
+  type PersistStatus,
 } from './drillStore';
+export {
+  useSettingsStore,
+  type SettingsStoreState,
+} from './settingsStore';

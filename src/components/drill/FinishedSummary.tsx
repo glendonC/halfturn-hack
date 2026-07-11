@@ -12,9 +12,20 @@ export function FinishedSummary() {
   const durationDrillMs = useDrillStore((s) => s.durationDrillMs);
   const cuesFired = useDrillStore((s) => s.cuesFired);
   const config = useDrillStore((s) => s.config);
+  const persistStatus = useDrillStore((s) => s.persistStatus);
+  const persistError = useDrillStore((s) => s.persistError);
   const reset = useDrillStore((s) => s.reset);
 
   const distribution = summarizeCueDistribution(cueEvents);
+
+  const saveLabel =
+    persistStatus === 'saving'
+      ? 'Saving to this device…'
+      : persistStatus === 'saved'
+        ? 'Saved on this device — see History.'
+        : persistStatus === 'error'
+          ? `Save issue: ${persistError ?? 'unknown'}`
+          : 'Session finished.';
 
   return (
     <ScrollView
@@ -26,7 +37,7 @@ export function FinishedSummary() {
     >
       <Text style={styles.brand}>HalfTurn</Text>
       <Text style={styles.title}>Session done</Text>
-      <Text style={styles.subtitle}>On-device summary — not saved yet.</Text>
+      <Text style={styles.subtitle}>{saveLabel}</Text>
 
       <View style={styles.card}>
         <Stat label="Duration" value={formatDurationMs(durationDrillMs)} />

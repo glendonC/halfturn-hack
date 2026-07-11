@@ -11,7 +11,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CUE_CATALOG, DURATION_PRESETS_MS } from '@/constants';
-import { useDrillStore } from '@/state';
+import { useDrillStore, useSettingsStore } from '@/state';
 import { colors, spacing, typography } from '@/theme';
 import type { CueType, DrillMode } from '@/types';
 
@@ -29,6 +29,7 @@ export function DrillSetup() {
   const setConfig = useDrillStore((s) => s.setConfig);
   const startCountdown = useDrillStore((s) => s.startCountdown);
   const testSound = useDrillStore((s) => s.testSound);
+  const patchDrillDefaults = useSettingsStore((s) => s.patchDrillDefaults);
 
   const durationPreset = useMemo(() => {
     const match = (
@@ -191,7 +192,9 @@ export function DrillSetup() {
 
       <Pressable
         style={({ pressed }) => [styles.primaryBtn, pressed && styles.pressed]}
-        onPress={startCountdown}
+        onPress={() => {
+          void patchDrillDefaults(config).finally(() => startCountdown());
+        }}
       >
         <Text style={styles.primaryBtnText}>Start drill</Text>
       </Pressable>

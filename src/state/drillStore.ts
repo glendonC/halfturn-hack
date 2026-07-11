@@ -2,6 +2,7 @@ import * as Haptics from 'expo-haptics';
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake';
 import { create } from 'zustand';
 
+import { summarizeCueDistribution } from '@/components/drill/sessionStats';
 import { createDefaultDrillConfig, getCueDefinition } from '@/constants';
 import {
   createInitialSchedulerSnapshot,
@@ -11,6 +12,10 @@ import {
   type SchedulerSnapshot,
 } from '@/services/drill';
 import { TtsCueEngine, type AudioCueEngine } from '@/services/audio';
+import {
+  saveSession,
+  type AppSettings,
+} from '@/services/db';
 import type {
   CueDefinition,
   CueEvent,
@@ -29,6 +34,8 @@ export type DrillStatus =
   | 'paused'
   | 'finished';
 
+export type PersistStatus = 'idle' | 'saving' | 'saved' | 'error';
+
 const KEEP_AWAKE_TAG = 'halfturn-drill';
 
 let audioEngine: AudioCueEngine = new TtsCueEngine();
@@ -37,6 +44,7 @@ let rng: () => number = Math.random;
 let scheduler: SchedulerSnapshot | null = null;
 let countdownEndsAtWallMs: WallMs | null = null;
 let lastSpokenCountdownSec: number | null = null;
+let keepAwakeDefault = true;
 
 /** Test seam — swap TTS / clocks without touching UI. */
 export function __setDrillAudioEngineForTests(engine: AudioCueEngine): void {
@@ -60,8 +68,11 @@ export interface DrillStoreState {
   startedAtWallMs: WallMs | null;
   endedAtWallMs: WallMs | null;
   durationDrillMs: DrillMs;
+  persistStatus: PersistStatus;
+  persistError: string | null;
 
   setConfig: (patch: Partial<DrillConfig>) => void;
+  hydrateFromSettings: (settings: AppSettings) => void;
   enterReady: () => void;
   startCountdown: () => void;
   beginRunning: () => void;
@@ -87,12 +98,15 @@ function baseState(config: DrillConfig = createDefaultDrillConfig()) {
     startedAtWallMs: null as WallMs | null,
     endedAtWallMs: null as WallMs | null,
     durationDrillMs: 0 as DrillMs,
+    persistStatus: 'idle' as PersistStatus,
+    persistError: null as string | null,
   };
 }
 
 async function setKeepAwake(active: boolean): Promise<void> {
   try {
     if (active) {
+      if (!keepAwakeDefault) return;
       await activateKeepAwakeAsync(KEEP_AWAKE_TAG);
     } else {
       deactivateKeepAwake(KEEP_AWAKE_TAG);
@@ -112,7 +126,11 @@ async function fireHaptic(enabled: boolean): Promise<void> {
 }
 
 function finishSession(
-  set: (partial: Partial<DrillStoreState>) => void,
+  set: (
+    partial:
+      | Partial<DrillStoreState>
+      | ((s: DrillStoreState) => Partial<DrillStoreState>),
+  ) => void,
   get: () => DrillStoreState,
   wallNow: WallMs,
 ): void {
@@ -123,13 +141,45 @@ function finishSession(
   scheduler = null;
   countdownEndsAtWallMs = null;
   lastSpokenCountdownSec = null;
+
   set({
     status: 'finished',
     timeRemainingMs: 0,
     durationDrillMs,
     endedAtWallMs: wallNow,
+    persistStatus: 'saving',
+    persistError: null,
   });
-  void get;
+
+  const snapshot = get();
+  void persistFinishedSession(snapshot)
+    .then(() => {
+      if (get().sessionId === snapshot.sessionId) {
+        set({ persistStatus: 'saved', persistError: null });
+      }
+    })
+    .catch((err: unknown) => {
+      if (get().sessionId === snapshot.sessionId) {
+        set({
+          persistStatus: 'error',
+          persistError: err instanceof Error ? err.message : 'Save failed',
+        });
+      }
+    });
+}
+
+async function persistFinishedSession(state: DrillStoreState): Promise<void> {
+  if (!state.sessionId || state.startedAtWallMs == null) return;
+  await saveSession({
+    id: state.sessionId,
+    startedAtWallMs: state.startedAtWallMs,
+    endedAtWallMs: state.endedAtWallMs ?? Date.now(),
+    durationDrillMs: state.durationDrillMs,
+    mode: state.config.mode,
+    config: state.config,
+    cues: state.cueEvents,
+    distribution: summarizeCueDistribution(state.cueEvents),
+  });
 }
 
 export const useDrillStore = create<DrillStoreState>((set, get) => ({
@@ -155,6 +205,19 @@ export const useDrillStore = create<DrillStoreState>((set, get) => ({
       config: next,
       timeRemainingMs: next.durationMs,
       countdownRemainingSec: next.countdownSec,
+    });
+  },
+
+  hydrateFromSettings: (settings) => {
+    keepAwakeDefault = settings.keepAwakeDefault;
+    audioEngine.setOptions(settings.audio);
+    const { status } = get();
+    if (status === 'countdown' || status === 'running' || status === 'paused') {
+      return;
+    }
+    set({
+      ...baseState(settings.drill),
+      status: 'idle',
     });
   },
 
