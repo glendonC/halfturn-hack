@@ -18,7 +18,8 @@ import {
 describe('CueScheduler', () => {
   it('nextIntervalMs stays within configured bounds', () => {
     const config = createDefaultDrillConfig({
-      intervalMs: { min: 2500, max: 5000 },
+      intervalMinSec: 2.5,
+      intervalMaxSec: 5,
     });
     const random = createRng(42);
     for (let i = 0; i < 50; i++) {
@@ -30,7 +31,8 @@ describe('CueScheduler', () => {
 
   it('nextIntervalMs respects floor', () => {
     const config = createDefaultDrillConfig({
-      intervalMs: { min: 1000, max: 1000 },
+      intervalMinSec: 1,
+      intervalMaxSec: 1,
     });
     expect(nextIntervalMs(() => 0, config, 2500)).toBe(2500);
   });
@@ -38,17 +40,17 @@ describe('CueScheduler', () => {
   it('pickCue avoids immediate repeat when alternatives exist', () => {
     const config = createDefaultDrillConfig({
       enabledCues: ['scan', 'turn'],
-      avoidLastN: 1,
+      avoidImmediateRepeat: true,
     });
     const first = pickCue(() => 0, config, initialSchedulerState());
     const second = pickCue(() => 0, config, first.nextState);
     expect(second.cue.cueId).not.toBe(first.cue.cueId);
   });
 
-  it('buildCandidates zeroes the last cue when avoidLastN > 0', () => {
+  it('buildCandidates zeroes the last cue when avoidImmediateRepeat is on', () => {
     const config = createDefaultDrillConfig({
       enabledCues: ['scan', 'turn'],
-      avoidLastN: 1,
+      avoidImmediateRepeat: true,
     });
     const c = buildCandidates(config, {
       lastCueId: 'scan',
@@ -88,67 +90,66 @@ describe('scheduler fire + repeat avoidance', () => {
   it('schedules the next cue after an interval and records dual clocks', () => {
     const config = createDefaultDrillConfig({
       enabledCues: ['scan', 'turn'],
-      intervalMs: { min: 1000, max: 1000 },
-      seed: 7,
+      intervalMinSec: 1,
+      intervalMaxSec: 1,
     });
     const random = createRng(7);
     let snap = createInitialSchedulerSnapshot(config, random);
     expect(snap.nextCueAtDrillMs).toBe(1000);
 
-    expect(shouldFireCue(snap, 999, config.durationMs)).toBe(false);
-    expect(shouldFireCue(snap, 1000, config.durationMs)).toBe(true);
+    const durationMs = config.durationSec * 1000;
+    expect(shouldFireCue(snap, 999, durationMs)).toBe(false);
+    expect(shouldFireCue(snap, 1000, durationMs)).toBe(true);
 
     const fired = fireCueAt({
       config,
       snapshot: snap,
-      onsetDrillMs: 1000,
-      onsetWallMs: 50_000,
+      firedAtMonoMs: 1000,
+      firedAtEpochMs: 50_000,
       random,
-      id: 'cue_1',
     });
 
-    expect(fired.event.onsetDrillMs).toBe(1000);
-    expect(fired.event.onsetWallMs).toBe(50_000);
+    expect(fired.event.firedAtMonoMs).toBe(1000);
+    expect(fired.event.firedAtEpochMs).toBe(50_000);
     expect(fired.event.plannedOffsetMs).toBe(1000);
     expect(fired.event.phrase.length).toBeGreaterThan(0);
-    expect(fired.event.verification).toBeNull();
     expect(fired.snapshot.cuesFired).toBe(1);
     expect(fired.snapshot.nextCueAtDrillMs).toBe(2000);
-    expect(['scan', 'turn']).toContain(fired.cue.type);
+    expect(['scan', 'turn']).toContain(fired.cue.id);
 
     snap = fired.snapshot;
     const second = fireCueAt({
       config,
       snapshot: snap,
-      onsetDrillMs: 2000,
-      onsetWallMs: 51_000,
+      firedAtMonoMs: 2000,
+      firedAtEpochMs: 51_000,
       random: () => 0.1,
-      id: 'cue_2',
     });
-    expect(second.cue.type).not.toBe(fired.cue.type);
+    expect(second.cue.id).not.toBe(fired.cue.id);
   });
 
   it('does not fire after duration', () => {
     const config = createDefaultDrillConfig({
-      durationMs: 5_000,
-      intervalMs: { min: 1000, max: 1000 },
+      durationSec: 5,
+      intervalMinSec: 1,
+      intervalMaxSec: 1,
     });
     const snap = createInitialSchedulerSnapshot(config, () => 0);
-    expect(shouldFireCue(snap, 5_000, config.durationMs)).toBe(false);
+    expect(shouldFireCue(snap, 5_000, config.durationSec * 1000)).toBe(false);
   });
 
   it('resolves a color phrase when variable cues are enabled', () => {
     const config = createDefaultDrillConfig({
       enabledCues: ['color'],
-      intervalMs: { min: 1000, max: 1000 },
+      intervalMinSec: 1,
+      intervalMaxSec: 1,
     });
     const fired = fireCueAt({
       config,
       snapshot: createInitialSchedulerSnapshot(config, () => 0),
-      onsetDrillMs: 1000,
-      onsetWallMs: 1,
+      firedAtMonoMs: 1000,
+      firedAtEpochMs: 1,
       random: createRng(9),
-      id: 'cue_color',
     });
     expect(fired.cue.id).toBe('color');
     expect(fired.phrase).toBe(fired.event.phrase);
@@ -158,42 +159,41 @@ describe('scheduler fire + repeat avoidance', () => {
   it('floors the next gap using intervalFloorMs from the spoken phrase', () => {
     const config = createDefaultDrillConfig({
       enabledCues: ['scan'],
-      intervalMs: { min: 500, max: 500 },
+      intervalMinSec: 0.5,
+      intervalMaxSec: 0.5,
     });
     const fired = fireCueAt({
       config,
       snapshot: createInitialSchedulerSnapshot(config, () => 0),
-      onsetDrillMs: 1000,
-      onsetWallMs: 1,
+      firedAtMonoMs: 1000,
+      firedAtEpochMs: 1,
       random: () => 0,
-      id: 'cue_floor',
       intervalFloorMs: (phrase) => (phrase === 'Scan' ? 2000 : 0),
     });
     expect(fired.snapshot.nextCueAtDrillMs).toBe(3000);
   });
 
-  it('honors avoidLastN from DrillConfig', () => {
+  it('honors avoidImmediateRepeat from DrillConfig', () => {
     const config = createDefaultDrillConfig({
       enabledCues: ['scan', 'turn'],
-      intervalMs: { min: 1000, max: 1000 },
-      avoidLastN: 1,
+      intervalMinSec: 1,
+      intervalMaxSec: 1,
+      avoidImmediateRepeat: true,
     });
     const first = fireCueAt({
       config,
       snapshot: createInitialSchedulerSnapshot(config, () => 0),
-      onsetDrillMs: 1000,
-      onsetWallMs: 1,
+      firedAtMonoMs: 1000,
+      firedAtEpochMs: 1,
       random: () => 0,
-      id: 'a',
     });
     const second = fireCueAt({
       config,
       snapshot: first.snapshot,
-      onsetDrillMs: 2000,
-      onsetWallMs: 2,
+      firedAtMonoMs: 2000,
+      firedAtEpochMs: 2,
       random: () => 0,
-      id: 'b',
     });
-    expect(second.cue.type).not.toBe(first.cue.type);
+    expect(second.cue.id).not.toBe(first.cue.id);
   });
 });

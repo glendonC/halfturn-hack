@@ -1,9 +1,15 @@
 /**
- * scanDetect (field names adapted to hack CueEvent:
- * onsetDrillMs / index instead of firedAtMonoMs / seq).
+ * Pure scan-detection + metrics (camera-build design, testable without a camera).
+ *
+ * Mirrors the CueScheduler philosophy: the *decision* logic ("what counts as a
+ * scan", "what's the reaction time") is a pure function over a sample stream and
+ * the cue timeline, so it can be unit-tested against synthetic yaw traces today
+ * with ZERO camera/native dependency. The camera build only has to supply real
+ * `PoseSample`s from the camera; this math does not change.
  */
 
-import type { CueEvent, ScanVerification } from '@/types';
+import type { CueEvent } from '@/types';
+import type { ScanVerification } from '@/types';
 import {
   DEFAULT_SCAN_DETECT_CONFIG,
   type PoseSample,
@@ -209,7 +215,7 @@ export interface ScanVerificationOptions {
 /**
  * Reduce detected scans + the cue timeline into the verification metrics the
  * History/Summary screens display. All temporal math is on the shared
- * drill-clock axis (tMonoMs vs CueEvent.onsetDrillMs).
+ * drill-clock axis (tMonoMs vs CueEvent.firedAtMonoMs).
  *
  * `reactionMode` (default 'peak') keeps today's peak-based `avgReactionMs` at
  * metricsVersion 1. In 'onset' mode `avgReactionMs` is measured cue→ONSET (removing
@@ -234,7 +240,7 @@ export function computeScanVerification(
   let scannedBefore = 0;
   for (const cue of actionCues) {
     const had = scans.some(
-      (s) => s.tMonoMs <= cue.onsetDrillMs && cue.onsetDrillMs - s.tMonoMs <= cfg.scanBeforeWindowMs,
+      (s) => s.tMonoMs <= cue.firedAtMonoMs && cue.firedAtMonoMs - s.tMonoMs <= cfg.scanBeforeWindowMs,
     );
     if (had) scannedBefore += 1;
   }
@@ -262,9 +268,9 @@ export function computeScanVerification(
     for (const cue of cues) {
       const next = scans.find(
         (s) =>
-          s.tMonoMs >= cue.onsetDrillMs && s.tMonoMs - cue.onsetDrillMs <= cfg.scanBeforeWindowMs,
+          s.tMonoMs >= cue.firedAtMonoMs && s.tMonoMs - cue.firedAtMonoMs <= cfg.scanBeforeWindowMs,
       );
-      if (next) reactions.push(next.tMonoMs - cue.onsetDrillMs);
+      if (next) reactions.push(next.tMonoMs - cue.firedAtMonoMs);
     }
     base.avgReactionMs =
       reactions.length > 0
@@ -284,12 +290,12 @@ export function computeScanVerification(
   // greedily accept the closest pairs, consuming each cue AND each turn once. Independent
   // per-cue nearest matching would let closely-spaced cues both grab one physical turn
   // (double-counting a reaction as reaction+anticipation) or drop a real turn.
-  const candidates: { cueIndex: number; scanIdx: number; rt: number }[] = [];
+  const candidates: { cueSeq: number; scanIdx: number; rt: number }[] = [];
   cues.forEach((cue) => {
     scans.forEach((s, scanIdx) => {
-      const rt = reactionAnchor(s) - cue.onsetDrillMs;
+      const rt = reactionAnchor(s) - cue.firedAtMonoMs;
       if (rt >= -antWindow && rt <= cfg.scanBeforeWindowMs) {
-        candidates.push({ cueIndex: cue.index, scanIdx, rt });
+        candidates.push({ cueSeq: cue.seq, scanIdx, rt });
       }
     });
   });
@@ -301,8 +307,8 @@ export function computeScanVerification(
   let anticipated = 0;
   const reactions: number[] = [];
   for (const c of candidates) {
-    if (usedCues.has(c.cueIndex) || usedScans.has(c.scanIdx)) continue;
-    usedCues.add(c.cueIndex);
+    if (usedCues.has(c.cueSeq) || usedScans.has(c.scanIdx)) continue;
+    usedCues.add(c.cueSeq);
     usedScans.add(c.scanIdx);
     paired += 1;
     // Turned before/with the cue or below the sub-human RT floor → anticipation (still a

@@ -16,7 +16,7 @@
  *
  * Clock alignment (the load-bearing detail the protocol explains):
  *  - `ValidationLabels.groundTruthTurns[].tMonoMs` is on the DRILL clock (same axis as
- *    `CueEvent.onsetDrillMs`). The coder recovers it from the on-screen cue-flash frames
+ *    `CueEvent.firedAtMonoMs`). The coder recovers it from the on-screen cue-flash frames
  *    (`CueFlashProbe`, EXPO_PUBLIC_CUE_FLASH) the reference camera sees: each flash frame is
  *    a known `firedAtMonoMs`, so any video frame maps to drill-ms by counting 240-fps frames
  *    from the nearest flash. Scan-count + direction matching happen on this axis.
@@ -53,8 +53,8 @@ export interface LabeledTurn {
 
 /** Per-cue reaction ground truth: the flash->onset frame delta off the reference video. */
 export interface LabeledReaction {
-  /** The cue this reaction answers (`CueEvent.index` in the capture bundle). */
-  cueIndex: number;
+  /** The cue this reaction answers (`CueEvent.seq` in the capture bundle). */
+  cueSeq: number;
   /**
    * Ground-truth reaction ms = (onsetFrame - flashFrame) / fps * 1000, measured directly on
    * the reference video. Cue-relative, so it needs no drill-clock alignment. A pre-cue /

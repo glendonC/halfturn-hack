@@ -12,14 +12,13 @@ function summary(
     completed: true,
     schemaVersion: 1,
     config: {
-      durationMs: 60_000,
-      intervalMs: { min: 2000, max: 4000 },
+      durationSec: 60,
+      intervalMinSec: 2,
+      intervalMaxSec: 4,
       enabledCues: ['scan'],
       leftRightBalance: 0.5,
-      countdownSec: 3,
-      spokenCountdown: true,
-      haptics: true,
-      avoidLastN: 1,
+      countdownEnabled: true,
+      avoidImmediateRepeat: true,
       mode: partial.mode,
     },
     ...partial,
@@ -50,7 +49,7 @@ describe('rollupSessions', () => {
       }),
       summary({
         id: 'b',
-        mode: 'turn_react',
+        mode: 'turn-react',
         durationDrillMs: 30_000,
         cueCount: 5,
         distribution: [

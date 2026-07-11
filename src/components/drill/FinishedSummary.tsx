@@ -131,7 +131,7 @@ export function FinishedSummary({
           </GlassCard>
         ) : (
           <Text style={styles.phaseNote}>
-            {config.mode === 'turn_react'
+            {config.mode === 'turn-react'
               ? 'No scan data this run — camera verification needs the custom client.'
               : 'Turn & React verifies shoulder checks, scan count, and reaction time.'}
           </Text>
@@ -140,14 +140,14 @@ export function FinishedSummary({
         {cueEvents.length > 0 ? (
           <GlassCard title="Cue timeline">
             {cueEvents.map((cue) => (
-              <View key={cue.id} style={styles.timelineRow}>
-                <Text style={styles.timelineIndex}>#{cue.index + 1}</Text>
+              <View key={cue.seq} style={styles.timelineRow}>
+                <Text style={styles.timelineIndex}>#{cue.seq + 1}</Text>
                 <View style={styles.timelineBody}>
                   <Text style={styles.timelinePhrase}>{cue.phrase}</Text>
                   <Text style={styles.timelineMeta}>{cue.cueId}</Text>
                 </View>
                 <Text style={styles.timelineTime}>
-                  {(cue.onsetDrillMs / 1000).toFixed(1)}s
+                  {(cue.firedAtMonoMs / 1000).toFixed(1)}s
                 </Text>
               </View>
             ))}

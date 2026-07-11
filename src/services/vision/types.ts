@@ -1,13 +1,13 @@
 /**
  * Pure vision detection types. Judgment lives here; native code only supplies samples.
- * PoseSample.tMonoMs shares the drill-clock axis with CueEvent.onsetDrillMs.
+ * PoseSample.tMonoMs shares the drill-clock axis with CueEvent.firedAtMonoMs.
  */
 
 import type { OneEuroConfig } from './OneEuroFilter';
 
 /** One pose observation, normalized onto the drill-clock axis. */
 export interface PoseSample {
-  /** Drill-clock ms (same axis as CueEvent.onsetDrillMs). */
+  /** Drill-clock ms (same axis as CueEvent.firedAtMonoMs). */
   tMonoMs: number;
   /**
    * Player-frame torso yaw, degrees.

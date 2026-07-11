@@ -26,13 +26,13 @@ export default function FramingScreen() {
   const cal = useFramingCalibration();
 
   useEffect(() => {
-    if (mode !== 'turn_react') {
+    if (mode !== 'turn-react') {
       enterReady();
       router.replace('/drill/active');
     }
   }, [mode, enterReady, router]);
 
-  if (mode !== 'turn_react') return null;
+  if (mode !== 'turn-react') return null;
 
   const continueToDrill = () => {
     enterReady();

@@ -40,7 +40,7 @@ export function rollupSessions(
   for (const s of sessions) {
     totalDurationMs += s.durationDrillMs;
     totalCues += s.cueCount;
-    if (s.mode === 'turn_react') turnReactSessions += 1;
+    if (s.mode === 'turn-react') turnReactSessions += 1;
     else audioSessions += 1;
 
     for (const row of s.distribution) {
@@ -72,5 +72,5 @@ export function rollupSessions(
 }
 
 export function modeLabel(mode: DrillMode): string {
-  return mode === 'turn_react' ? 'Turn & React' : 'Audio';
+  return mode === 'turn-react' ? 'Turn & React' : 'Audio';
 }

@@ -17,7 +17,7 @@ export default function ActiveDrillScreen() {
   const { status } = engine;
   const config = useDrillStore((s) => s.config);
   const mode = useDrillStore((s) => s.config.mode);
-  const durationMs = useDrillStore((s) => s.config.durationMs);
+  const durationMs = useDrillStore((s) => s.config.durationSec * 1000);
   const cueCount = useDrillStore((s) => s.cuesFired);
   const brightnessBoost = useSettingsStore((s) => s.settings.brightnessBoost);
   const turnReactLandscape = useSettingsStore((s) => s.settings.turnReactLandscape);
@@ -28,7 +28,7 @@ export default function ActiveDrillScreen() {
   const isRunning = status === 'running' || status === 'paused';
   useDrillBrightness(brightnessBoost && isRunning);
   useTurnReactOrientation(
-    turnReactLandscape && mode === 'turn_react' && isRunning,
+    turnReactLandscape && mode === 'turn-react' && isRunning,
   );
 
   // Start each visit from a clean ready state when arriving idle/finished.

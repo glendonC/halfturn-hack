@@ -42,23 +42,23 @@ export const SYNTHETIC_CONFIG: ScanDetectConfig = {
  */
 export const SYNTHETIC_CUES: CueEvent[] = [
   {
-    id: 'cue_0',
+    seq: 0,
     cueId: 'turn',
-    index: 0,
+    category: 'action',
     phrase: 'Turn',
-    onsetWallMs: 0,
-    onsetDrillMs: 350,
+    side: 'none',
+    firedAtEpochMs: 0,
+    firedAtMonoMs: 350,
     plannedOffsetMs: 350,
-    verification: null,
   },
   {
-    id: 'cue_1',
+    seq: 1,
     cueId: 'turn',
-    index: 1,
+    category: 'action',
     phrase: 'Turn',
-    onsetWallMs: 0,
-    onsetDrillMs: 1400,
+    side: 'none',
+    firedAtEpochMs: 0,
+    firedAtMonoMs: 1400,
     plannedOffsetMs: 1400,
-    verification: null,
   },
 ];

@@ -43,14 +43,15 @@ const turn = (tMonoMs: number, direction: ScanDirection, extra: Partial<LabeledT
   direction,
   ...extra,
 });
-const cue = (index: number, onsetDrillMs: number): CueEvent => ({
-  id: `cue-${index}`,
+const cue = (seq: number, firedAtMonoMs: number): CueEvent => ({
+  seq,
   cueId: 'turn',
-  index,
+  category: 'action',
   phrase: 'Turn',
-  onsetWallMs: 0,
-  onsetDrillMs,
-  plannedOffsetMs: onsetDrillMs,
+  side: 'none',
+  firedAtMonoMs,
+  firedAtEpochMs: 0,
+  plannedOffsetMs: firedAtMonoMs,
 });
 
 describe('scoreScanCounts', () => {
@@ -157,8 +158,8 @@ describe('scoreReaction', () => {
   it('measures onset MAE/bias against the ground truth after the L_pipe offset', () => {
     // Ground truth 180 / 280; predicted (raw) 200 / 300; L_pipe 20 ⇒ predicted 180 / 280 ⇒ error 0.
     const reactions = [
-      { cueIndex: 0, reactionMs: 180 },
-      { cueIndex: 1, reactionMs: 280 },
+      { cueSeq: 0, reactionMs: 180 },
+      { cueSeq: 1, reactionMs: 280 },
     ];
     const r = scoreReaction(scans, cues, reactions, { anchor: 'onset', pipelineLatencyMs: 20 });
     expect(r.matched).toBe(2);
@@ -169,8 +170,8 @@ describe('scoreReaction', () => {
 
   it('shows a positive bias when the app is stamped late (no L_pipe correction)', () => {
     const reactions = [
-      { cueIndex: 0, reactionMs: 180 },
-      { cueIndex: 1, reactionMs: 280 },
+      { cueSeq: 0, reactionMs: 180 },
+      { cueSeq: 1, reactionMs: 280 },
     ];
     const r = scoreReaction(scans, cues, reactions, { anchor: 'onset' }); // L_pipe = 0
     // Predicted 200/300 vs truth 180/280 ⇒ errors +20/+20 ⇒ bias +20, MAE 20.
@@ -180,8 +181,8 @@ describe('scoreReaction', () => {
 
   it('peak anchor is inflated vs the onset ground truth (why onset exists, §4)', () => {
     const reactions = [
-      { cueIndex: 0, reactionMs: 180 },
-      { cueIndex: 1, reactionMs: 280 },
+      { cueSeq: 0, reactionMs: 180 },
+      { cueSeq: 1, reactionMs: 280 },
     ];
     // Peak anchors 1400/2500 ⇒ raw 400/500; vs onset truth 180/280 ⇒ bias +220.
     const peak = scoreReaction(scans, cues, reactions, { anchor: 'peak' });
@@ -192,7 +193,7 @@ describe('scoreReaction', () => {
 
   it('reports a labeled reaction whose cue drew no in-window scan as unmatched', () => {
     const lonely = [cue(9, 100_000)];
-    const r = scoreReaction(scans, lonely, [{ cueIndex: 9, reactionMs: 200 }], { anchor: 'onset' });
+    const r = scoreReaction(scans, lonely, [{ cueSeq: 9, reactionMs: 200 }], { anchor: 'onset' });
     expect(r.matched).toBe(0);
     expect(r.unmatched).toBe(1);
     expect(r.maeMs).toBeNull();
@@ -238,8 +239,8 @@ describe('buildReport (end-to-end, frozen detector)', () => {
       turn(858, 'left', { distractor: true }), // the ball-watch bob (idx 13)
     ],
     reactions: [
-      { cueIndex: 0, reactionMs: scans[0].onsetMonoMs! - cues[0].onsetDrillMs - L_PIPE },
-      { cueIndex: 1, reactionMs: scans[1].onsetMonoMs! - cues[1].onsetDrillMs - L_PIPE },
+      { cueSeq: 0, reactionMs: scans[0].onsetMonoMs! - cues[0].firedAtMonoMs - L_PIPE },
+      { cueSeq: 1, reactionMs: scans[1].onsetMonoMs! - cues[1].firedAtMonoMs - L_PIPE },
     ],
     pipelineLatencyMs: L_PIPE,
   };

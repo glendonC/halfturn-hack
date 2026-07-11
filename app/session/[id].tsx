@@ -95,7 +95,7 @@ export default function SessionDetailScreen() {
             <Text style={styles.meta}>Empty timeline</Text>
           ) : (
             session.cues.map((cue) => (
-              <View key={cue.id} style={styles.timelineRow}>
+              <View key={cue.index} style={styles.timelineRow}>
                 <Text style={styles.timelineIndex}>#{cue.index + 1}</Text>
                 <View style={styles.timelineBody}>
                   <Text style={styles.timelineLabel}>{cue.label}</Text>

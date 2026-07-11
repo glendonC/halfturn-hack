@@ -2,8 +2,8 @@ import { useEffect, useRef } from 'react';
 import { Animated, StyleSheet, Text, View } from 'react-native';
 
 import { CUES } from '@/constants/cues';
-import { colors, typography } from '@/theme';
 import type { CueEvent } from '@/types';
+import { colors, typography } from '@/theme';
 
 interface CueDisplayProps {
   currentCue: CueEvent | null;
@@ -18,7 +18,7 @@ interface CueDisplayProps {
 export function CueDisplay({ currentCue, waiting = false }: CueDisplayProps) {
   const flash = useRef(new Animated.Value(0)).current;
   const scale = useRef(new Animated.Value(1)).current;
-  const seq = currentCue?.index ?? -1;
+  const seq = currentCue?.seq ?? -1;
 
   useEffect(() => {
     if (!currentCue) return;
@@ -40,8 +40,8 @@ export function CueDisplay({ currentCue, waiting = false }: CueDisplayProps) {
       ? 'LISTEN'
       : 'GET READY';
   const tag = isVariable ? def!.label.toUpperCase() : null;
-  const showLeft = def?.side === 'left';
-  const showRight = def?.side === 'right';
+  const showLeft = currentCue?.side === 'left';
+  const showRight = currentCue?.side === 'right';
 
   return (
     <View style={styles.container}>

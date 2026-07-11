@@ -219,7 +219,7 @@ export interface ScoreReactionOptions {
 
 /**
  * Compare the app's predicted reaction to the 240-fps ground truth, per cue. Predicted reaction
- * = (scan anchor - cue.onsetDrillMs) - L_pipe; both are cue-relative deltas, so they are
+ * = (scan anchor - cue.firedAtMonoMs) - L_pipe; both are cue-relative deltas, so they are
  * directly comparable to the flash->onset video delta. Each labeled reaction is paired
  * one-to-one to its nearest in-window predicted scan (by the chosen anchor).
  */
@@ -232,14 +232,14 @@ export function scoreReaction(
   const L = opts.pipelineLatencyMs ?? 0;
   const window = opts.windowMs ?? 2500;
   const lookback = opts.lookbackMs ?? REACTION_LOOKBACK_MS;
-  const cueBySeq = new Map(cues.map((c) => [c.index, c]));
+  const cueBySeq = new Map(cues.map((c) => [c.seq, c]));
 
   const cands: { rIdx: number; scanIdx: number; absRel: number; err: number }[] = [];
   reactions.forEach((r, rIdx) => {
-    const cue = cueBySeq.get(r.cueIndex);
+    const cue = cueBySeq.get(r.cueSeq);
     if (!cue) return;
     predicted.forEach((s, scanIdx) => {
-      const rel = anchorTime(s, opts.anchor) - cue.onsetDrillMs; // pre-L_pipe reaction
+      const rel = anchorTime(s, opts.anchor) - cue.firedAtMonoMs; // pre-L_pipe reaction
       if (rel >= -lookback && rel <= window) {
         cands.push({ rIdx, scanIdx, absRel: Math.abs(rel), err: rel - L - r.reactionMs });
       }
@@ -257,7 +257,7 @@ export function scoreReaction(
     errors.push(c.err);
   }
 
-  const withCue = reactions.filter((r) => cueBySeq.has(r.cueIndex)).length;
+  const withCue = reactions.filter((r) => cueBySeq.has(r.cueSeq)).length;
   const matched = errors.length;
   if (matched === 0) {
     return { anchor: opts.anchor, matched: 0, unmatched: withCue, maeMs: null, biasMs: null, rmseMs: null, pipelineLatencyMs: L };

@@ -66,33 +66,32 @@ export interface FireCueResult {
 export function fireCueAt(args: {
   config: DrillConfig;
   snapshot: SchedulerSnapshot;
-  onsetDrillMs: DrillMs;
-  onsetWallMs: WallMs;
+  firedAtMonoMs: DrillMs;
+  firedAtEpochMs: WallMs;
   random: Rng;
-  id: string;
   /**
    * Minimum gap before the next cue (ms), typically estimated TTS length + pad.
    * Applied after the random interval sample. Prefer post-resolve phrase from the store.
    */
   intervalFloorMs?: number | ((phrase: string) => number);
 }): FireCueResult {
-  const { config, snapshot, onsetDrillMs, onsetWallMs, random, id } = args;
+  const { config, snapshot, firedAtMonoMs, firedAtEpochMs, random } = args;
 
   const priorState = snapshot.pickState;
   const picked = pickCue(random, config, priorState);
   const cue = getCueDefinition(picked.cue.cueId);
   const phrase = picked.cue.phrase;
-  const index = snapshot.cuesFired;
+  const seq = snapshot.cuesFired;
 
   const event: CueEvent = {
-    id,
+    seq,
     cueId: cue.id,
-    index,
+    category: cue.category,
     phrase,
-    onsetWallMs,
-    onsetDrillMs,
+    side: cue.side,
+    firedAtMonoMs,
+    firedAtEpochMs,
     plannedOffsetMs: snapshot.nextCueAtDrillMs,
-    verification: null,
   };
 
   const floor =
@@ -104,7 +103,7 @@ export function fireCueAt(args: {
 
   const next: SchedulerSnapshot = {
     pickState: picked.nextState,
-    nextCueAtDrillMs: onsetDrillMs + interval,
+    nextCueAtDrillMs: firedAtMonoMs + interval,
     cuesFired: snapshot.cuesFired + 1,
   };
 

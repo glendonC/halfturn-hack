@@ -20,7 +20,6 @@ import { saveSession, DRILL_SESSION_SCHEMA_VERSION } from '@/services/db';
 import {
   createPoseVerifier,
   computeScanVerification,
-  getPoseVerifierAsync,
   type PoseVerifier,
 } from '@/services/vision';
 import type {
@@ -73,7 +72,7 @@ export interface DrillStoreState {
   status: DrillStatus;
   config: DrillConfig;
   currentCue: CueDefinition | null;
-  /** Resolved phrase for the current cue (color/number value or fixed spokenLabel). */
+  /** Resolved phrase for the current cue (color/number value or fixed defaultPhrase). */
   currentPhrase: string | null;
   lastCueType: CueType | null;
   timeRemainingMs: number;
@@ -108,8 +107,8 @@ function baseState(config: DrillConfig = createDefaultDrillConfig()) {
     currentCue: null,
     currentPhrase: null,
     lastCueType: null,
-    timeRemainingMs: config.durationMs,
-    countdownRemainingSec: config.countdownSec,
+    timeRemainingMs: config.durationSec * 1000,
+    countdownRemainingSec: config.countdownEnabled ? 3 : 0,
     cuesFired: 0,
     cueEvents: [] as CueEvent[],
     sessionId: null as string | null,
@@ -242,16 +241,13 @@ export const useDrillStore = create<DrillStoreState>((set, get) => ({
       return;
     }
     const next = { ...config, ...patch };
-    if (patch.intervalMs) {
-      next.intervalMs = { ...config.intervalMs, ...patch.intervalMs };
-    }
     if (patch.enabledCues) {
       next.enabledCues = [...patch.enabledCues];
     }
     set({
       config: next,
-      timeRemainingMs: next.durationMs,
-      countdownRemainingSec: next.countdownSec,
+      timeRemainingMs: next.durationSec * 1000,
+      countdownRemainingSec: next.countdownEnabled ? 3 : 0,
     });
   },
 
@@ -261,8 +257,8 @@ export const useDrillStore = create<DrillStoreState>((set, get) => ({
     set({
       ...baseState(config),
       status: 'ready',
-      timeRemainingMs: config.durationMs,
-      countdownRemainingSec: config.countdownSec,
+      timeRemainingMs: config.durationSec * 1000,
+      countdownRemainingSec: config.countdownEnabled ? 3 : 0,
     });
   },
 
@@ -270,13 +266,13 @@ export const useDrillStore = create<DrillStoreState>((set, get) => ({
     const { status, config } = get();
     if (status !== 'ready' && status !== 'idle') return;
     const wallNow = Date.now();
-    countdownEndsAtWallMs = wallNow + Math.max(0, config.countdownSec) * 1000;
+    countdownEndsAtWallMs = wallNow + Math.max(0, config.countdownEnabled ? 3 : 0) * 1000;
     lastSpokenCountdownSec = null;
     void setKeepAwake(true);
     void audioEngine.prepare(useSettingsStore.getState().settings);
     set({
       status: 'countdown',
-      countdownRemainingSec: config.countdownSec,
+      countdownRemainingSec: config.countdownEnabled ? 3 : 0,
       currentCue: null,
       currentPhrase: null,
       lastCueType: null,
@@ -286,15 +282,15 @@ export const useDrillStore = create<DrillStoreState>((set, get) => ({
       startedAtWallMs: null,
       endedAtWallMs: null,
       durationDrillMs: 0,
-      timeRemainingMs: config.durationMs,
+      timeRemainingMs: config.durationSec * 1000,
     });
-    if (config.countdownSec <= 0) {
+    if (!config.countdownEnabled) {
       get().beginRunning();
       return;
     }
-    if (config.spokenCountdown) {
-      lastSpokenCountdownSec = config.countdownSec;
-      void audioEngine.speak(String(config.countdownSec));
+    if (config.countdownEnabled) {
+      lastSpokenCountdownSec = 3;
+      void audioEngine.speak(String(3));
     }
   },
 
@@ -303,24 +299,22 @@ export const useDrillStore = create<DrillStoreState>((set, get) => ({
     if (status !== 'countdown' && status !== 'ready') return;
 
     const wallNow = Date.now();
-    rng = createRng(config.seed);
+    rng = createRng();
     clocks = new PausableDrillClocks();
     clocks.start(wallNow);
     scheduler = createInitialSchedulerSnapshot(config, rng);
     countdownEndsAtWallMs = null;
 
     modeBehavior = getDrillModeBehavior(config.mode);
-    poseVerifier = modeBehavior.resolveVerifier();
+    poseVerifier = createPoseVerifier();
     poseVerifier.start(0);
-    if (config.mode === 'turn_react') {
-      void getPoseVerifierAsync().then((v) => {
-        // Ignore stale resolves if the run already ended.
-        if (get().status !== 'running' && get().status !== 'paused') return;
-        void poseVerifier.stop().catch(() => {});
-        poseVerifier = v;
-        poseVerifier.start(0);
-      });
-    }
+    void modeBehavior.resolveVerifier().then((v) => {
+      // Ignore stale resolves if the run already ended.
+      if (get().status !== 'running' && get().status !== 'paused') return;
+      void poseVerifier.stop().catch(() => {});
+      poseVerifier = v;
+      poseVerifier.start(0);
+    });
 
     void setKeepAwake(true);
     void audioEngine.prepare(useSettingsStore.getState().settings);
@@ -332,7 +326,7 @@ export const useDrillStore = create<DrillStoreState>((set, get) => ({
       startedAtWallMs: wallNow,
       endedAtWallMs: null,
       countdownRemainingSec: 0,
-      timeRemainingMs: config.durationMs,
+      timeRemainingMs: config.durationSec * 1000,
       durationDrillMs: 0,
       currentCue: null,
       currentPhrase: null,
@@ -353,7 +347,7 @@ export const useDrillStore = create<DrillStoreState>((set, get) => ({
     set({
       status: 'paused',
       durationDrillMs: clocks.drillNow(wallNow),
-      timeRemainingMs: remainingDrillMs(config.durationMs, clocks.drillNow(wallNow)),
+      timeRemainingMs: remainingDrillMs(config.durationSec * 1000, clocks.drillNow(wallNow)),
     });
   },
 
@@ -367,7 +361,7 @@ export const useDrillStore = create<DrillStoreState>((set, get) => ({
     set({
       status: 'running',
       durationDrillMs: clocks.drillNow(wallNow),
-      timeRemainingMs: remainingDrillMs(config.durationMs, clocks.drillNow(wallNow)),
+      timeRemainingMs: remainingDrillMs(config.durationSec * 1000, clocks.drillNow(wallNow)),
     });
   },
 
@@ -411,7 +405,7 @@ export const useDrillStore = create<DrillStoreState>((set, get) => ({
       if (remainingSec !== state.countdownRemainingSec) {
         set({ countdownRemainingSec: remainingSec });
         if (
-          state.config.spokenCountdown &&
+          state.config.countdownEnabled &&
           remainingSec > 0 &&
           remainingSec !== lastSpokenCountdownSec
         ) {
@@ -425,9 +419,9 @@ export const useDrillStore = create<DrillStoreState>((set, get) => ({
     if (state.status !== 'running' || scheduler == null) return;
 
     const drillNow = clocks.drillNow(wallNow);
-    const timeRemainingMs = remainingDrillMs(state.config.durationMs, drillNow);
+    const timeRemainingMs = remainingDrillMs(state.config.durationSec * 1000, drillNow);
 
-    if (drillNow >= state.config.durationMs) {
+    if (drillNow >= state.config.durationSec * 1000) {
       set({ timeRemainingMs: 0, durationDrillMs: drillNow });
       finishSession(set, get, wallNow, true);
       return;
@@ -443,17 +437,16 @@ export const useDrillStore = create<DrillStoreState>((set, get) => ({
     // Catch up if tick lagged (fire at most a few cues per tick).
     let guard = 0;
     while (
-      shouldFireCue(nextScheduler, drillNow, state.config.durationMs) &&
+      shouldFireCue(nextScheduler, drillNow, state.config.durationSec * 1000) &&
       guard < 3
     ) {
       guard += 1;
       const fired = fireCueAt({
         config: state.config,
         snapshot: nextScheduler,
-        onsetDrillMs: nextScheduler.nextCueAtDrillMs,
-        onsetWallMs: wallNow,
+        firedAtMonoMs: nextScheduler.nextCueAtDrillMs,
+        firedAtEpochMs: wallNow,
         random: rng,
-        id: createId('cue'),
       });
       const resolved = modeBehavior.resolveCue(
         fired.picked,
@@ -466,23 +459,22 @@ export const useDrillStore = create<DrillStoreState>((set, get) => ({
       const gap = nextIntervalMs(rng, state.config, floor);
       nextScheduler = {
         pickState: resolved.nextState,
-        nextCueAtDrillMs: fired.event.onsetDrillMs + gap,
+        nextCueAtDrillMs: fired.event.firedAtMonoMs + gap,
         cuesFired: fired.snapshot.cuesFired,
       };
       const event: CueEvent = {
         ...fired.event,
         phrase,
-        verification: null,
       };
 
       currentCue = fired.cue;
       currentPhrase = phrase;
-      lastCueType = fired.cue.type;
+      lastCueType = fired.cue.id;
       cueEvents = [...cueEvents, event];
       cuesFired = nextScheduler.cuesFired;
 
       modeBehavior.presentCue(phrase, audioEngine);
-      void fireHaptic(state.config.haptics);
+      void fireHaptic(useSettingsStore.getState().settings.hapticsEnabled);
     }
 
     scheduler = nextScheduler;
@@ -515,7 +507,7 @@ export function selectCurrentCueLabel(s: DrillStoreState): string | null {
   if (s.currentCue && isVariableCue(s.currentCue.id) && s.currentPhrase) {
     return s.currentPhrase;
   }
-  return s.currentCue?.hudLabel ?? s.currentCue?.spokenLabel ?? null;
+  return s.currentCue?.shortLabel ?? s.currentCue?.defaultPhrase ?? null;
 }
 
 export function formatRemainingClock(ms: number): string {

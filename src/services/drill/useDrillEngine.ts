@@ -237,15 +237,16 @@ export function useDrillEngine(): UseDrillEngineResult {
     schedulerRef.current = resolved.nextState;
 
     const def = getCueDefinition(picked.cue.cueId);
+    const defCat = def;
     const event: CueEvent = {
-      id: createId('cue'),
+      seq: seqRef.current,
       cueId: picked.cue.cueId,
-      index: seqRef.current,
+      category: defCat.category,
       phrase,
-      onsetWallMs: Date.now(),
-      onsetDrillMs: Math.round(drillMs),
+      side: defCat.side,
+      firedAtEpochMs: Date.now(),
+      firedAtMonoMs: Math.round(drillMs),
       plannedOffsetMs: Math.round(planned),
-      verification: null,
     };
     seqRef.current += 1;
 
@@ -258,7 +259,7 @@ export function useDrillEngine(): UseDrillEngineResult {
     }));
 
     behavior.presentCue(phrase, engine);
-    if (runCfg.haptics) {
+    if (useSettingsStore.getState().settings.hapticsEnabled) {
       void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     }
 
@@ -308,7 +309,7 @@ export function useDrillEngine(): UseDrillEngineResult {
       startedAtWallMs: now,
       endedAtWallMs: null,
       countdownRemainingSec: 0,
-      timeRemainingMs: runCfg.durationMs,
+      timeRemainingMs: runCfg.durationSec * 1000,
       durationDrillMs: 0,
       currentCue: null,
       currentPhrase: null,
@@ -331,7 +332,7 @@ export function useDrillEngine(): UseDrillEngineResult {
     useDrillStore.setState({ status: 'countdown' });
     const engine = ensureEngine();
     const steps: number[] = [];
-    for (let n = runCfg.countdownSec; n >= 1; n -= 1) steps.push(n);
+    for (let n = (runCfg.countdownEnabled ? 3 : 0); n >= 1; n -= 1) steps.push(n);
 
     if (steps.length === 0) {
       beginRunning();
@@ -340,7 +341,7 @@ export function useDrillEngine(): UseDrillEngineResult {
 
     setCountdownValue(steps[0]!);
     useDrillStore.setState({ countdownRemainingSec: steps[0]! });
-    if (runCfg.spokenCountdown) {
+    if (runCfg.countdownEnabled) {
       void engine.speak(String(steps[0]));
     }
 
@@ -349,7 +350,7 @@ export function useDrillEngine(): UseDrillEngineResult {
         setTimeout(() => {
           setCountdownValue(n);
           useDrillStore.setState({ countdownRemainingSec: n });
-          if (runCfg.spokenCountdown) void engine.speak(String(n));
+          if (runCfg.countdownEnabled) void engine.speak(String(n));
         }, (i + 1) * 1000),
       );
     });
@@ -373,7 +374,7 @@ export function useDrillEngine(): UseDrillEngineResult {
       ...runCfg,
       enabledCues: [...runCfg.enabledCues],
     };
-    durationMsRef.current = runCfg.durationMs;
+    durationMsRef.current = runCfg.durationSec * 1000;
     finalizedRef.current = false;
     seqRef.current = 0;
     schedulerRef.current = initialSchedulerState();
@@ -393,9 +394,9 @@ export function useDrillEngine(): UseDrillEngineResult {
       currentPhrase: null,
       persistStatus: 'idle',
       persistError: null,
-      timeRemainingMs: runCfg.durationMs,
+      timeRemainingMs: runCfg.durationSec * 1000,
       durationDrillMs: 0,
-      countdownRemainingSec: runCfg.countdownSec,
+      countdownRemainingSec: runCfg.countdownEnabled ? 3 : 0,
     });
 
     void (async () => {
@@ -404,9 +405,9 @@ export function useDrillEngine(): UseDrillEngineResult {
       if (finalizedRef.current) return;
 
       const verifier =
-        runCfg.mode === 'turn_react'
+        runCfg.mode === 'turn-react'
           ? await getPoseVerifierAsync()
-          : behavior.resolveVerifier();
+          : await behavior.resolveVerifier();
       if (finalizedRef.current) {
         void verifier.stop().catch(() => {});
         return;
@@ -414,7 +415,7 @@ export function useDrillEngine(): UseDrillEngineResult {
       verifierRef.current = verifier;
       behavior.prepareAudio(engine);
 
-      if (runCfg.countdownSec > 0) runCountdown();
+      if (runCfg.countdownEnabled) runCountdown();
       else beginRunning();
     })();
   }, [beginRunning, ensureEngine, runCountdown]);

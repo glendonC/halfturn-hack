@@ -1,36 +1,26 @@
 /**
  * CueScheduler — the pure, deterministic core of the drill engine.
  *
- * Owns two decisions and nothing else
- * (no timers, no audio, no React):
+ * It owns two decisions and nothing else (no timers, no audio, no React):
  *   1. nextIntervalMs(): how long to wait before the next cue.
  *   2. pickCue(): which cue to fire and what phrase to speak.
  *
- * Hack DrillConfig uses intervalMs + avoidLastN; CueScheduler uses
- * intervalMinSec/MaxSec + avoidImmediateRepeat. Mapped at the call edge.
+ * Keeping this pure means cue sequences are fully reproducible with a seeded
+ * RNG and unit-testable without a device. The `useDrillEngine` hook drives it.
  */
 
-import {
-  CUE_BY_ID,
-  isVariableCue,
-  resolveCuePhrase,
-} from '@/constants';
-import type { CueSide, CueType, DrillConfig } from '@/types';
-import {
-  randomFloat,
-  weightedPick,
-  type Rng,
-  type Weighted,
-} from '@/utils/random';
+import { CUES } from '@/constants/cues';
+import type { CueId, DrillConfig, Side } from '@/types';
+import { randomFloat, weightedPick, type Rng, type Weighted } from '@/utils/random';
 
 export interface ScheduledCue {
-  cueId: CueType;
-  side: CueSide;
+  cueId: CueId;
+  side: Side;
   phrase: string;
 }
 
 export interface SchedulerState {
-  lastCueId: CueType | null;
+  lastCueId: CueId | null;
   lastPhrase: string | null;
 }
 
@@ -38,24 +28,15 @@ export function initialSchedulerState(): SchedulerState {
   return { lastCueId: null, lastPhrase: null };
 }
 
-/** avoidImmediateRepeat ↔ hack avoidLastN > 0. */
-function avoidImmediateRepeat(config: DrillConfig): boolean {
-  return config.avoidLastN > 0;
-}
-
 /**
  * Gap before the next cue, in ms, sampled uniformly within the configured
  * range. `floorMs` lets the engine enforce a practical minimum (so a cue never
- * fires before the previous utterance finishes).
+ * fires before the previous utterance finishes — see useDrillEngine).
  */
-export function nextIntervalMs(
-  rng: Rng,
-  config: DrillConfig,
-  floorMs = 0,
-): number {
-  const min = Math.min(config.intervalMs.min, config.intervalMs.max);
-  const max = Math.max(config.intervalMs.min, config.intervalMs.max);
-  const sampled = Math.round(randomFloat(rng, min, max));
+export function nextIntervalMs(rng: Rng, config: DrillConfig, floorMs = 0): number {
+  const min = Math.min(config.intervalMinSec, config.intervalMaxSec);
+  const max = Math.max(config.intervalMinSec, config.intervalMaxSec);
+  const sampled = Math.round(randomFloat(rng, min, max) * 1000);
   return Math.max(sampled, floorMs);
 }
 
@@ -64,27 +45,30 @@ export function nextIntervalMs(
  *
  * Selection model:
  * - Every enabled cue gets base weight 1.
- * - Left/right balance only applies when BOTH directional cues are enabled.
+ * - Left/right balance only applies when BOTH directional cues are enabled: it
+ *   shifts the split between them while keeping their combined weight constant
+ *   (balance 0.5 => 1/1, 0 => all-left, 1 => all-right). With only one
+ *   directional cue enabled, balance is ignored so it can still fire.
  * - avoidImmediateRepeat zeroes the last cue's weight (unless it's the only
- *   enabled cue with remaining weight).
+ *   enabled cue, in which case repetition is unavoidable).
  */
-export function buildCandidates(
-  config: DrillConfig,
-  state: SchedulerState,
-): Weighted<CueType>[] {
-  const enabled = config.enabledCues.filter((id): id is CueType => id in CUE_BY_ID);
-  const bothDirectional =
-    enabled.includes('check_left') && enabled.includes('check_right');
+export function buildCandidates(config: DrillConfig, state: SchedulerState): Weighted<CueId>[] {
+  const enabled = config.enabledCues.filter((id): id is CueId => id in CUES);
+  const bothDirectional = enabled.includes('check_left') && enabled.includes('check_right');
   const balance = Math.min(1, Math.max(0, config.leftRightBalance));
 
-  const candidates: Weighted<CueType>[] = enabled.map((id) => {
+  const candidates: Weighted<CueId>[] = enabled.map((id) => {
     let weight = 1;
     if (bothDirectional && id === 'check_left') weight = (1 - balance) * 2;
     if (bothDirectional && id === 'check_right') weight = balance * 2;
     return { value: id, weight };
   });
 
-  if (avoidImmediateRepeat(config) && state.lastCueId && enabled.length > 1) {
+  if (config.avoidImmediateRepeat && state.lastCueId && enabled.length > 1) {
+    // Only suppress the last cue if something else still has positive weight —
+    // otherwise (e.g. extreme L/R balance already zeroed the alternative) we'd
+    // leave an all-zero list and weightedPick would fall back to uniform,
+    // defeating both the balance and the no-repeat constraint.
     const remaining = candidates.reduce(
       (sum, c) => (c.value === state.lastCueId ? sum : sum + c.weight),
       0,
@@ -101,7 +85,8 @@ export function buildCandidates(
 /**
  * Pick the next cue and resolve its phrase. Variable cues (color/number)
  * re-roll up to a few times to avoid speaking the same value twice in a row
- * when avoidImmediateRepeat is on.
+ * when avoidImmediateRepeat is on. Returns the chosen cue plus the next
+ * scheduler state to thread forward.
  */
 export function pickCue(
   rng: Rng,
@@ -109,14 +94,13 @@ export function pickCue(
   state: SchedulerState,
 ): { cue: ScheduledCue; nextState: SchedulerState } {
   const candidates = buildCandidates(config, state);
-  const cueId =
-    candidates.length > 0 ? weightedPick(rng, candidates) : ('scan' as CueType);
-  const def = CUE_BY_ID[cueId];
+  const cueId = candidates.length > 0 ? weightedPick(rng, candidates) : 'scan';
+  const def = CUES[cueId];
 
-  let phrase = resolveCuePhrase(cueId, rng);
-  if (avoidImmediateRepeat(config) && isVariableCue(cueId)) {
+  let phrase = def.speak(rng);
+  if (config.avoidImmediateRepeat && def.category === 'variable') {
     for (let i = 0; i < 4 && phrase === state.lastPhrase; i += 1) {
-      phrase = resolveCuePhrase(cueId, rng);
+      phrase = def.speak(rng);
     }
   }
 

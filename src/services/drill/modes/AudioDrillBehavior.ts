@@ -1,20 +1,20 @@
 import type { AudioCueEngine } from '@/services/audio';
-import { createPoseVerifier, type PoseVerifier } from '@/services/vision';
-
+import { NullPoseVerifier, type PoseVerifier } from '@/services/vision';
 import type { DrillModeBehavior, PickedCue, ResolvedCue } from './types';
 
 /** Utterance-length pad so a cue never fires before the last one finishes. */
 const UTTERANCE_PAD_MS = 250;
 
 /**
- * Audio-cue drill: spoken cues, eyes-up, no camera. Phrase unchanged from the
- * scheduler, spoken via TTS; next gap floored at estimated utterance length.
+ * The audio-cue drill: spoken cues, eyes-up, no camera. The cue phrase is
+ * unchanged from the scheduler, spoken via TTS, and the next gap is floored at
+ * the estimated utterance length so cues never stack. No pose verification.
  */
 export class AudioDrillBehavior implements DrillModeBehavior {
   readonly mode = 'audio' as const;
 
-  prepareAudio(_engine: AudioCueEngine): void {
-    /* no extra prep beyond engine.prepare() */
+  prepareAudio(): void {
+    /* audio needs no extra prep beyond engine.prepare() */
   }
 
   resolveCue(picked: PickedCue): ResolvedCue {
@@ -29,7 +29,7 @@ export class AudioDrillBehavior implements DrillModeBehavior {
     return engine.estimateMs(phrase) + UTTERANCE_PAD_MS;
   }
 
-  resolveVerifier(): PoseVerifier {
-    return createPoseVerifier();
+  async resolveVerifier(): Promise<PoseVerifier> {
+    return new NullPoseVerifier();
   }
 }

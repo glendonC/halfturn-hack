@@ -92,8 +92,8 @@ export const SYNTHETIC_CONFIG: ScanDetectConfig = {
  * ⇒ avgReactionMs 112, scannedBeforeActionRate 0.5.
  */
 export const SYNTHETIC_CUES: CueEvent[] = [
-  { id: 'cue-0', cueId: 'turn', index: 0, phrase: 'Turn', onsetWallMs: 0, onsetDrillMs: 350, plannedOffsetMs: 350 },
-  { id: 'cue-1', cueId: 'turn', index: 1, phrase: 'Turn', onsetWallMs: 0, onsetDrillMs: 1400, plannedOffsetMs: 1400 },
+  { seq: 0, cueId: 'turn', category: 'action', phrase: 'Turn', side: 'none', firedAtMonoMs: 350, firedAtEpochMs: 0, plannedOffsetMs: 350 },
+  { seq: 1, cueId: 'turn', category: 'action', phrase: 'Turn', side: 'none', firedAtMonoMs: 1400, firedAtEpochMs: 0, plannedOffsetMs: 1400 },
 ];
 
 export const SYNTHETIC_ENGINE_LABEL = 'synthetic-golden';

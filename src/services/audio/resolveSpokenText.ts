@@ -5,7 +5,7 @@ import type { SpeakCueVars } from './types';
 
 /**
  * Resolve what TTS (or clips) should say for a cue.
- * Fixed cues use spokenLabel. Variable cues speak only the resolved value.
+ * Fixed cues use defaultPhrase. Variable cues speak only the resolved value.
  */
 export function resolveSpokenText(
   cue: CueDefinition,
@@ -22,7 +22,7 @@ export function resolveSpokenText(
     }
   }
 
-  return cue.spokenLabel;
+  return cue.defaultPhrase;
 }
 
 /** Build SpeakCueVars from a resolved phrase for variable cues. */

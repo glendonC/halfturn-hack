@@ -17,7 +17,7 @@ export function summarizeCueDistribution(
   return [...counts.entries()]
     .map(([cueId, count]) => ({
       cueId,
-      label: getCueDefinition(cueId).hudLabel,
+      label: getCueDefinition(cueId).shortLabel,
       count,
     }))
     .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));

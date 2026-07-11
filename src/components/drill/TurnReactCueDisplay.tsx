@@ -5,7 +5,6 @@ import { CUES } from '@/constants/cues';
 import { REVEAL_WINDOW_MS, getTurnReactColor } from '@/constants/turnReact';
 import { colors, typography } from '@/theme';
 import type { CueEvent } from '@/types';
-
 import { CUE_FLASH_ENABLED, CueFlashProbe } from './CueFlashProbe';
 
 interface TurnReactCueDisplayProps {
@@ -24,7 +23,7 @@ interface TurnReactCueDisplayProps {
  * coding for the `color` cue (no White/Black floods — see constants/turnReact).
  */
 export function TurnReactCueDisplay({ currentCue }: TurnReactCueDisplayProps) {
-  const seq = currentCue?.index ?? -1;
+  const seq = currentCue?.seq ?? -1;
   const [revealed, setRevealed] = useState(false);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -51,6 +50,7 @@ export function TurnReactCueDisplay({ currentCue }: TurnReactCueDisplayProps) {
   const isColor = currentCue.cueId === 'color';
   const isNumber = currentCue.cueId === 'number';
 
+  // Resolve flood + auto-contrast text per cue kind.
   let flood: string = colors.surface;
   let textColor: string = colors.textPrimary;
   if (isColor) {
@@ -58,7 +58,7 @@ export function TurnReactCueDisplay({ currentCue }: TurnReactCueDisplayProps) {
     flood = c?.flood ?? colors.cueVariableColor;
     textColor = c?.text ?? '#FFFFFF';
   } else if (isNumber) {
-    flood = colors.surfaceAlt;
+    flood = colors.surfaceAlt; // neutral plate; the number itself is the signal
     textColor = colors.textPrimary;
   } else {
     flood = colors[def.colorToken];
@@ -66,8 +66,8 @@ export function TurnReactCueDisplay({ currentCue }: TurnReactCueDisplayProps) {
   }
 
   const big = (isColor || isNumber ? currentCue.phrase : def.label).toUpperCase();
-  const showLeft = def.side === 'left';
-  const showRight = def.side === 'right';
+  const showLeft = currentCue.side === 'left';
+  const showRight = currentCue.side === 'right';
 
   return (
     <View style={[styles.container, { backgroundColor: flood }]}>
@@ -93,7 +93,8 @@ export function TurnReactCueDisplay({ currentCue }: TurnReactCueDisplayProps) {
           <View style={styles.chevronSpacer} />
         )}
       </View>
-      {CUE_FLASH_ENABLED ? <CueFlashProbe seq={currentCue.index} /> : null}
+      {/* Dev-only reaction-time ground-truth marker, co-timed with this reveal. */}
+      {CUE_FLASH_ENABLED ? <CueFlashProbe seq={currentCue.seq} /> : null}
     </View>
   );
 }

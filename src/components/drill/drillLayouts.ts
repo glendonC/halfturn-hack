@@ -15,5 +15,5 @@ export const DRILL_LAYOUTS: Record<
   ComponentType<DrillLayoutProps>
 > = {
   'audio-hud': AudioDrillLayout,
-  'turn-react-surface': TurnReactLayout,
+  'turn-react-facetime': TurnReactLayout,
 };

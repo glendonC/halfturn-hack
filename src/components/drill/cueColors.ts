@@ -1,14 +1,12 @@
 import type { CueCategory } from '@/types';
 
-/** Strong full-bleed floods for eyes-free cue recognition — not purple. */
+/** Strong full-bleed floods for eyes-free cue recognition. */
 export const CUE_CATEGORY_FLOOD: Record<
   CueCategory,
   { bg: string; text: string; label: string }
 > = {
-  check: { bg: '#0A4D8C', text: '#F2F7F4', label: 'CHECK' },
-  scan: { bg: '#1F6B3A', text: '#C8F542', label: 'SCAN' },
+  direction: { bg: '#0A4D8C', text: '#F2F7F4', label: 'CHECK' },
   action: { bg: '#8C1F18', text: '#FFD6D1', label: 'REACT' },
-  body: { bg: '#8A5A00', text: '#FFE6A8', label: 'BODY' },
   variable: { bg: '#4A2C6A', text: '#E8D6FF', label: 'CALL' },
 };
 

@@ -70,7 +70,7 @@ export function parseDistribution(json: string): CueDistributionRow[] {
         const label =
           typeof (row as CueDistributionRow).label === 'string'
             ? (row as CueDistributionRow).label
-            : getCueDefinition(cueId)?.hudLabel ?? cueId;
+            : getCueDefinition(cueId)?.shortLabel ?? cueId;
         return {
           cueId,
           label,
@@ -123,7 +123,7 @@ export function parseAppSettings(json: string | null | undefined): AppSettings {
         ...defaults.audio,
         ...(raw.audio ?? {}),
       } satisfies AudioCueEngineOptions,
-      drill: createDefaultDrillConfig(raw.drill ?? {}),
+      drill: createDefaultDrillConfig((raw.drill ?? {}) as Partial<DrillConfig> & Record<string, unknown>),
       keepAwakeDefault:
         typeof raw.keepAwakeDefault === 'boolean'
           ? raw.keepAwakeDefault
@@ -175,19 +175,17 @@ export function cueEventsToRows(
   return cues.map((cue) => {
     const def = getCueDefinition(cue.cueId);
     return {
-      id: cue.id,
+      id: `cue-${cue.seq}`,
       session_id: sessionId,
       cue_id: cue.cueId,
-      cue_label: cue.phrase || def.hudLabel,
-      sequence_index: cue.index,
-      onset_wall_ms: cue.onsetWallMs,
-      onset_drill_ms: cue.onsetDrillMs,
+      cue_label: cue.phrase || def.shortLabel,
+      sequence_index: cue.seq,
+      onset_wall_ms: cue.firedAtEpochMs,
+      onset_drill_ms: cue.firedAtMonoMs,
       planned_offset_ms: cue.plannedOffsetMs,
-      verification_json: cue.verification
-        ? JSON.stringify(cue.verification)
-        : null,
-      category: def.category,
-      side: def.side,
+      verification_json: null,
+      category: cue.category,
+      side: cue.side,
     };
   });
 }

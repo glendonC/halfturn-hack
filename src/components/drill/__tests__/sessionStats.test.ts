@@ -11,22 +11,22 @@ describe('summarizeCueDistribution', () => {
       event('scan'),
     ];
     expect(summarizeCueDistribution(events)).toEqual([
-      { cueId: 'scan', label: 'SCAN', count: 3 },
-      { cueId: 'check_left', label: 'LEFT', count: 1 },
-      { cueId: 'turn', label: 'TURN', count: 1 },
+      { cueId: 'scan', label: 'Scan', count: 3 },
+      { cueId: 'check_left', label: 'Left', count: 1 },
+      { cueId: 'turn', label: 'Turn', count: 1 },
     ]);
   });
 });
 
 function event(cueId: CueEvent['cueId']): CueEvent {
   return {
-    id: cueId,
+    seq: 0,
     cueId,
-    index: 0,
+    category: cueId.startsWith('check') ? 'direction' : 'action',
     phrase: cueId,
-    onsetWallMs: 0,
-    onsetDrillMs: 0,
+    side: cueId === 'check_left' ? 'left' : cueId === 'check_right' ? 'right' : 'none',
+    firedAtEpochMs: 0,
+    firedAtMonoMs: 0,
     plannedOffsetMs: 0,
-    verification: null,
   };
 }

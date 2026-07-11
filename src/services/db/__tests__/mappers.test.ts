@@ -45,15 +45,17 @@ describe('distribution serializers', () => {
 
 describe('config envelope', () => {
   it('wraps config with a version and still parses bare legacy JSON', () => {
-    const config = createDefaultDrillConfig({ durationMs: 120_000 });
+    const config = createDefaultDrillConfig({ durationSec: 120 });
     const wrapped = JSON.parse(serializeConfig(config)) as {
       v: number;
-      config: { durationMs: number };
+      config: { durationSec: number };
     };
     expect(wrapped.v).toBe(CONFIG_SNAPSHOT_VERSION);
-    expect(wrapped.config.durationMs).toBe(120_000);
-    expect(parseConfig(serializeConfig(config)).durationMs).toBe(120_000);
-    expect(parseConfig(JSON.stringify(config)).durationMs).toBe(120_000);
+    expect(wrapped.config.durationSec).toBe(120);
+    expect(parseConfig(serializeConfig(config)).durationSec).toBe(120);
+    expect(parseConfig(JSON.stringify(config)).durationSec).toBe(120);
+    // Older ms-based snapshots still normalize.
+    expect(parseConfig(JSON.stringify({ durationMs: 90_000 })).durationSec).toBe(90);
   });
 });
 
@@ -88,14 +90,14 @@ describe('settings + session mappers', () => {
       completed: true,
       cues: [
         {
-          id: 'cue_1',
+          seq: 0,
           cueId: 'scan',
-          index: 0,
+          category: 'action',
           phrase: 'Scan',
-          onsetWallMs: 1100,
-          onsetDrillMs: 100,
+          side: 'none',
+          firedAtEpochMs: 1100,
+          firedAtMonoMs: 100,
           plannedOffsetMs: 100,
-          verification: null,
         },
       ],
     };
@@ -116,7 +118,7 @@ describe('settings + session mappers', () => {
       sequence_index: 0,
       onset_drill_ms: 100,
       planned_offset_ms: 100,
-      category: 'scan',
+      category: 'action',
       side: 'none',
     });
   });
@@ -124,14 +126,14 @@ describe('settings + session mappers', () => {
   it('stores resolved variable phrases as cue_label', () => {
     const cues = cueEventsToRows('session_1', [
       {
-        id: 'cue_2',
+        seq: 0,
         cueId: 'color',
-        index: 0,
+        category: 'variable',
         phrase: 'Red',
-        onsetWallMs: 1,
-        onsetDrillMs: 1,
+        side: 'none',
+        firedAtEpochMs: 1,
+        firedAtMonoMs: 1,
         plannedOffsetMs: 1,
-        verification: null,
       },
     ]);
     expect(cues[0]?.cue_label).toBe('Red');
@@ -166,7 +168,7 @@ describe('settings + session mappers', () => {
         onset_drill_ms: 105,
         planned_offset_ms: 100,
         verification_json: null,
-        category: 'check',
+        category: 'direction',
         side: 'left',
       },
     ];
@@ -176,7 +178,7 @@ describe('settings + session mappers', () => {
       label: 'Check left',
       onsetDrillMs: 105,
       plannedOffsetMs: 100,
-      category: 'check',
+      category: 'direction',
       side: 'left',
     });
   });
@@ -211,7 +213,7 @@ describe('settings + session mappers', () => {
         side: '',
       },
     ]);
-    expect(detail.cues[0]?.category).toBe('check');
+    expect(detail.cues[0]?.category).toBe('direction');
     expect(detail.cues[0]?.side).toBe('right');
   });
 });
