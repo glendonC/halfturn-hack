@@ -18,6 +18,11 @@ export interface DrillConfig {
   /** Speak countdown numbers over TTS to warm the audio path */
   spokenCountdown: boolean;
   haptics: boolean;
+  /**
+   * Skip repeating the last N cue types when alternatives exist.
+   * 0 = allow immediate repeats; default 1.
+   */
+  avoidLastN: number;
   mode: DrillMode;
   seed?: number;
 }

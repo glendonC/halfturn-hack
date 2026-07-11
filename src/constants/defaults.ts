@@ -38,6 +38,7 @@ export function createDefaultDrillConfig(
     countdownSec: DEFAULT_COUNTDOWN_SEC,
     spokenCountdown: true,
     haptics: true,
+    avoidLastN: 1,
     mode: 'audio',
     ...overrides,
   };

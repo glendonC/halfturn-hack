@@ -142,4 +142,29 @@ describe('scheduler fire + repeat avoidance', () => {
     });
     expect(fired.snapshot.nextCueAtDrillMs).toBe(3000);
   });
+
+  it('honors avoidLastN from DrillConfig', () => {
+    const config = createDefaultDrillConfig({
+      enabledCues: ['scan', 'turn'],
+      intervalMs: { min: 1000, max: 1000 },
+      avoidLastN: 1,
+    });
+    const first = fireCueAt({
+      config,
+      snapshot: createInitialSchedulerSnapshot(config, () => 0),
+      onsetDrillMs: 1000,
+      onsetWallMs: 1,
+      random: () => 0,
+      id: 'a',
+    });
+    const second = fireCueAt({
+      config,
+      snapshot: first.snapshot,
+      onsetDrillMs: 2000,
+      onsetWallMs: 2,
+      random: () => 0,
+      id: 'b',
+    });
+    expect(second.cue.type).not.toBe(first.cue.type);
+  });
 });

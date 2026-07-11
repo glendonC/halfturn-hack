@@ -211,6 +211,13 @@ export default function SettingsScreen() {
           onValueChange={(haptics) => void patchDrillDefaults({ haptics })}
         />
         <ToggleRow
+          label="Avoid repeating last cue"
+          value={settings.drill.avoidLastN > 0}
+          onValueChange={(on) =>
+            void patchDrillDefaults({ avoidLastN: on ? 1 : 0 })
+          }
+        />
+        <ToggleRow
           label="Spoken countdown"
           value={settings.drill.spokenCountdown}
           onValueChange={(spokenCountdown) =>

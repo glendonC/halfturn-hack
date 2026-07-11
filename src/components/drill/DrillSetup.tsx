@@ -185,6 +185,11 @@ export function DrillSetup() {
           value={config.haptics}
           onValueChange={(haptics) => setConfig({ haptics })}
         />
+        <ToggleRow
+          label="Avoid repeating last cue"
+          value={config.avoidLastN > 0}
+          onValueChange={(on) => setConfig({ avoidLastN: on ? 1 : 0 })}
+        />
         <Text style={[styles.hint, { marginTop: spacing.sm }]}>Mode</Text>
         <View style={styles.rowWrap}>
           {(

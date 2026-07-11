@@ -83,6 +83,7 @@ export function fireCueAt(args: {
     leftRightBalance: config.leftRightBalance,
     leftCount: snapshot.leftCount,
     rightCount: snapshot.rightCount,
+    avoidLastN: config.avoidLastN,
     random,
   });
 
