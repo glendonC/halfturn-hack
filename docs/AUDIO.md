@@ -1,15 +1,15 @@
 # Audio — cue playback notes
 
-HalfTurn Phase 1 uses **on-device TTS** (`expo-speech`) with an app audio session from **`expo-audio`**. No cue WAV/MP3 assets.
+HalfTurn Phase 1 uses **on-device TTS** (`expo-speech`) with an app audio session from **`expo-audio`**. Cue WAVs are limited to the small turn-react onset beep — no voice-pack dump.
 
 ## Engines
 
 | Engine | Role |
 | ------ | ---- |
 | `TtsCueEngine` | Production path for the weekend MVP |
-| `ClipCueEngine` | Stub for future recorded voice packs (same `AudioCueEngine` interface) |
+| `ClipCueEngine` | Seam for future recorded voice packs (same `AudioCueEngine` interface; TTS fallback when a clip is missing) |
 
-Cues are **interruptible**: each `speakCue` stops in-flight speech first so a late/overlapping cue never queues behind a stale one.
+Cues are **interruptible**: each `speakCue` stops in-flight speech first so a late/overlapping cue never queues behind a stale one. That keeps the timeline honest when a cue fires before the previous utterance would have finished — the speech-duration **floor** is the other half of that contract (prefer not to interrupt; if we must, interrupt rather than queue).
 
 ## Speech-duration guard
 

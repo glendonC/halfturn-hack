@@ -25,6 +25,8 @@ Vanity metrics (raw turn counts, “awareness score” without a definition) are
 - That **higher scan frequency** alone means better performance
 - Perfect accuracy under heavy occlusion — we mark **`unknown`**, we do not invent a pass
 
+**Null vs zero:** rates that require pose verification must stay `null` (or absent) on audio-only and turn-react preview sessions. Never zero-fill “0% scanned” — that reads as measured failure, not “not measured.”
+
 ---
 
 ## Primary vs secondary signals

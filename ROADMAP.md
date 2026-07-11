@@ -8,28 +8,27 @@ Phased delivery with **seams first**. Every phase must leave the long-term intel
 
 **Goal:** Field-testable solo cue drill. No camera required.
 
-### Ship
+### Shipped (hack)
 
-- Cue catalog: Check left / Check right / Turn / Scan / Open body, plus sport-flavored examples (e.g. Man on); extensible per sport, not soccer-locked
-- Randomized TTS callouts with configurable interval range and session duration
-- Setup screen: duration, intensity (interval band), cue subset, voice rate
-- Eyes-free HUD: large next-cue affordance optional; primary UX is audio + simple status
-- Session controls: start / pause / stop; haptics on cue onset (optional)
-- Local history: list of `DrillSession` summaries (duration, cue count, settings snapshot)
-- Local settings: defaults persisted on device
+- Cue catalog with fixed cues + color/number variables; resolved `phrase` on each `CueEvent`
+- Pure scheduler with speech-duration floor (`estimateSpeechMs`) and optional `avoidLastN`
+- TTS via `TtsCueEngine`; turn-react preview uses on-screen cues + Expo-Go-safe onset beep
+- Setup + Settings: duration, interval, balance, countdown, voice rate/pitch, cue mix
+- Dual clocks + `plannedOffsetMs`; SQLite history with phrase timeline
+- `NullPoseVerifier` only — verification stays null/unknown on audio and turn-react preview
 
-### Explicitly out of scope
+### Explicitly out of scope (still)
 
-- Camera, pose, verification UI
+- Camera, pose, verification UI (Phase 2 / issue #9)
 - Cloud accounts / sync
-- Custom recorded voice packs (TTS is enough)
+- Shipping large recorded voice packs (ClipCueEngine seam only)
 
 ### Seams to freeze now
 
 | Seam | Why |
 | ---- | --- |
-| `DrillEngine` (pure TS) | Cue scheduling independent of React / TTS |
-| `AudioCuePlayer` interface | Swap TTS → recorded packs later |
+| `DrillEngine` / scheduler (pure TS) | Cue scheduling independent of React / TTS |
+| `AudioCueEngine` interface | Swap TTS → recorded packs later |
 | `DrillSession` / `CueEvent` types | Verification fields **nullable** from day one |
 | Dual clocks (`wallMs` + `drillMs`) | Reaction timing later without rewriting history |
 | `PoseVerifier` + `NullPoseVerifier` stubs | Phase 2 plugs in without touching drill core |
@@ -40,10 +39,12 @@ Phased delivery with **seams first**. Every phase must leave the long-term intel
 
 **Goal:** Phone mounted facing the player; screen as cue surface; on-device pose verifies torso/shoulder reorientation after (or before) cues.
 
+**Hack status:** visual cue shell + beep already land in Expo Go; **pose stays deferred** behind `NullPoseVerifier` until a deliberate dev-client unlock (issue #9). Do not import VisionCamera / MediaPipe on the Train path.
+
 ### Ship
 
 - Mount / setup guidance (distance, framing, neutral stance = back-to-camera)
-- Visual cue surface on device (mirrors or replaces audio for this mode)
+- Visual cue surface on device (mirrors or replaces audio for this mode) — **preview exists; verification does not**
 - `PerceptionBackend` adapter: first concrete stack = MediaPipe Pose (lite) on VisionCamera
 - Pure scan-detection over a yaw (and later multi-signal) sample stream
 - Onset-based reaction windows; anticipation penalty; occlusion policy (drop / mark unknown)

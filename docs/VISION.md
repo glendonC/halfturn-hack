@@ -26,6 +26,12 @@ Pose estimation is infrastructure, not product identity.
 - `DrillEngine` never imports a pose SDK.
 - Vision native modules load only behind a platform/dev-client guard so Expo Go keeps the audio path alive via `NullPoseVerifier`.
 
+**Hack Phase 1 adapter plan (until Phase 2 unlocks):**
+
+1. Keep `createPoseVerifier()` → `NullPoseVerifier` on every Expo Go path.
+2. Turn-react preview may show cues + beep; `CueEvent.verification` stays null / unknown.
+3. When Phase 2 starts: register a lazy `PerceptionBackend`, load native modules only from a dev-client entry, and never import them from the audio Train route.
+
 ---
 
 ## 2. Honesty over hype
