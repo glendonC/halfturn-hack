@@ -10,6 +10,7 @@ const scanCue: CueDefinition = {
   hudLabel: 'SCAN',
   category: 'scan',
   side: 'none',
+  colorToken: 'cueAction',
 };
 
 const colorCue: CueDefinition = {
@@ -21,6 +22,7 @@ const colorCue: CueDefinition = {
   hudLabel: 'COLOR',
   category: 'variable',
   side: 'none',
+  colorToken: 'cueVariableColor',
 };
 
 const numberCue: CueDefinition = {
@@ -32,6 +34,7 @@ const numberCue: CueDefinition = {
   hudLabel: 'NUMBER',
   category: 'variable',
   side: 'none',
+  colorToken: 'cueVariableNumber',
 };
 
 describe('resolveSpokenText', () => {

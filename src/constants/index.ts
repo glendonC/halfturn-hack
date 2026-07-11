@@ -4,6 +4,7 @@ export {
   CUE_BY_ID,
   CUE_CATALOG,
   CUE_ORDER,
+  CUES,
   DEFAULT_ENABLED_CUES,
   getCueDefinition,
   isDirectionalCheck,

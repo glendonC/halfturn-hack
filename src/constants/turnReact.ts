@@ -37,8 +37,8 @@ export const TURN_REACT_COLORS: readonly TurnReactColor[] = [
 
 /** Neutral plate for number cues — the digit is the signal, not the flood. */
 export const TURN_REACT_NUMBER_PLATE = {
-  flood: '#1A3D32',
-  text: '#F2F7F4',
+  flood: '#1C2630',
+  text: '#F5F8FA',
 } as const;
 
 /** Pick a random turn-react color (resolves the `color` cue in this mode). */

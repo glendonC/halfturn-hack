@@ -56,10 +56,7 @@ export interface UseDrillEngineResult {
 
 /**
  * Drives a drill end-to-end: countdown → running → finish, off a single 250ms
- * tick loop. Adapted to hack DrillConfig
- * / CueEvent / drillStore data plane.
- *
- * Intended for a single consumer (the active drill screen).
+ * tick loop. Intended for a single consumer (the active drill screen).
  */
 export function useDrillEngine(): UseDrillEngineResult {
   const status = useDrillStore((s) => s.status);

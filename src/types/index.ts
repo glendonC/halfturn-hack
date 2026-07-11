@@ -1,6 +1,7 @@
 export type { DrillClocks, DrillMs, WallMs } from './clocks';
 export type {
   CueCategory,
+  CueColorToken,
   CueDefinition,
   CueId,
   CueSide,

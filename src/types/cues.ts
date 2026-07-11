@@ -27,6 +27,16 @@ export type CueSide = 'left' | 'right' | 'none';
  */
 export type CueCategory = 'check' | 'scan' | 'action' | 'body' | 'variable';
 
+/** Theme color tokens used to color-code cues (see theme/colors.ts). */
+export type CueColorToken =
+  | 'cueLeft'
+  | 'cueRight'
+  | 'cueAction'
+  | 'cueAlert'
+  | 'cueVariableColor'
+  | 'cueVariableNumber'
+  | 'cueNeutral';
+
 export interface CueDefinition {
   id: CueId;
   type: CueType;
@@ -43,4 +53,6 @@ export interface CueDefinition {
   hudLabel: string;
   category: CueCategory;
   side: CueSide;
+  /** Theme token for audio HUD flood / chip accents. */
+  colorToken: CueColorToken;
 }

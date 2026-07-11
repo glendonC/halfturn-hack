@@ -31,6 +31,7 @@ export const CUE_CATALOG: readonly CueDefinition[] = [
     hudLabel: 'LEFT',
     category: 'check',
     side: 'left',
+    colorToken: 'cueLeft',
   },
   {
     id: 'check_right',
@@ -41,6 +42,7 @@ export const CUE_CATALOG: readonly CueDefinition[] = [
     hudLabel: 'RIGHT',
     category: 'check',
     side: 'right',
+    colorToken: 'cueRight',
   },
   {
     id: 'scan',
@@ -51,6 +53,7 @@ export const CUE_CATALOG: readonly CueDefinition[] = [
     hudLabel: 'SCAN',
     category: 'scan',
     side: 'none',
+    colorToken: 'cueAction',
   },
   {
     id: 'turn',
@@ -61,6 +64,7 @@ export const CUE_CATALOG: readonly CueDefinition[] = [
     hudLabel: 'TURN',
     category: 'action',
     side: 'none',
+    colorToken: 'cueAction',
   },
   {
     id: 'man_on',
@@ -71,6 +75,7 @@ export const CUE_CATALOG: readonly CueDefinition[] = [
     hudLabel: 'MAN ON',
     category: 'action',
     side: 'none',
+    colorToken: 'cueAlert',
   },
   {
     id: 'open_body',
@@ -81,6 +86,7 @@ export const CUE_CATALOG: readonly CueDefinition[] = [
     hudLabel: 'OPEN',
     category: 'body',
     side: 'none',
+    colorToken: 'cueNeutral',
   },
   {
     id: 'color',
@@ -91,6 +97,7 @@ export const CUE_CATALOG: readonly CueDefinition[] = [
     hudLabel: 'COLOR',
     category: 'variable',
     side: 'none',
+    colorToken: 'cueVariableColor',
   },
   {
     id: 'number',
@@ -101,6 +108,7 @@ export const CUE_CATALOG: readonly CueDefinition[] = [
     hudLabel: 'NUMBER',
     category: 'variable',
     side: 'none',
+    colorToken: 'cueVariableNumber',
   },
 ] as const;
 
@@ -112,6 +120,9 @@ export const CUE_BY_ID: Readonly<Record<CueType, CueDefinition>> =
     CueType,
     CueDefinition
   >;
+
+/** Catalog keyed by id — preferred lookup for HUD / Display components. */
+export const CUES: Readonly<Record<CueType, CueDefinition>> = CUE_BY_ID;
 
 export const ALL_CUE_TYPES: readonly CueType[] = [...CUE_ORDER];
 
