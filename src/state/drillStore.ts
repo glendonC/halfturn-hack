@@ -12,7 +12,7 @@ import {
   shouldFireCue,
   type SchedulerSnapshot,
 } from '@/services/drill';
-import { TtsCueEngine, phraseToSpeakVars, type AudioCueEngine } from '@/services/audio';
+import { TtsCueEngine, phraseToSpeakVars, releaseBeep, type AudioCueEngine } from '@/services/audio';
 import {
   saveSession,
   type AppSettings,
@@ -145,6 +145,7 @@ function finishSession(
   const durationDrillMs = clocks.drillNow(wallNow);
   void setKeepAwake(false);
   void audioEngine.stop();
+  releaseBeep();
   scheduler = null;
   countdownEndsAtWallMs = null;
   lastSpokenCountdownSec = null;

@@ -17,6 +17,10 @@ The scheduler also **floors** the gap to the next cue using `estimateSpeechMs(ph
 
 `AudioCueEngine.estimateMs` is the seam: `TtsCueEngine` uses the current voice rate; a future `ClipCueEngine` can return clip durations instead.
 
+## Onset beep (turn-react)
+
+`primeBeep` / `playBeep` / `releaseBeep` play a short Expo-Go-safe `assets/sounds/beep.wav` via `expo-audio`. Audio-mode MVP does **not** beep on every cue (TTS is the signal). Turn-react primes and plays the beep as the directionless reaction anchor.
+
 ## iOS ringer-switch gotcha
 
 On iPhone, the hardware **Silent / Ring** switch mutes many audio categories by default. Field athletes often leave Silent on.

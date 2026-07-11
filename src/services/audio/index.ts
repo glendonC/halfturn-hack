@@ -1,4 +1,5 @@
 export { configureDrillAudioSession } from './audioSession';
+export { primeBeep, playBeep, releaseBeep } from './beep';
 export { ClipCueEngine } from './ClipCueEngine';
 export { estimateSpeechMs } from './estimate';
 export { phraseToSpeakVars, resolveSpokenText } from './resolveSpokenText';
