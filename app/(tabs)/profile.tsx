@@ -17,7 +17,8 @@ import {
 import { RATE_BOUNDS, VOLUME_BOUNDS } from '@/constants/defaults';
 import { configureAudioSession, getAudioCueEngine } from '@/services/audio';
 import { clearAllSessions } from '@/services/db';
-import { useProfileStore, useSettingsStore } from '@/state';
+import { useProfileStore } from '@/state/useProfileStore';
+import { useSettingsStore } from '@/state/useSettingsStore';
 import { glassRadius, glassType, hitSlop, light, spacing } from '@/theme';
 import type { AudioOutputMode } from '@/types';
 
@@ -66,42 +67,22 @@ export default function ProfileScreen() {
   };
 
   const clearHistory = () => {
-    Alert.alert(
-      'Clear all history?',
-      'This permanently deletes every saved drill.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Clear',
-          style: 'destructive',
-          onPress: () => clearAllSessions(),
-        },
-      ],
-    );
+    Alert.alert('Clear all history?', 'This permanently deletes every saved drill.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Clear', style: 'destructive', onPress: () => clearAllSessions() },
+    ]);
   };
 
   return (
-    <GlassScreen
-      scroll
-      accent="voice"
-      contentStyle={{ paddingBottom: insets.bottom + NAV_CLEARANCE }}
-    >
+    <GlassScreen scroll accent="voice" contentStyle={{ paddingBottom: insets.bottom + NAV_CLEARANCE }}>
+      {/* Identity header - the surface that makes this tab "you", not a second setup screen. */}
       <View style={styles.header}>
-        <GradientSquircle
-          accent="voice"
-          radius={glassRadius.squircle}
-          style={styles.avatar}
-        >
+        <GradientSquircle accent="voice" radius={glassRadius.squircle} style={styles.avatar}>
           <View style={styles.avatarInner}>
             {initials ? (
               <Text style={styles.avatarText}>{initials}</Text>
             ) : (
-              <Icon
-                icon={Icons.UserRound}
-                size={30}
-                color={light.inkSoft}
-                strokeWidth={1.75}
-              />
+              <Icon icon={Icons.UserRound} size={30} color={light.inkSoft} strokeWidth={1.75} />
             )}
           </View>
         </GradientSquircle>
@@ -126,17 +107,9 @@ export default function ProfileScreen() {
               hitSlop={hitSlop}
               accessibilityRole="button"
               accessibilityLabel="Edit name"
-              style={({ pressed }) => [
-                styles.editBtn,
-                { opacity: pressed ? 0.55 : 1 },
-              ]}
+              style={({ pressed }) => [styles.editBtn, { opacity: pressed ? 0.55 : 1 }]}
             >
-              <Icon
-                icon={Icons.SquarePen}
-                size={18}
-                color={light.inkMuted}
-                strokeWidth={1.75}
-              />
+              <Icon icon={Icons.SquarePen} size={18} color={light.inkMuted} strokeWidth={1.75} />
             </Pressable>
           </View>
         </View>
@@ -155,8 +128,8 @@ export default function ProfileScreen() {
           accent="audio"
         />
         <Text style={styles.note}>
-          When a cue plays, duck your music or let it keep going. Output —
-          AirPods, Bluetooth, or the speaker — is picked automatically by iOS.
+          When a cue plays, duck your music or let it keep going. Output - AirPods, Bluetooth, or the speaker - is picked
+          automatically by iOS.
         </Text>
       </GlassCard>
 
@@ -181,12 +154,7 @@ export default function ProfileScreen() {
           accent="voice"
           onValueChange={(v) => setSetting('speechRate', v)}
         />
-        <GlassButton
-          label="Test voice"
-          variant="secondary"
-          icon={Icons.Volume2}
-          onPress={testVoice}
-        />
+        <GlassButton label="Test voice" variant="secondary" icon={Icons.Volume2} onPress={testVoice} />
       </GlassCard>
 
       <GlassCard title="Feedback" style={styles.card}>
@@ -226,69 +194,28 @@ export default function ProfileScreen() {
       </GlassCard>
 
       <GlassCard title="Data" style={styles.card}>
-        <GlassButton
-          label="Clear history"
-          variant="danger"
-          icon={Icons.Trash2}
-          onPress={clearHistory}
-        />
-        <Text style={styles.version}>
-          HalfTurn v{Constants.expoConfig?.version ?? '0.1.0'} · local-first
-        </Text>
+        <GlassButton label="Clear history" variant="danger" icon={Icons.Trash2} onPress={clearHistory} />
+        <Text style={styles.version}>HalfTurn v{Constants.expoConfig?.version ?? '0.1.0'} · local-first</Text>
       </GlassCard>
     </GlassScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.lg,
-    marginTop: spacing.sm,
-    marginBottom: spacing.xl,
-  },
+  header: { flexDirection: 'row', alignItems: 'center', gap: spacing.lg, marginTop: spacing.sm, marginBottom: spacing.xl },
   avatar: { width: 72, height: 72 },
-  avatarInner: {
-    ...StyleSheet.absoluteFillObject,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  avatarInner: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
   avatarText: { ...glassType.title, fontSize: 26, color: light.inkSoft },
   headerText: { flex: 1, gap: 2 },
   headerOverline: { ...glassType.overline, color: light.inkMuted },
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  nameInput: {
-    ...glassType.hero,
-    fontSize: 34,
-    lineHeight: 40,
-    color: light.ink,
-    padding: 0,
-    flex: 1,
-  },
+  nameInput: { ...glassType.hero, fontSize: 34, lineHeight: 40, color: light.ink, padding: 0, flex: 1 },
   editBtn: { padding: 6 },
 
-  groupHeading: {
-    ...glassType.overline,
-    color: 'rgba(24,20,37,0.45)',
-    marginBottom: spacing.sm,
-    marginLeft: spacing.xs,
-  },
+  groupHeading: { ...glassType.overline, color: 'rgba(24,20,37,0.45)', marginBottom: spacing.sm, marginLeft: spacing.xs },
   card: { marginBottom: spacing.md },
 
-  note: {
-    ...glassType.caption,
-    color: 'rgba(24,20,37,0.55)',
-    lineHeight: 16,
-  },
-  divider: {
-    height: StyleSheet.hairlineWidth,
-    backgroundColor: 'rgba(24,20,37,0.12)',
-  },
-  version: {
-    ...glassType.caption,
-    color: 'rgba(24,20,37,0.5)',
-    textAlign: 'center',
-    marginTop: spacing.sm,
-  },
+  note: { ...glassType.caption, color: 'rgba(24,20,37,0.55)', lineHeight: 16 },
+  divider: { height: StyleSheet.hairlineWidth, backgroundColor: 'rgba(24,20,37,0.12)' },
+  version: { ...glassType.caption, color: 'rgba(24,20,37,0.5)', textAlign: 'center', marginTop: spacing.sm },
 });

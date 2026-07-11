@@ -14,15 +14,11 @@ import {
   Sparkline,
   type IconComponent,
 } from '@/components/glass';
-import {
-  getHistoryStats,
-  listSessions,
-  type HistoryStats,
-} from '@/services/db';
+import { getHistoryStats, listSessions, type HistoryStats } from '@/services/db';
 import { accents, colors, glassRadius, glassType, glow, light, spacing, type AccentKey } from '@/theme';
+import type { DrillSessionSummary } from '@/types';
 import { formatDuration, pluralize } from '@/utils/format';
 import { aggregateCueCounts, leftRightSplit, weeklySessionCounts } from '@/utils/stats';
-import type { DrillSessionSummary } from '@/types';
 
 /** Space the floating nav reserves at the bottom. */
 const NAV_CLEARANCE = 96;
@@ -112,7 +108,7 @@ export default function StatsScreen() {
                 </View>
               </View>
               <Text style={styles.heroNote}>
-                {thisWeek > 0 ? `${pluralize(thisWeek, 'session')} this week — keep it up.` : 'No sessions yet this week.'}
+                {thisWeek > 0 ? `${pluralize(thisWeek, 'session')} this week - keep it up.` : 'No sessions yet this week.'}
               </Text>
             </View>
           </GradientSquircle>

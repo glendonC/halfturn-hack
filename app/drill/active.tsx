@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import { useEffect } from 'react';
 
-import { DrillCountdownView, DrillReadyView, DRILL_LAYOUTS } from '@/components/drill';
+import { DrillCountdownView, DrillReadyView, DRILL_LAYOUTS } from '@/components';
 import { useDrillBrightness, useTurnReactOrientation } from '@/hooks';
 import { MODE_LAYOUT, useDrillEngine } from '@/services/drill';
 import { useDrillConfigStore } from '@/state/useDrillConfigStore';
