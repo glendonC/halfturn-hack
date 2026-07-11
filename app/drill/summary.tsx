@@ -11,7 +11,7 @@ export default function DrillSummaryScreen() {
   const router = useRouter();
   const status = useDrillStore((s) => s.status);
   const reset = useDrillStore((s) => s.reset);
-  const startCountdown = useDrillStore((s) => s.startCountdown);
+  const enterReady = useDrillStore((s) => s.enterReady);
   const leaving = useRef(false);
 
   useEffect(() => {
@@ -32,7 +32,7 @@ export default function DrillSummaryScreen() {
       onRepeat={() => {
         leaving.current = true;
         reset();
-        startCountdown();
+        enterReady();
         router.replace('/drill/active');
       }}
     />

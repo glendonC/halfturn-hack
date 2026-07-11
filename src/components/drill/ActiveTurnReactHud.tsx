@@ -1,27 +1,23 @@
 import { StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { formatRemainingClock, useDrillStore } from '@/state';
+import { useDrillStore } from '@/state';
 
 import { CueSurface } from './CueSurface';
 import { HUD_NEUTRAL } from './cueColors';
+import type { DrillLayoutProps } from './layoutProps';
 import { TransportControls } from './TransportControls';
 import { TurnReactCueSurface } from './TurnReactCueSurface';
 
 /**
  * Turn-react active shell: visual cue surface + shared transport (no camera).
  */
-export function ActiveTurnReactHud() {
+export function ActiveTurnReactHud({ engine }: DrillLayoutProps) {
   const insets = useSafeAreaInsets();
-  const status = useDrillStore((s) => s.status);
   const currentCue = useDrillStore((s) => s.currentCue);
   const currentPhrase = useDrillStore((s) => s.currentPhrase);
-  const cuesFired = useDrillStore((s) => s.cuesFired);
-  const timeRemainingMs = useDrillStore((s) => s.timeRemainingMs);
-  const pause = useDrillStore((s) => s.pause);
-  const resume = useDrillStore((s) => s.resume);
-  const stop = useDrillStore((s) => s.stop);
-
+  const status = engine.status;
+  const cuesFired = engine.cueCount;
   const paused = status === 'paused';
 
   return (
@@ -46,14 +42,14 @@ export function ActiveTurnReactHud() {
         />
       </CueSurface>
 
-      <Text style={styles.timer}>{formatRemainingClock(timeRemainingMs)}</Text>
+      <Text style={styles.timer}>{engine.timeRemainingLabel}</Text>
 
       <TransportControls
         compact
         status={status}
-        onPause={pause}
-        onResume={resume}
-        onStop={stop}
+        onPause={engine.pause}
+        onResume={engine.resume}
+        onStop={engine.stop}
       />
     </View>
   );

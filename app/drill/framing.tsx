@@ -18,22 +18,22 @@ import { colors, spacing, typography } from '@/theme';
 export default function FramingScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const startCountdown = useDrillStore((s) => s.startCountdown);
+  const enterReady = useDrillStore((s) => s.enterReady);
   const mode = useDrillStore((s) => s.config.mode);
   const vision = canUseNativeVision();
   const cal = useFramingCalibration();
 
   useEffect(() => {
     if (mode !== 'turn_react') {
-      startCountdown();
+      enterReady();
       router.replace('/drill/active');
     }
-  }, [mode, startCountdown, router]);
+  }, [mode, enterReady, router]);
 
   if (mode !== 'turn_react') return null;
 
   const continueToDrill = () => {
-    startCountdown();
+    enterReady();
     router.replace('/drill/active');
   };
 

@@ -2,23 +2,20 @@ import { StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { isVariableCue } from '@/constants';
-import { formatRemainingClock, useDrillStore } from '@/state';
+import { useDrillStore } from '@/state';
 
 import { AudioCueSurface } from './AudioCueSurface';
 import { CueSurface } from './CueSurface';
 import { CUE_CATEGORY_FLOOD, HUD_NEUTRAL } from './cueColors';
+import type { DrillLayoutProps } from './layoutProps';
 import { TransportControls } from './TransportControls';
 
-export function ActiveHud() {
+export function ActiveHud({ engine }: DrillLayoutProps) {
   const insets = useSafeAreaInsets();
-  const status = useDrillStore((s) => s.status);
   const currentCue = useDrillStore((s) => s.currentCue);
   const currentPhrase = useDrillStore((s) => s.currentPhrase);
-  const timeRemainingMs = useDrillStore((s) => s.timeRemainingMs);
-  const cuesFired = useDrillStore((s) => s.cuesFired);
-  const pause = useDrillStore((s) => s.pause);
-  const resume = useDrillStore((s) => s.resume);
-  const stop = useDrillStore((s) => s.stop);
+  const status = engine.status;
+  const cuesFired = engine.cueCount;
 
   const flood = currentCue
     ? CUE_CATEGORY_FLOOD[currentCue.category]
@@ -54,14 +51,14 @@ export function ActiveHud() {
       </CueSurface>
 
       <Text style={[styles.timer, { color: flood.text }]}>
-        {formatRemainingClock(timeRemainingMs)}
+        {engine.timeRemainingLabel}
       </Text>
 
       <TransportControls
         status={status}
-        onPause={pause}
-        onResume={resume}
-        onStop={stop}
+        onPause={engine.pause}
+        onResume={engine.resume}
+        onStop={engine.stop}
       />
     </View>
   );

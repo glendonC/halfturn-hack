@@ -26,3 +26,4 @@ export {
   type PickedCue,
   type ResolvedCue,
 } from './modes';
+export { useDrillEngine, type UseDrillEngineResult } from './useDrillEngine';

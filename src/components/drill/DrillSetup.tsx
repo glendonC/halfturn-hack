@@ -29,7 +29,7 @@ export function DrillSetup() {
   const insets = useSafeAreaInsets();
   const config = useDrillStore((s) => s.config);
   const setConfig = useDrillStore((s) => s.setConfig);
-  const startCountdown = useDrillStore((s) => s.startCountdown);
+  const enterReady = useDrillStore((s) => s.enterReady);
   const testSound = useDrillStore((s) => s.testSound);
   const patchDrillDefaults = useSettingsStore((s) => s.patchDrillDefaults);
 
@@ -223,11 +223,11 @@ export function DrillSetup() {
         style={({ pressed }) => [styles.primaryBtn, pressed && styles.pressed]}
         onPress={() => {
           void patchDrillDefaults(config).finally(() => {
+            enterReady();
             if (config.mode === 'turn_react') {
               router.push('/drill/framing');
               return;
             }
-            startCountdown();
             router.push('/drill/active');
           });
         }}

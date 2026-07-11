@@ -1,44 +1,53 @@
 import { useRouter } from 'expo-router';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
-import {
-  CountdownHud,
-  DRILL_LAYOUTS,
-} from '@/components/drill';
-import { useDrillSession } from '@/hooks';
-import { MODE_LAYOUT } from '@/services/drill';
+import { CountdownHud, DRILL_LAYOUTS } from '@/components/drill';
+import { MODE_LAYOUT, useDrillEngine } from '@/services/drill';
 import { useDrillStore } from '@/state';
 
 /**
- * Thin active-drill route: ticker + status view. Store remains source of truth.
- * Layout comes from MODE_LAYOUT → DRILL_LAYOUTS (no mode if-else here).
+ * Thin active-drill route: engine owns lifecycle; layout from MODE_LAYOUT.
  */
 export default function ActiveDrillScreen() {
-  useDrillSession();
   const router = useRouter();
-  const status = useDrillStore((s) => s.status);
+  const engine = useDrillEngine();
   const mode = useDrillStore((s) => s.config.mode);
+  const durationMs = useDrillStore((s) => s.config.durationMs);
+  const started = useRef(false);
 
   useEffect(() => {
-    if (status === 'finished') {
-      router.replace('/drill/summary');
-    }
-  }, [status, router]);
-
-  useEffect(() => {
+    if (started.current) return;
     const s = useDrillStore.getState().status;
-    // Setup owns start; cold entry without an in-flight run goes home.
-    if (s === 'idle' || s === 'ready') {
+    if (s === 'ready') {
+      started.current = true;
+      engine.start();
+      return;
+    }
+    if (s === 'idle' || s === 'finished') {
       router.replace('/');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  if (status === 'finished') return null;
-  if (status === 'countdown') return <CountdownHud />;
-  if (status === 'running' || status === 'paused') {
+  useEffect(() => {
+    if (engine.status === 'finished') {
+      router.replace('/drill/summary');
+    }
+  }, [engine.status, router]);
+
+  if (engine.status === 'finished') return null;
+  if (engine.status === 'countdown') {
+    return <CountdownHud engine={engine} />;
+  }
+  if (engine.status === 'running' || engine.status === 'paused') {
     const Layout = DRILL_LAYOUTS[MODE_LAYOUT[mode]];
-    return <Layout />;
+    return (
+      <Layout
+        engine={engine}
+        durationMs={durationMs}
+        cueCount={engine.cueCount}
+      />
+    );
   }
 
   return null;

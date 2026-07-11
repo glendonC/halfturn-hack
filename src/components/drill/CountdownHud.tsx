@@ -2,15 +2,20 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useDrillStore } from '@/state';
+import type { UseDrillEngineResult } from '@/services/drill';
 
 import { COUNTDOWN_FLOOD, HUD_NEUTRAL } from './cueColors';
 import { DrillCountdownView } from './DrillCountdownView';
 
-export function CountdownHud() {
+export function CountdownHud({
+  engine,
+}: {
+  engine: UseDrillEngineResult;
+}) {
   const insets = useSafeAreaInsets();
-  const countdownRemainingSec = useDrillStore((s) => s.countdownRemainingSec);
   const mode = useDrillStore((s) => s.config.mode);
-  const stop = useDrillStore((s) => s.stop);
+  const storeCountdown = useDrillStore((s) => s.countdownRemainingSec);
+  const value = engine.countdownValue ?? storeCountdown;
 
   const hint =
     mode === 'turn_react'
@@ -28,9 +33,9 @@ export function CountdownHud() {
       ]}
     >
       <Text style={styles.eyebrow}>Get set</Text>
-      <DrillCountdownView value={countdownRemainingSec} hint={hint} />
+      <DrillCountdownView value={value} hint={hint} />
       <Pressable
-        onPress={stop}
+        onPress={engine.stop}
         style={({ pressed }) => [styles.stop, pressed && styles.pressed]}
       >
         <Text style={styles.stopText}>Cancel</Text>
