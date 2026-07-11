@@ -39,7 +39,7 @@ Phased delivery with **seams first**. Every phase must leave the long-term intel
 
 **Goal:** Phone mounted facing the player; screen as cue surface; on-device pose verifies torso/shoulder reorientation after (or before) cues.
 
-**Hack status:** visual cue shell + beep already land in Expo Go; **pose stays deferred** behind `NullPoseVerifier` until a deliberate dev-client unlock (issue #9). Do not import VisionCamera / MediaPipe on the Train path.
+**Hack status:** visual cue shell + beep already land in Expo Go; pure scanDetect / filters / YawFusion / PerceptionBackend registry ship as library code. **Pose stays deferred** behind `NullPoseVerifier` + `canUseNativeVision()` until RealPoseVerifier (#27). `expo-dev-client` + EAS `development` profile are the explicit unlock gate (#25) — do not import VisionCamera / MediaPipe on the Train path.
 
 ### Ship
 

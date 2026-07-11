@@ -71,8 +71,17 @@ npm run android   # emulator
 npm run typecheck # tsc --noEmit
 ```
 
-- **Audio MVP / this scaffold:** Expo Go is fine — no native vision deps.
-- **Turn & React (later):** requires a custom/dev client (VisionCamera + pose backend). Audio path must still run in Expo Go via `NullPoseVerifier`.
+### Expo Go vs custom dev client
+
+| Path | How to run | Vision |
+| ---- | ---------- | ------ |
+| **Audio + turn-react preview** | `npm start` → Expo Go | Off. `NullPoseVerifier` / `NullBackend` only. |
+| **Native pose (Phase 2)** | Custom client via `eas.json` `development` profile (`expo-dev-client`) with `EXPO_PUBLIC_VISION=1` | Gated by `canUseNativeVision()` — never loads on Expo Go. |
+
+`eas.json` already defines a development profile that sets `EXPO_PUBLIC_VISION=1`. VisionCamera / MediaPipe packages are **not** installed yet; the unlock gate and registry are ready for later issues (#26–#27). Do not set `EXPO_PUBLIC_VISION` when developing the audio path in Expo Go.
+
+- **Audio MVP:** Expo Go is fine — no native vision deps required at runtime.
+- **Turn & React verification:** requires a custom/dev client. Audio must still run in Expo Go via `NullPoseVerifier`.
 
 ## Privacy
 

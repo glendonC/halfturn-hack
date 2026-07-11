@@ -11,6 +11,7 @@ import type {
 } from '@/types';
 
 import { pickBackend } from './backends/registry';
+import { canUseNativeVision } from './runtimeGuard';
 
 export type {
   PoseVerifier,
@@ -65,10 +66,15 @@ export type {
 } from './PerceptionBackend';
 export { NullBackend } from './backends/NullBackend';
 export { pickBackend } from './backends/registry';
+export {
+  canUseNativeVision,
+  isExpoGo,
+  isVisionEnvEnabled,
+} from './runtimeGuard';
 
 /**
- * Camera verification stays OFF unless explicitly unlocked in a later issue
- * via EXPO_PUBLIC_VISION=1 on a custom dev client. Never set in Expo Go.
+ * Env intent flag (EXPO_PUBLIC_VISION=1). Prefer {@link canUseNativeVision} at
+ * call sites — Expo Go must never load native vision even if this is set.
  */
 export const VISION_ENABLED = process.env.EXPO_PUBLIC_VISION === '1';
 
@@ -87,12 +93,12 @@ export function createPoseVerifier(): PoseVerifier {
 }
 
 /**
- * Async factory: consults the backend registry when VISION_ENABLED.
+ * Async factory: consults the backend registry only when native vision is allowed.
  * RealPoseVerifier is not implemented yet — even an available backend falls
- * back to NullPoseVerifier until the Phase 2 unlock lands RealPoseVerifier.
+ * back to NullPoseVerifier until a later Phase 2 issue lands it.
  */
 export async function getPoseVerifierAsync(): Promise<PoseVerifier> {
-  if (!VISION_ENABLED) return new NullPoseVerifier();
+  if (!canUseNativeVision()) return new NullPoseVerifier();
   const backend = await pickBackend();
   if (backend.id === 'null') return new NullPoseVerifier();
   // Future: return new RealPoseVerifier(backend, ...)

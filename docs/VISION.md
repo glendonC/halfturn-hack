@@ -30,7 +30,7 @@ Pose estimation is infrastructure, not product identity.
 
 1. Keep `createPoseVerifier()` → `NullPoseVerifier` on every Expo Go path.
 2. Turn-react preview may show cues + beep; `CueEvent.verification` stays null / unknown.
-3. When Phase 2 starts: register a lazy `PerceptionBackend`, load native modules only from a dev-client entry, and never import them from the audio Train route.
+3. Gate native vision with `canUseNativeVision()` (`EXPO_PUBLIC_VISION=1` **and** not Expo Go). EAS `development` profile + `expo-dev-client` are the unlock path; VisionCamera/MediaPipe stay out of the Expo Go graph until later issues register them behind the registry dynamic import.
 
 ---
 
