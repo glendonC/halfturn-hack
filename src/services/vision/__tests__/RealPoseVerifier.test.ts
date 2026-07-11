@@ -1,6 +1,3 @@
-import { getCueDefinition } from '@/constants';
-import type { YawSample } from '@/types';
-
 import { NullBackend } from '../backends/NullBackend';
 import { MediaPipeBackend, feedRawFrame } from '../backends/MediaPipeBackend';
 import { RealPoseVerifier } from '../RealPoseVerifier';
@@ -38,69 +35,50 @@ function frameAt(captureClockMs: number, yawDeg: number): RawPoseFrame {
   };
 }
 
-function yawTrace(yaws: number[], periodMs = 33): YawSample[] {
-  return yaws.map((yawDeg, i) => ({
-    drillMs: i * periodMs,
-    wallMs: i * periodMs,
-    yaw: (yawDeg * Math.PI) / 180,
-    confidence: 0.9,
-  }));
-}
-
 describe('RealPoseVerifier', () => {
   it('reports unavailable for NullBackend', () => {
     const v = new RealPoseVerifier(new NullBackend());
     expect(v.available).toBe(false);
   });
 
-  it('returns unknown with no samples', () => {
+  it('stop returns no scans when no frames were fed', async () => {
     const v = new RealPoseVerifier(new NullBackend());
-    const result = v.verifyCue({
-      cue: getCueDefinition('scan'),
-      cueOnsetDrillMs: 100,
-      samples: [],
-      windowMs: { early: 250, late: 1200 },
-    });
-    expect(result.outcome).toBe('unknown');
+    v.start(0);
+    const scans = await v.stop();
+    expect(scans).toEqual([]);
   });
 
-  it('verifies a post-cue left turn from synthetic yaw samples', () => {
-    const v = new RealPoseVerifier(new NullBackend());
-    // Cue at 100ms; turn peaks around 200ms.
-    const samples = yawTrace([0, 0, -30, -40, -45, -40, -30, -10, 0], 33);
-    const result = v.verifyCue({
-      cue: getCueDefinition('check_left'),
-      cueOnsetDrillMs: 50,
-      samples,
-      windowMs: { early: 250, late: 1200 },
-    });
-    expect(result.outcome).toBe('verified');
-    expect(result.backendId).toContain('null');
-    expect(result.reactionMs).toBeGreaterThanOrEqual(0);
-  });
-
-  it('marks anticipation when the turn peaks before the cue', () => {
-    const v = new RealPoseVerifier(new NullBackend());
-    const samples = yawTrace([0, 0, -30, -40, -45, -40, -30, -10, 0], 33);
-    const result = v.verifyCue({
-      cue: getCueDefinition('turn'),
-      cueOnsetDrillMs: 400,
-      samples,
-      windowMs: { early: 800, late: 1200 },
-    });
-    expect(result.outcome).toBe('anticipated');
-  });
-
-  it('buffers frames from MediaPipeBackend via feedRawFrame', () => {
+  it('detects a left turn from fed frames and exposes quality after stop', async () => {
     const backend = new MediaPipeBackend();
     const v = new RealPoseVerifier(backend);
+    expect(v.available).toBe(true);
+    expect(v.engine).toContain('mediapipe');
     v.start(0);
-    // Script a short left turn on the capture clock.
     const yaws = [0, 0, -30, -40, -45, -40, -30, -10, 0];
     yaws.forEach((yaw, i) => {
       feedRawFrame(frameAt(i * 33, yaw));
     });
-    expect(v.getYawSamples().length).toBe(yaws.length);
-    v.stop();
+    const scans = await v.stop();
+    expect(scans.length).toBeGreaterThanOrEqual(1);
+    expect(scans[0]?.direction).toBe('left');
+    const q = v.quality();
+    expect(q).not.toBeNull();
+    expect(q!.meanPoseConfidence).toBeGreaterThan(0);
+  });
+
+  it('drops frames while paused so scans do not span the gap', async () => {
+    const backend = new MediaPipeBackend();
+    const v = new RealPoseVerifier(backend);
+    v.start(0);
+    feedRawFrame(frameAt(0, 0));
+    feedRawFrame(frameAt(33, 0));
+    v.pause();
+    // Would be a turn if live — must be ignored while paused.
+    feedRawFrame(frameAt(66, -40));
+    feedRawFrame(frameAt(99, -45));
+    v.resume();
+    feedRawFrame(frameAt(132, 0));
+    const scans = await v.stop();
+    expect(scans).toEqual([]);
   });
 });

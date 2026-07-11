@@ -3,6 +3,8 @@
  * PoseSample.tMonoMs shares the drill-clock axis with CueEvent.onsetDrillMs.
  */
 
+import type { OneEuroConfig } from './OneEuroFilter';
+
 /** One pose observation, normalized onto the drill-clock axis. */
 export interface PoseSample {
   /** Drill-clock ms (same axis as CueEvent.onsetDrillMs). */
@@ -14,6 +16,23 @@ export interface PoseSample {
   yawDeg: number;
   /** Pose/landmark confidence, 0..1. */
   confidence: number;
+  /** Absolute torso yaw before baseline/sign. */
+  torsoYawDeg?: number;
+  /** Mean visibility of anterior face landmarks. */
+  faceVis?: number;
+  facingScreen?: boolean;
+  hipYawDeg?: number;
+  shoulderHipSepDeg?: number;
+  hipConfidence?: number;
+}
+
+/** Reaction anchor: 'peak' (legacy, metricsVersion 1) or 'onset' (metricsVersion 2). */
+export type ReactionMode = 'peak' | 'onset';
+
+/** Wiring toggles for body-signal enrichment. Default = today's detection. */
+export interface EnrichmentConfig {
+  smoothing: OneEuroConfig | null;
+  reactionMode: ReactionMode;
 }
 
 export type ScanDirection = 'left' | 'right';

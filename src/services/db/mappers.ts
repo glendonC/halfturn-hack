@@ -145,7 +145,9 @@ export function sessionToRow(
     config_json: serializeConfig(input.config),
     cue_count: input.cues.length,
     distribution_json: serializeDistribution(input.distribution),
-    verification_json: null,
+    verification_json: input.verification
+      ? JSON.stringify(input.verification)
+      : null,
     synced_at: null,
     server_id: null,
     dirty: 0,

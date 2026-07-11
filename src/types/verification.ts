@@ -39,14 +39,10 @@ export interface YawSampleBackend {
 /** @deprecated Prefer YawSampleBackend; PerceptionBackend now means frame backends in vision/. */
 export type PerceptionBackend = YawSampleBackend;
 
+/** @deprecated Per-cue verify path; production PoseVerifier is start/stop → ScanEvent[]. */
 export interface VerifyCueArgs {
   cue: CueDefinition;
   cueOnsetDrillMs: DrillMs;
   samples: YawSample[];
   windowMs: { early: number; late: number };
-}
-
-export interface PoseVerifier {
-  calibrateBaseline(samples: YawSample[]): void;
-  verifyCue(args: VerifyCueArgs): VerificationResult;
 }

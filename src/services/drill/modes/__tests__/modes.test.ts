@@ -87,17 +87,13 @@ describe('AudioDrillBehavior', () => {
     expect(b.minIntervalFloorMs('Scan', engine)).toBe(1050);
   });
 
-  it('prepareAudio is a no-op and resolves NullPoseVerifier', () => {
+  it('prepareAudio is a no-op and resolves NullPoseVerifier', async () => {
     const engine = fakeEngine();
     b.prepareAudio(engine);
     expect(mockPrimeBeep).not.toHaveBeenCalled();
     const v = b.resolveVerifier();
-    expect(v.verifyCue({
-      cue: getCueDefinition('scan'),
-      cueOnsetDrillMs: 0,
-      samples: [],
-      windowMs: { early: 0, late: 500 },
-    }).outcome).toBe('unknown');
+    expect(v.available).toBe(false);
+    await expect(v.stop()).resolves.toEqual([]);
   });
 });
 
@@ -155,16 +151,12 @@ describe('TurnReactDrillBehavior', () => {
     );
   });
 
-  it('primes the beep and resolves NullPoseVerifier', () => {
+  it('primes the beep and resolves NullPoseVerifier', async () => {
     const engine = fakeEngine();
     b.prepareAudio(engine);
     expect(mockPrimeBeep).toHaveBeenCalledTimes(1);
     const v = b.resolveVerifier();
-    expect(v.verifyCue({
-      cue: getCueDefinition('scan'),
-      cueOnsetDrillMs: 0,
-      samples: [],
-      windowMs: { early: 0, late: 500 },
-    }).outcome).toBe('unknown');
+    expect(v.available).toBe(false);
+    await expect(v.stop()).resolves.toEqual([]);
   });
 });

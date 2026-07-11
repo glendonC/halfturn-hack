@@ -48,6 +48,6 @@ export interface DrillModeBehavior {
   /** Floor for the next-cue gap so a cue never overruns utterance / reveal. */
   minIntervalFloorMs(phrase: string, engine: AudioCueEngine): number;
 
-  /** Pose verifier for the run (NullPoseVerifier until Phase 2 unlock). */
+  /** Pose verifier for the run (NullPoseVerifier until native unlock). */
   resolveVerifier(): PoseVerifier;
 }

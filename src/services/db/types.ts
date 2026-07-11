@@ -6,6 +6,7 @@ import type {
   CueType,
   DrillConfig,
   DrillMode,
+  ScanVerification,
 } from '@/types';
 
 import type { CueDistributionRow } from '@/components/drill/sessionStats';
@@ -100,4 +101,6 @@ export interface SaveSessionInput {
   /** True when the drill ran to planned duration. */
   completed: boolean;
   schemaVersion?: number;
+  /** Session-level pose verification; null on audio / Expo Go. */
+  verification?: ScanVerification | null;
 }

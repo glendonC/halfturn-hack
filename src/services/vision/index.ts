@@ -3,26 +3,22 @@
  * No VisionCamera / MediaPipe / native pose imports on the audio Train path.
  */
 
-import type {
-  PoseVerifier,
-  VerificationResult,
-  VerifyCueArgs,
-  YawSample,
-} from '@/types';
-
 import { pickBackend } from './backends/registry';
 import { useCalibrationStore } from './calibration';
+import { NullPoseVerifier, type PoseVerifier } from './PoseVerifier';
 import { RealPoseVerifier } from './RealPoseVerifier';
 import { canUseNativeVision } from './runtimeGuard';
 
 export type {
-  PoseVerifier,
   VerificationOutcome,
   VerificationResult,
   VerifyCueArgs,
   YawSample,
   YawSampleBackend,
 } from '@/types';
+
+export type { PoseVerifier } from './PoseVerifier';
+export { NullPoseVerifier } from './PoseVerifier';
 
 /** @deprecated Prefer YawSampleBackend from @/types; frame backends use vision PerceptionBackend. */
 export type { PerceptionBackend as YawSamplePerceptionBackend } from '@/types';
@@ -31,7 +27,9 @@ export {
   DEFAULT_SCAN_DETECT_CONFIG,
   DEFAULT_CALIBRATION,
   type CalibrationProfile,
+  type EnrichmentConfig,
   type PoseSample,
+  type ReactionMode,
   type ScanDetectConfig,
   type ScanDirection,
   type ScanEvent,
@@ -41,6 +39,7 @@ export {
   computeScanMetrics,
   computeTrackingQuality,
   detectScans,
+  toScanVerification,
 } from './scanDetect';
 export { yawSamplesToPoseSamples } from './yawSampleAdapter';
 export {
@@ -84,7 +83,7 @@ export type { CameraVerifierProps } from './CameraVerifierView';
 export {
   RealPoseVerifier,
   isRealPoseVerifier,
-  DEFAULT_VERIFY_WINDOW_MS,
+  DEFAULT_ENRICHMENT,
 } from './RealPoseVerifier';
 
 /**
@@ -92,15 +91,6 @@ export {
  * call sites — Expo Go must never load native vision even if this is set.
  */
 export const VISION_ENABLED = process.env.EXPO_PUBLIC_VISION === '1';
-
-/** Always available — Expo Go / audio-only / tests */
-export class NullPoseVerifier implements PoseVerifier {
-  calibrateBaseline(_samples: YawSample[]): void {}
-
-  verifyCue(_args: VerifyCueArgs): VerificationResult {
-    return { outcome: 'unknown', backendId: 'null' };
-  }
-}
 
 /** Synchronous factory — always the no-op verifier (Expo-Go-safe). */
 export function createPoseVerifier(): PoseVerifier {

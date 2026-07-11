@@ -3,7 +3,7 @@
  * No camera / native imports — unit-testable with synthetic traces.
  */
 
-import type { CueEvent, ScanMetrics } from '@/types';
+import type { CueEvent, ScanMetrics, ScanVerification } from '@/types';
 
 import {
   DEFAULT_SCAN_DETECT_CONFIG,
@@ -205,4 +205,39 @@ export function computeScanMetrics(
     meanReactionMs,
     anticipationRate: null,
   };
+}
+
+/**
+ * Map scan timeline + cues into production ScanVerification (peak mode).
+ * Full onset-mode computeScanVerification lands with the scanDetect lift (#30).
+ */
+export function toScanVerification(
+  scans: ScanEvent[],
+  cues: readonly CueEvent[],
+  actualDurationSec: number,
+  engineLabel: string,
+  cfg: ScanDetectConfig = DEFAULT_SCAN_DETECT_CONFIG,
+  quality?: TrackingQuality | null,
+): ScanVerification {
+  const minutes = Math.max(actualDurationSec / 60, 1 / 60);
+  const leftScans = scans.filter((s) => s.direction === 'left').length;
+  const rightScans = scans.filter((s) => s.direction === 'right').length;
+  const metrics = computeScanMetrics(scans, cues, cfg);
+  const base: ScanVerification = {
+    metricsVersion: 1,
+    scansDetected: scans.length,
+    scansPerMinute: Math.round((scans.length / minutes) * 10) / 10,
+    leftScans,
+    rightScans,
+    avgReactionMs: metrics.meanReactionMs,
+    scannedBeforeActionRate: metrics.scannedBeforeActionRate,
+    engine: engineLabel,
+    anticipationRate: metrics.anticipationRate,
+  };
+  if (quality) {
+    base.trackedTimeRate = quality.trackedTimeRate;
+    base.meanPoseConfidence = quality.meanPoseConfidence;
+    base.effectiveFps = quality.effectiveFps;
+  }
+  return base;
 }

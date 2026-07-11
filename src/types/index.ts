@@ -12,11 +12,11 @@ export type {
   DrillMode,
   DrillSession,
   ScanMetrics,
+  ScanVerification,
   SessionMetricsSummary,
 } from './session';
 export type {
   PerceptionBackend,
-  PoseVerifier,
   VerificationOutcome,
   VerificationResult,
   VerifyCueArgs,

@@ -42,6 +42,34 @@ export interface CueEvent {
 }
 
 /**
+ * Session-level camera/pose verification (production ScanVerification shape).
+ * Null on every audio-only / Expo Go session.
+ */
+export interface ScanVerification {
+  scansDetected: number;
+  scansPerMinute: number;
+  leftScans: number;
+  rightScans: number;
+  avgReactionMs: number | null;
+  scannedBeforeActionRate: number | null;
+  engine: string;
+  metricsVersion?: number;
+  medianReactionMs?: number | null;
+  reactionP25Ms?: number | null;
+  reactionP75Ms?: number | null;
+  reactionP90Ms?: number | null;
+  bestReactionMs?: number | null;
+  turnDirectionAccuracy?: number | null;
+  anticipationRate?: number | null;
+  reactionAccuracy?: number | null;
+  lookedButWrongCount?: number | null;
+  meanPoseConfidence?: number | null;
+  effectiveFps?: number | null;
+  trackedTimeRate?: number | null;
+  halfTurnScore?: number | null;
+}
+
+/**
  * Evidence-weighted rollups (METRICS.md). Types only — no algorithms here.
  * Audio-only: rates that require verification stay null (not zero).
  */

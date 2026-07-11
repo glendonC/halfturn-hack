@@ -27,16 +27,16 @@ import {
 import {
   createPoseVerifier,
   getPoseVerifierAsync,
-  isRealPoseVerifier,
+  toScanVerification,
   type PoseVerifier,
 } from '@/services/vision';
-import { DEFAULT_REACTION_WINDOW_MS } from '@/constants';
 import type {
   CueDefinition,
   CueEvent,
   CueType,
   DrillConfig,
   DrillMs,
+  ScanVerification,
   WallMs,
 } from '@/types';
 import { createId, createRng, PausableDrillClocks } from '@/utils';
@@ -164,9 +164,7 @@ function finishSession(
   void setKeepAwake(false);
   void audioEngine.stop();
   releaseBeep();
-  if (isRealPoseVerifier(poseVerifier)) {
-    poseVerifier.stop();
-  }
+  const verifier = poseVerifier;
   poseVerifier = createPoseVerifier();
   scheduler = null;
   countdownEndsAtWallMs = null;
@@ -182,25 +180,43 @@ function finishSession(
   });
 
   const snapshot = get();
-  void persistFinishedSession(snapshot, completed)
-    .then(() => {
+  void (async () => {
+    let verification: ScanVerification | null = null;
+    try {
+      const scans = await verifier.stop();
+      if (verifier.available) {
+        verification = toScanVerification(
+          scans,
+          snapshot.cueEvents,
+          durationDrillMs / 1000,
+          verifier.engine ?? 'vision',
+          undefined,
+          verifier.quality?.() ?? null,
+        );
+      }
+    } catch (err) {
+      console.warn('[drill] verification failed', err);
+    }
+    try {
+      await persistFinishedSession(snapshot, completed, verification);
       if (get().sessionId === snapshot.sessionId) {
         set({ persistStatus: 'saved', persistError: null });
       }
-    })
-    .catch((err: unknown) => {
+    } catch (err: unknown) {
       if (get().sessionId === snapshot.sessionId) {
         set({
           persistStatus: 'error',
           persistError: err instanceof Error ? err.message : 'Save failed',
         });
       }
-    });
+    }
+  })();
 }
 
 async function persistFinishedSession(
   state: DrillStoreState,
   completed: boolean,
+  verification: ScanVerification | null,
 ): Promise<void> {
   if (!state.sessionId || state.startedAtWallMs == null) return;
   await saveSession({
@@ -214,6 +230,7 @@ async function persistFinishedSession(
     distribution: summarizeCueDistribution(state.cueEvents),
     completed,
     schemaVersion: DRILL_SESSION_SCHEMA_VERSION,
+    verification,
   });
 }
 
@@ -312,14 +329,14 @@ export const useDrillStore = create<DrillStoreState>((set, get) => ({
 
     modeBehavior = getDrillModeBehavior(config.mode);
     poseVerifier = modeBehavior.resolveVerifier();
+    poseVerifier.start(0);
     if (config.mode === 'turn_react') {
       void getPoseVerifierAsync().then((v) => {
         // Ignore stale resolves if the run already ended.
         if (get().status !== 'running' && get().status !== 'paused') return;
+        void poseVerifier.stop().catch(() => {});
         poseVerifier = v;
-        if (isRealPoseVerifier(v)) {
-          v.start(0);
-        }
+        poseVerifier.start(0);
       });
     }
 
@@ -350,9 +367,7 @@ export const useDrillStore = create<DrillStoreState>((set, get) => ({
     clocks.pause(wallNow);
     void setKeepAwake(false);
     void audioEngine.stop();
-    if (isRealPoseVerifier(poseVerifier)) {
-      poseVerifier.pause();
-    }
+    poseVerifier.pause?.();
     set({
       status: 'paused',
       durationDrillMs: clocks.drillNow(wallNow),
@@ -366,9 +381,7 @@ export const useDrillStore = create<DrillStoreState>((set, get) => ({
     const wallNow = Date.now();
     clocks.resume(wallNow);
     void setKeepAwake(true);
-    if (isRealPoseVerifier(poseVerifier)) {
-      poseVerifier.resume();
-    }
+    poseVerifier.resume?.();
     set({
       status: 'running',
       durationDrillMs: clocks.drillNow(wallNow),
@@ -391,9 +404,7 @@ export const useDrillStore = create<DrillStoreState>((set, get) => ({
   reset: () => {
     void setKeepAwake(false);
     void audioEngine.stop();
-    if (isRealPoseVerifier(poseVerifier)) {
-      poseVerifier.stop();
-    }
+    void poseVerifier.stop().catch(() => {});
     poseVerifier = createPoseVerifier();
     scheduler = null;
     countdownEndsAtWallMs = null;
@@ -472,27 +483,10 @@ export const useDrillStore = create<DrillStoreState>((set, get) => ({
         priorPhrase,
       );
       const phrase = resolved.phrase;
-      let event: CueEvent =
+      const event: CueEvent =
         phrase === fired.phrase
-          ? fired.event
-          : { ...fired.event, phrase };
-
-      if (state.config.mode === 'turn_react') {
-        const samples = isRealPoseVerifier(poseVerifier)
-          ? poseVerifier.getYawSamples()
-          : [];
-        event = {
-          ...event,
-          verification: poseVerifier.verifyCue({
-            cue: fired.cue,
-            cueOnsetDrillMs: fired.event.onsetDrillMs,
-            samples,
-            windowMs: DEFAULT_REACTION_WINDOW_MS,
-          }),
-        };
-      } else {
-        event = { ...event, verification: null };
-      }
+          ? { ...fired.event, verification: null }
+          : { ...fired.event, phrase, verification: null };
 
       nextScheduler = fired.snapshot;
       currentCue = fired.cue;
