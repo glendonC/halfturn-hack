@@ -1,5 +1,6 @@
 export { configureDrillAudioSession } from './audioSession';
 export { ClipCueEngine } from './ClipCueEngine';
+export { estimateSpeechMs } from './estimate';
 export { phraseToSpeakVars, resolveSpokenText } from './resolveSpokenText';
 export { speakCatalogCue, TtsCueEngine } from './TtsCueEngine';
 export {

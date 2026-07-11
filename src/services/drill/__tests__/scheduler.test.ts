@@ -23,6 +23,10 @@ describe('pickIntervalMs', () => {
   it('returns min when min === max', () => {
     expect(pickIntervalMs(3000, 3000, () => 0.99)).toBe(3000);
   });
+
+  it('respects a speech-duration floor above the sampled range', () => {
+    expect(pickIntervalMs(1000, 1000, () => 0, 2500)).toBe(2500);
+  });
 });
 
 describe('PausableDrillClocks', () => {
@@ -120,5 +124,22 @@ describe('scheduler fire + repeat avoidance', () => {
     expect(fired.cue.id).toBe('color');
     expect(fired.phrase).toBe(fired.event.phrase);
     expect(fired.phrase).not.toBe('Color');
+  });
+
+  it('floors the next gap using intervalFloorMs from the spoken phrase', () => {
+    const config = createDefaultDrillConfig({
+      enabledCues: ['scan'],
+      intervalMs: { min: 500, max: 500 },
+    });
+    const fired = fireCueAt({
+      config,
+      snapshot: createInitialSchedulerSnapshot(config, () => 0),
+      onsetDrillMs: 1000,
+      onsetWallMs: 1,
+      random: () => 0,
+      id: 'cue_floor',
+      intervalFloorMs: (phrase) => (phrase === 'Scan' ? 2000 : 0),
+    });
+    expect(fired.snapshot.nextCueAtDrillMs).toBe(3000);
   });
 });

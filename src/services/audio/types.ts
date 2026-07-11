@@ -39,4 +39,6 @@ export interface AudioCueEngine {
   speakText(text: string): Promise<void>;
   stop(): Promise<void>;
   setOptions(options: Partial<AudioCueEngineOptions>): void;
+  /** Estimated utterance duration in ms (used to floor cue intervals). */
+  estimateMs(phrase: string): number;
 }

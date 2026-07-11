@@ -11,6 +11,12 @@ HalfTurn Phase 1 uses **on-device TTS** (`expo-speech`) with an app audio sessio
 
 Cues are **interruptible**: each `speakCue` stops in-flight speech first so a late/overlapping cue never queues behind a stale one.
 
+## Speech-duration guard
+
+The scheduler also **floors** the gap to the next cue using `estimateSpeechMs(phrase, rate)` (word count × rate-scaled ms + Bluetooth cushion) plus a small utterance pad. That keeps long phrases / slow rates from stacking onsets even when the random interval would otherwise be shorter than the spoken length.
+
+`AudioCueEngine.estimateMs` is the seam: `TtsCueEngine` uses the current voice rate; a future `ClipCueEngine` can return clip durations instead.
+
 ## iOS ringer-switch gotcha
 
 On iPhone, the hardware **Silent / Ring** switch mutes many audio categories by default. Field athletes often leave Silent on.

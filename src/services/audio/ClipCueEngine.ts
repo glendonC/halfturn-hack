@@ -1,5 +1,6 @@
 import type { CueDefinition } from '@/types';
 
+import { estimateSpeechMs } from './estimate';
 import type {
   AudioCueEngine,
   AudioCueEngineOptions,
@@ -35,6 +36,10 @@ export class ClipCueEngine implements AudioCueEngine {
 
   async stop(): Promise<void> {
     // No-op until packs ship.
+  }
+
+  estimateMs(phrase: string): number {
+    return estimateSpeechMs(phrase, this.options.rate);
   }
 
   /** Exposed for diagnostics / future UI */

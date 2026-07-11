@@ -39,6 +39,9 @@ export type PersistStatus = 'idle' | 'saving' | 'saved' | 'error';
 
 const KEEP_AWAKE_TAG = 'halfturn-drill';
 
+/** Extra pad on top of estimateSpeechMs so Bluetooth/dispatch lag does not stack cues. */
+const UTTERANCE_PAD_MS = 250;
+
 let audioEngine: AudioCueEngine = new TtsCueEngine();
 let clocks = new PausableDrillClocks();
 let rng: () => number = Math.random;
@@ -406,6 +409,8 @@ export const useDrillStore = create<DrillStoreState>((set, get) => ({
         onsetWallMs: wallNow,
         random: rng,
         id: createId('cue'),
+        intervalFloorMs: (phrase) =>
+          audioEngine.estimateMs(phrase) + UTTERANCE_PAD_MS,
       });
       nextScheduler = fired.snapshot;
       currentCue = fired.cue;

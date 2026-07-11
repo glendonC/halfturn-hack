@@ -69,6 +69,11 @@ export function fireCueAt(args: {
   onsetWallMs: WallMs;
   random: () => number;
   id: string;
+  /**
+   * Minimum gap before the next cue (ms), typically estimated TTS length + pad.
+   * Applied after the random interval sample.
+   */
+  intervalFloorMs?: number | ((phrase: string) => number);
 }): FireCueResult {
   const { config, snapshot, onsetDrillMs, onsetWallMs, random, id } = args;
 
@@ -105,10 +110,16 @@ export function fireCueAt(args: {
     else rightCount += 1;
   }
 
+  const floor =
+    typeof args.intervalFloorMs === 'function'
+      ? args.intervalFloorMs(phrase)
+      : (args.intervalFloorMs ?? 0);
+
   const interval = pickIntervalMs(
     config.intervalMs.min,
     config.intervalMs.max,
     random,
+    floor,
   );
 
   const next: SchedulerSnapshot = {

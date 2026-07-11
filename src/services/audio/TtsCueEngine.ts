@@ -4,6 +4,7 @@ import { getCueDefinition } from '@/constants';
 import type { CueDefinition } from '@/types';
 
 import { configureDrillAudioSession } from './audioSession';
+import { estimateSpeechMs } from './estimate';
 import { resolveSpokenText } from './resolveSpokenText';
 import type {
   AudioCueEngine,
@@ -57,6 +58,10 @@ export class TtsCueEngine implements AudioCueEngine {
   async stop(): Promise<void> {
     this.generation += 1;
     await Speech.stop();
+  }
+
+  estimateMs(phrase: string): number {
+    return estimateSpeechMs(phrase, this.options.rate);
   }
 
   private async ensurePrepared(): Promise<void> {
