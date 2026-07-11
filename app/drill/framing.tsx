@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { trackingLevelColor } from '@/components/camera';
+import { Button } from '@/components/Button';
 import { isInFrame } from '@/constants/visionTuning';
 import {
   LazyCameraVerifier,
@@ -75,12 +76,7 @@ export default function FramingScreen() {
               body="Headphones on. A beep marks onset; the screen holds the value."
             />
           </View>
-          <Pressable
-            onPress={continueToDrill}
-            style={({ pressed }) => [styles.primaryBtn, pressed && styles.pressed]}
-          >
-            <Text style={styles.primaryBtnText}>Continue</Text>
-          </Pressable>
+          <Button label="Continue" size="xl" onPress={continueToDrill} />
         </View>
       </SafeAreaView>
     );
@@ -112,26 +108,14 @@ export default function FramingScreen() {
         <Text style={styles.instruction}>{cal.instruction}</Text>
 
         {cal.phase === 'ready' ? (
-          <Pressable
-            onPress={continueToDrill}
-            style={({ pressed }) => [styles.primaryBtn, pressed && styles.pressed]}
-          >
-            <Text style={styles.primaryBtnText}>Start drill</Text>
-          </Pressable>
+          <Button label="Start drill" size="xl" onPress={continueToDrill} />
         ) : (
-          <Pressable
+          <Button
+            label={cal.capturing ? 'Hold…' : captureLabel}
+            size="lg"
             onPress={cal.capture}
             disabled={cal.capturing}
-            style={({ pressed }) => [
-              styles.primaryBtn,
-              cal.capturing && styles.disabled,
-              pressed && styles.pressed,
-            ]}
-          >
-            <Text style={styles.primaryBtnText}>
-              {cal.capturing ? 'Hold…' : captureLabel}
-            </Text>
-          </Pressable>
+          />
         )}
 
         {cal.phase !== 'ready' ? (
@@ -243,23 +227,10 @@ const styles = StyleSheet.create({
   stepBody: { flex: 1, gap: 4 },
   stepTitle: { color: colors.text, fontSize: 18, fontWeight: '800' },
   stepText: { ...typography.body, color: colors.textMuted, lineHeight: 22 },
-  primaryBtn: {
-    backgroundColor: colors.accent,
-    paddingVertical: 18,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  primaryBtnText: {
-    color: colors.bg,
-    fontSize: 18,
-    fontWeight: '800',
-  },
   skip: { alignItems: 'center', paddingVertical: spacing.sm },
   skipText: {
     ...typography.label,
     color: colors.textSecondary,
     fontWeight: '700',
   },
-  disabled: { opacity: 0.6 },
-  pressed: { opacity: 0.88 },
 });

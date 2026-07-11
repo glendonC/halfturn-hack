@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import type { DrillConfig } from '@/types';
 import { colors, radius, spacing, typography } from '@/theme';
 import { formatDuration, formatSeconds, pluralize } from '@/utils/format';
+import { Button } from '../Button';
 
 interface DrillReadyViewProps {
   config: DrillConfig;
@@ -50,12 +51,7 @@ export function DrillReadyView({
         </Text>
       </View>
 
-      <Pressable
-        onPress={onStart}
-        style={({ pressed }) => [styles.primaryBtn, pressed && styles.pressed]}
-      >
-        <Text style={styles.primaryBtnText}>Start</Text>
-      </Pressable>
+      <Button label="Start" size="xl" onPress={onStart} />
     </SafeAreaView>
   );
 }
@@ -112,16 +108,4 @@ const styles = StyleSheet.create({
     marginTop: spacing.md,
     paddingHorizontal: spacing.lg,
   },
-  primaryBtn: {
-    backgroundColor: colors.primary,
-    paddingVertical: 18,
-    borderRadius: radius.md,
-    alignItems: 'center',
-  },
-  primaryBtnText: {
-    color: colors.onAccent,
-    fontSize: 18,
-    fontWeight: '800',
-  },
-  pressed: { opacity: 0.88 },
 });

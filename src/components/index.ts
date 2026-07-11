@@ -1,4 +1,4 @@
-export { ScreenPlaceholder } from './ScreenPlaceholder';
+export { Button } from './Button';
 export {
   CameraSquircle,
   TrackingRing,
