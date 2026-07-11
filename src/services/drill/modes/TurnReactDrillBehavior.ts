@@ -5,7 +5,7 @@ import {
   REVEAL_WINDOW_MS,
   pickTurnReactColor,
 } from '@/constants/turnReact';
-import { NullPoseVerifier, type PoseVerifier } from '@/services/vision';
+import { createPoseVerifier, type PoseVerifier } from '@/services/vision';
 import type { CueDefinition, DrillConfig } from '@/types';
 
 import type { DrillModeBehavior, PickedCue, ResolvedCue } from './types';
@@ -59,6 +59,6 @@ export class TurnReactDrillBehavior implements DrillModeBehavior {
   }
 
   resolveVerifier(): PoseVerifier {
-    return new NullPoseVerifier();
+    return createPoseVerifier();
   }
 }

@@ -21,4 +21,5 @@ export type {
   VerificationResult,
   VerifyCueArgs,
   YawSample,
+  YawSampleBackend,
 } from './verification';

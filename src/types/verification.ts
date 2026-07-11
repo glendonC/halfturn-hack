@@ -26,11 +26,18 @@ export interface VerificationResult {
   backendId: string;
 }
 
-export interface PerceptionBackend {
+/**
+ * Optional YawSample stream adapter (ARCHITECTURE sketch).
+ * Frame-level swappable backends live in services/vision/PerceptionBackend.
+ */
+export interface YawSampleBackend {
   start(): Promise<void>;
   stop(): Promise<void>;
   subscribe(cb: (sample: YawSample | null) => void): () => void;
 }
+
+/** @deprecated Prefer YawSampleBackend; PerceptionBackend now means frame backends in vision/. */
+export type PerceptionBackend = YawSampleBackend;
 
 export interface VerifyCueArgs {
   cue: CueDefinition;

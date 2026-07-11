@@ -25,7 +25,7 @@ import {
   type AppSettings,
 } from '@/services/db';
 import type { PoseVerifier } from '@/services/vision';
-import { NullPoseVerifier } from '@/services/vision';
+import { createPoseVerifier } from '@/services/vision';
 import type {
   CueDefinition,
   CueEvent,
@@ -49,7 +49,7 @@ export type PersistStatus = 'idle' | 'saving' | 'saved' | 'error';
 const KEEP_AWAKE_TAG = 'halfturn-drill';
 
 let audioEngine: AudioCueEngine = new TtsCueEngine();
-let poseVerifier: PoseVerifier = new NullPoseVerifier();
+let poseVerifier: PoseVerifier = createPoseVerifier();
 let modeBehavior: DrillModeBehavior = getDrillModeBehavior('audio');
 let clocks = new PausableDrillClocks();
 let rng: () => number = Math.random;

@@ -1,7 +1,6 @@
 /**
  * Swappable perception-backend types (frame in → landmarks out).
- * Native implementations load only behind a later Expo Go guard.
- * Pure consumers (YawFusion) depend on these types only.
+ * Native implementations load only behind a later Expo Go / VISION_ENABLED guard.
  */
 
 export interface Landmark {
@@ -40,10 +39,10 @@ export interface BackendStartConfig {
 }
 
 /**
- * Frame-level perception backend. Distinct from the drill-facing PoseVerifier
- * and from the simpler YawSample stream type in @/types (Phase 1 seam).
+ * Frame-level perception backend. The ONLY place native camera code may live.
+ * Loaded through the registry (dynamic import in a later unlock); Expo Go gets NullBackend.
  */
-export interface FramePerceptionBackend {
+export interface PerceptionBackend {
   readonly id: string;
   readonly version: string;
   available(): Promise<boolean>;
