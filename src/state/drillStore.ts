@@ -5,26 +5,26 @@ import { create } from 'zustand';
 import { summarizeCueDistribution } from '@/components/drill/sessionStats';
 import { createDefaultDrillConfig, getCueDefinition } from '@/constants';
 import { isVariableCue } from '@/constants';
-import { REVEAL_PAD_MS, REVEAL_WINDOW_MS } from '@/constants/turnReact';
 import {
   createInitialSchedulerSnapshot,
   fireCueAt,
+  getDrillModeBehavior,
   remainingDrillMs,
   shouldFireCue,
+  type DrillModeBehavior,
   type SchedulerSnapshot,
 } from '@/services/drill';
 import {
-  playBeep,
-  primeBeep,
   releaseBeep,
   TtsCueEngine,
-  phraseToSpeakVars,
   type AudioCueEngine,
 } from '@/services/audio';
 import {
   saveSession,
   type AppSettings,
 } from '@/services/db';
+import type { PoseVerifier } from '@/services/vision';
+import { NullPoseVerifier } from '@/services/vision';
 import type {
   CueDefinition,
   CueEvent,
@@ -47,10 +47,9 @@ export type PersistStatus = 'idle' | 'saving' | 'saved' | 'error';
 
 const KEEP_AWAKE_TAG = 'halfturn-drill';
 
-/** Extra pad on top of estimateSpeechMs so Bluetooth/dispatch lag does not stack cues. */
-const UTTERANCE_PAD_MS = 250;
-
 let audioEngine: AudioCueEngine = new TtsCueEngine();
+let poseVerifier: PoseVerifier = new NullPoseVerifier();
+let modeBehavior: DrillModeBehavior = getDrillModeBehavior('audio');
 let clocks = new PausableDrillClocks();
 let rng: () => number = Math.random;
 let scheduler: SchedulerSnapshot | null = null;
@@ -65,6 +64,10 @@ export function __setDrillAudioEngineForTests(engine: AudioCueEngine): void {
 
 export function getDrillAudioEngine(): AudioCueEngine {
   return audioEngine;
+}
+
+export function getDrillPoseVerifier(): PoseVerifier {
+  return poseVerifier;
 }
 
 export interface DrillStoreState {
@@ -291,11 +294,12 @@ export const useDrillStore = create<DrillStoreState>((set, get) => ({
     scheduler = createInitialSchedulerSnapshot(config, rng);
     countdownEndsAtWallMs = null;
 
+    modeBehavior = getDrillModeBehavior(config.mode);
+    poseVerifier = modeBehavior.resolveVerifier();
+
     void setKeepAwake(true);
     void audioEngine.prepare();
-    if (config.mode === 'turn_react') {
-      primeBeep();
-    }
+    modeBehavior.prepareAudio(audioEngine);
 
     set({
       status: 'running',
@@ -414,7 +418,6 @@ export const useDrillStore = create<DrillStoreState>((set, get) => ({
       guard < 3
     ) {
       guard += 1;
-      const turnReact = state.config.mode === 'turn_react';
       const fired = fireCueAt({
         config: state.config,
         snapshot: nextScheduler,
@@ -423,26 +426,27 @@ export const useDrillStore = create<DrillStoreState>((set, get) => ({
         random: rng,
         id: createId('cue'),
         intervalFloorMs: (phrase) =>
-          turnReact
-            ? REVEAL_WINDOW_MS + REVEAL_PAD_MS
-            : audioEngine.estimateMs(phrase) + UTTERANCE_PAD_MS,
+          modeBehavior.minIntervalFloorMs(phrase, audioEngine),
       });
+      const resolved = modeBehavior.resolveCue(
+        { cue: fired.cue, phrase: fired.phrase },
+        rng,
+        state.config,
+      );
+      const phrase = resolved.phrase;
+      const event =
+        phrase === fired.phrase
+          ? fired.event
+          : { ...fired.event, phrase };
+
       nextScheduler = fired.snapshot;
       currentCue = fired.cue;
-      currentPhrase = fired.phrase;
+      currentPhrase = phrase;
       lastCueType = fired.cue.type;
-      cueEvents = [...cueEvents, fired.event];
+      cueEvents = [...cueEvents, event];
       cuesFired = nextScheduler.cuesFired;
 
-      if (turnReact) {
-        // Directionless beep; phrase is on-screen only (NullPoseVerifier).
-        playBeep();
-      } else {
-        void audioEngine.speakCue(
-          fired.cue,
-          phraseToSpeakVars(fired.cue.id, fired.phrase),
-        );
-      }
+      modeBehavior.presentCue(fired.cue, phrase, audioEngine);
       void fireHaptic(state.config.haptics);
     }
 
