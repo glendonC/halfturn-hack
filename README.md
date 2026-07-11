@@ -53,18 +53,25 @@ Camera / native vision code must be **guarded** so it never poisons the Expo Go 
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Folder map, frozen interfaces, data model |
 | [docs/METRICS.md](docs/METRICS.md) | What we claim (and refuse) to measure |
 
-## How to run
+## Getting started
 
-> Placeholder — Expo app not scaffolded yet.
+Requires Node 20+ and the [Expo Go](https://expo.dev/go) app on your phone (SDK 54).
 
 ```bash
-# After scaffolding (next step):
 npm install
-npx expo start
+npm start
 ```
 
-- **Audio MVP:** Expo Go is fine.
-- **Turn & React:** requires a custom/dev client (VisionCamera + pose backend). Audio path must still run in Expo Go via `NullPoseVerifier`.
+Then scan the QR code with Expo Go (iOS) or the on-screen link (Android). Shortcuts:
+
+```bash
+npm run ios       # simulator (macOS)
+npm run android   # emulator
+npm run typecheck # tsc --noEmit
+```
+
+- **Audio MVP / this scaffold:** Expo Go is fine — no native vision deps.
+- **Turn & React (later):** requires a custom/dev client (VisionCamera + pose backend). Audio path must still run in Expo Go via `NullPoseVerifier`.
 
 ## Privacy
 
