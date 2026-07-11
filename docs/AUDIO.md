@@ -6,7 +6,7 @@ HalfTurn Phase 1 uses **on-device TTS** (`expo-speech`) with an app audio sessio
 
 | Engine | Role |
 | ------ | ---- |
-| `TtsCueEngine` | Production path for the weekend MVP |
+| `TtsCueEngine` | Default path for the weekend MVP |
 | `ClipCueEngine` | Seam for future recorded voice packs (same `AudioCueEngine` interface; TTS fallback when a clip is missing) |
 
 Cues are **interruptible**: each `speakCue` stops in-flight speech first so a late/overlapping cue never queues behind a stale one. That keeps the timeline honest when a cue fires before the previous utterance would have finished — the speech-duration **floor** is the other half of that contract (prefer not to interrupt; if we must, interrupt rather than queue).

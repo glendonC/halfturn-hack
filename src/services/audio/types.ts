@@ -1,6 +1,6 @@
 /**
  * Hack-only audio option bag persisted in AppSettings.
- * Maps into production {@link Settings} via speechSettingsFromAudio.
+ * Maps into {@link Settings} via speechSettingsFromAudio.
  */
 
 export interface AudioCueEngineOptions {

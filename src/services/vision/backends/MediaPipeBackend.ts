@@ -15,7 +15,7 @@ import { canUseNativeVision } from '../runtimeGuard';
  * RealPoseVerifier. available() is true only when canUseNativeVision() so
  * Expo Go never selects it via the registry.
  *
- * Lifted from production; toRawPoseFrame uses a structural bundle type so we
+ * toRawPoseFrame uses a structural bundle type so we
  * do not import react-native-mediapipe-posedetection on the Expo Go graph.
  */
 

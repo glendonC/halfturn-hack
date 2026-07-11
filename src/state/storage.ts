@@ -6,7 +6,7 @@ import { createJSONStorage, type StateStorage } from 'zustand/middleware';
  *
  * Synchronous variants so stores can hydrate on first render without a flash
  * of defaults. Available for config/settings persist as we converge on
- * production store shapes.
+ * canonical store shapes.
  */
 const syncStorage: StateStorage = {
   getItem: (name) => Storage.getItemSync(name),

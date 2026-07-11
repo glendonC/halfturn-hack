@@ -1,5 +1,5 @@
 /**
- * Lifted from production HalfTurn scanDetect (field names adapted to hack CueEvent:
+ * scanDetect (field names adapted to hack CueEvent:
  * onsetDrillMs / index instead of firedAtMonoMs / seq).
  */
 

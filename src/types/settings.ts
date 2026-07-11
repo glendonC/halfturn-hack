@@ -7,7 +7,7 @@ export type AudioOutputMode = 'headphones' | 'speaker';
 export type CueAudioSource = 'tts' | 'clips';
 
 /**
- * Persisted app-wide speech / session settings (production Settings shape).
+ * Persisted app-wide speech / session settings (Settings shape).
  * Hack AppSettings.audio maps into the speech fields via speechSettingsFromAudio.
  */
 export interface Settings {

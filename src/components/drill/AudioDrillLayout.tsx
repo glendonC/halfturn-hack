@@ -12,7 +12,7 @@ import type { DrillLayoutProps } from './layoutProps';
 import { PausedOverlay } from './PausedOverlay';
 import { TransportControls } from './TransportControls';
 
-/** Audio-mode running layout (production AudioDrillLayout). */
+/** Audio-mode running layout (AudioDrillLayout). */
 export function AudioDrillLayout({ engine, durationMs, cueCount }: DrillLayoutProps) {
   const insets = useSafeAreaInsets();
   const currentCue = useDrillStore((s) => s.currentCue);

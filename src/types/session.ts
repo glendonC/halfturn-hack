@@ -42,7 +42,7 @@ export interface CueEvent {
 }
 
 /**
- * Session-level camera/pose verification (production ScanVerification shape).
+ * Session-level camera/pose verification (ScanVerification shape).
  * Null on every audio-only / Expo Go session.
  */
 export interface ScanVerification {

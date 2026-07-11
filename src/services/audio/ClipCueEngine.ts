@@ -5,7 +5,7 @@ import { estimateSpeechMs } from './estimate';
 
 /**
  * PLACEHOLDER (not yet wired): recorded voice-pack cue engine.
- * Lifted from production — getAudioCueEngine still returns TTS today.
+ * getAudioCueEngine still returns TTS today.
  */
 export class ClipCueEngine implements AudioCueEngine {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars

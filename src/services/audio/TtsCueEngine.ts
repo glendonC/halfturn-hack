@@ -21,7 +21,7 @@ import type { AudioCueEngineOptions } from './types';
 export class TtsCueEngine implements AudioCueEngine {
   private settings: Settings = { ...DEFAULT_SETTINGS };
 
-  /** Map hack AppSettings.audio into the production Settings fields. */
+  /** Map hack AppSettings.audio into the Settings fields. */
   setOptions(options: Partial<AudioCueEngineOptions>): void {
     this.settings = {
       ...this.settings,

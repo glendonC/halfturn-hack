@@ -1,12 +1,12 @@
 /**
  * CueScheduler — the pure, deterministic core of the drill engine.
  *
- * Lifted from production HalfTurn. Owns two decisions and nothing else
+ * Owns two decisions and nothing else
  * (no timers, no audio, no React):
  *   1. nextIntervalMs(): how long to wait before the next cue.
  *   2. pickCue(): which cue to fire and what phrase to speak.
  *
- * Hack DrillConfig uses intervalMs + avoidLastN; production uses
+ * Hack DrillConfig uses intervalMs + avoidLastN; CueScheduler uses
  * intervalMinSec/MaxSec + avoidImmediateRepeat. Mapped at the call edge.
  */
 
@@ -38,7 +38,7 @@ export function initialSchedulerState(): SchedulerState {
   return { lastCueId: null, lastPhrase: null };
 }
 
-/** Production avoidImmediateRepeat ↔ hack avoidLastN > 0. */
+/** avoidImmediateRepeat ↔ hack avoidLastN > 0. */
 function avoidImmediateRepeat(config: DrillConfig): boolean {
   return config.avoidLastN > 0;
 }

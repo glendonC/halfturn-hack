@@ -22,7 +22,7 @@ interface DrillConfigStore {
 }
 
 /**
- * Production-shaped drill config store.
+ * Drill config store.
  * Writes through to useDrillStore so setup UI and the engine stay in sync
  * without a second persistence path yet.
  */

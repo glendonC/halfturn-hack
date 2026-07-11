@@ -1,5 +1,5 @@
 /**
- * Production-named session persistence facade.
+ * Session persistence facade.
  * Backed by hack sessionRepository + historyStats until schemas fully converge.
  */
 
@@ -22,7 +22,7 @@ export interface HistoryStats {
   sessionsThisWeek: number;
 }
 
-/** Recent-history rollup using production HistoryStats field names. */
+/** Recent-history rollup using HistoryStats field names. */
 export async function getHistoryStats(): Promise<HistoryStats> {
   const sessions = await listSessions(500);
   const rollup = rollupSessions(sessions);

@@ -18,7 +18,7 @@ export function getAudioCueEngine(
   return engine;
 }
 
-/** Map persisted AppSettings.audio into production Settings speech fields. */
+/** Map persisted AppSettings.audio into Settings speech fields. */
 export function speechSettingsFromAudio(
   audio: AudioCueEngineOptions,
   patch: Partial<Settings> = {},
