@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { CUE_CATALOG } from '@/constants';
+import { CUE_CATALOG, DURATION_PRESETS_MS } from '@/constants';
 import { getDrillAudioEngine, useSettingsStore } from '@/state';
 import { colors, spacing, typography } from '@/theme';
 
@@ -32,6 +32,8 @@ const VOLUME_PRESETS = [
   { label: 'Max', value: 1 },
 ] as const;
 
+const INTERVAL_STEP_MS = 500;
+
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const settings = useSettingsStore((s) => s.settings);
@@ -41,6 +43,23 @@ export default function SettingsScreen() {
   const toggleDefaultCue = useSettingsStore((s) => s.toggleDefaultCue);
   const clearHistory = useSettingsStore((s) => s.clearHistory);
   const [clearing, setClearing] = useState(false);
+
+  const durationPreset = (
+    Object.entries(DURATION_PRESETS_MS) as [string, number][]
+  ).find(([, ms]) => ms === settings.drill.durationMs)?.[0] ?? 'custom';
+
+  function bumpInterval(key: 'min' | 'max', delta: number) {
+    const next = {
+      min: settings.drill.intervalMs.min,
+      max: settings.drill.intervalMs.max,
+      [key]: Math.max(1000, settings.drill.intervalMs[key] + delta),
+    };
+    if (next.min > next.max) {
+      if (key === 'min') next.max = next.min;
+      else next.min = next.max;
+    }
+    void patchDrillDefaults({ intervalMs: next });
+  }
 
   function confirmClear() {
     Alert.alert(
@@ -117,6 +136,75 @@ export default function SettingsScreen() {
       </Section>
 
       <Section title="Drill defaults">
+        <Label>Duration</Label>
+        <View style={styles.rowWrap}>
+          {(
+            [
+              ['short', '1 min'],
+              ['standard', '3 min'],
+              ['long', '5 min'],
+            ] as const
+          ).map(([key, label]) => (
+            <Pressable
+              key={key}
+              onPress={() =>
+                void patchDrillDefaults({ durationMs: DURATION_PRESETS_MS[key] })
+              }
+              style={[
+                styles.chip,
+                durationPreset === key && styles.chipActive,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.chipText,
+                  durationPreset === key && styles.chipTextActive,
+                ]}
+              >
+                {label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+        <Label>Cue interval</Label>
+        <Stepper
+          label={`Min ${(settings.drill.intervalMs.min / 1000).toFixed(1)}s`}
+          onMinus={() => bumpInterval('min', -INTERVAL_STEP_MS)}
+          onPlus={() => bumpInterval('min', INTERVAL_STEP_MS)}
+        />
+        <Stepper
+          label={`Max ${(settings.drill.intervalMs.max / 1000).toFixed(1)}s`}
+          onMinus={() => bumpInterval('max', -INTERVAL_STEP_MS)}
+          onPlus={() => bumpInterval('max', INTERVAL_STEP_MS)}
+        />
+        <Label>Countdown</Label>
+        <View style={styles.rowWrap}>
+          {(
+            [
+              [0, 'Off'],
+              [3, '3s'],
+              [5, '5s'],
+            ] as const
+          ).map(([sec, label]) => (
+            <Pressable
+              key={label}
+              onPress={() => void patchDrillDefaults({ countdownSec: sec })}
+              style={[
+                styles.chip,
+                settings.drill.countdownSec === sec && styles.chipActive,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.chipText,
+                  settings.drill.countdownSec === sec && styles.chipTextActive,
+                ]}
+              >
+                {label}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
         <ToggleRow
           label="Haptics on cues"
           value={settings.drill.haptics}
@@ -240,6 +328,28 @@ function ToggleRow({
   );
 }
 
+function Stepper({
+  label,
+  onMinus,
+  onPlus,
+}: {
+  label: string;
+  onMinus: () => void;
+  onPlus: () => void;
+}) {
+  return (
+    <View style={styles.stepper}>
+      <Pressable onPress={onMinus} style={styles.stepBtn}>
+        <Text style={styles.stepBtnText}>−</Text>
+      </Pressable>
+      <Text style={styles.stepperLabel}>{label}</Text>
+      <Pressable onPress={onPlus} style={styles.stepBtn}>
+        <Text style={styles.stepBtnText}>+</Text>
+      </Pressable>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.bg },
   brand: {
@@ -279,6 +389,26 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
   },
   toggleLabel: { color: colors.text, fontSize: 16, fontWeight: '500', flex: 1 },
+  stepper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.surface,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: spacing.sm,
+  },
+  stepperLabel: { color: colors.text, fontWeight: '600', fontSize: 16 },
+  stepBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.bgElevated,
+  },
+  stepBtnText: { color: colors.text, fontSize: 24, fontWeight: '700' },
   secondaryBtn: {
     marginTop: spacing.sm,
     paddingVertical: 14,

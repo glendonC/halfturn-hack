@@ -155,6 +155,25 @@ export function DrillSetup() {
         </Text>
       </Section>
 
+      <Section title="Countdown">
+        <View style={styles.rowWrap}>
+          {(
+            [
+              [0, 'Off'],
+              [3, '3s'],
+              [5, '5s'],
+            ] as const
+          ).map(([sec, label]) => (
+            <Chip
+              key={label}
+              label={label}
+              active={config.countdownSec === sec}
+              onPress={() => setConfig({ countdownSec: sec })}
+            />
+          ))}
+        </View>
+      </Section>
+
       <Section title="Session">
         <ToggleRow
           label="Spoken countdown"
@@ -188,6 +207,9 @@ export function DrillSetup() {
             (NullPoseVerifier).
           </Text>
         )}
+        <Text style={[styles.hint, { marginTop: spacing.sm }]}>
+          Voice rate / pitch live in Settings and apply to the next drill.
+        </Text>
       </Section>
 
       <Pressable
