@@ -161,6 +161,7 @@ export function useDrillEngine(): UseDrillEngineResult {
         endedAtWallMs: endedAt,
         persistStatus: 'saving',
         persistError: null,
+        lastVerification: verification,
       });
       // Re-enter store stop path for persistence without double-finalizing clocks.
       void (async () => {

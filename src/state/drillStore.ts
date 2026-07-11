@@ -94,6 +94,8 @@ export interface DrillStoreState {
   durationDrillMs: DrillMs;
   persistStatus: PersistStatus;
   persistError: string | null;
+  /** Session-level scan verification from the last finished run (null on audio). */
+  lastVerification: ScanVerification | null;
 
   setConfig: (patch: Partial<DrillConfig>) => void;
   hydrateFromSettings: (settings: AppSettings) => void;
@@ -125,6 +127,7 @@ function baseState(config: DrillConfig = createDefaultDrillConfig()) {
     durationDrillMs: 0 as DrillMs,
     persistStatus: 'idle' as PersistStatus,
     persistError: null as string | null,
+    lastVerification: null as ScanVerification | null,
   };
 }
 

@@ -22,6 +22,15 @@ export const colors = {
   primary: '#C8F542',
   success: '#34D399',
   warning: '#FACC15',
+
+  // Cue color-coding (glass chips / distribution accents)
+  cueLeft: '#22D3EE',
+  cueRight: '#FB923C',
+  cueAction: '#A3E635',
+  cueAlert: '#FB7185',
+  cueVariableColor: '#C084FC',
+  cueVariableNumber: '#FACC15',
+  cueNeutral: '#C8F542',
 } as const;
 
 export const spacing = {
@@ -31,6 +40,7 @@ export const spacing = {
   lg: 24,
   xl: 32,
   xxl: 48,
+  huge: 64,
 } as const;
 
 export const radius = {
@@ -40,6 +50,8 @@ export const radius = {
   xl: 20,
   pill: 999,
 } as const;
+
+export const hitSlop = { top: 12, bottom: 12, left: 12, right: 12 } as const;
 
 export const typography = {
   brand: {

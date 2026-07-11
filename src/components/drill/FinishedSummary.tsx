@@ -1,10 +1,20 @@
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { StyleSheet, Text, View } from 'react-native';
 
+import {
+  GlassButton,
+  GlassCard,
+  GlassCueDistribution,
+  GlassScreen,
+  GlassStat,
+  GradientSquircle,
+  Icons,
+  type CueCounts,
+} from '@/components/glass';
 import { useDrillStore } from '@/state';
-import { colors, spacing, typography } from '@/theme';
+import { accents, glassType, spacing } from '@/theme';
+import { formatDuration } from '@/utils/format';
 
-import { formatDurationMs, summarizeCueDistribution } from './sessionStats';
+import { formatDurationMs } from './sessionStats';
 
 export function FinishedSummary({
   onDone,
@@ -13,15 +23,26 @@ export function FinishedSummary({
   onDone: () => void;
   onRepeat?: () => void;
 }) {
-  const insets = useSafeAreaInsets();
   const cueEvents = useDrillStore((s) => s.cueEvents);
   const durationDrillMs = useDrillStore((s) => s.durationDrillMs);
   const cuesFired = useDrillStore((s) => s.cuesFired);
   const config = useDrillStore((s) => s.config);
   const persistStatus = useDrillStore((s) => s.persistStatus);
   const persistError = useDrillStore((s) => s.persistError);
+  const lastVerification = useDrillStore((s) => s.lastVerification);
 
-  const distribution = summarizeCueDistribution(cueEvents);
+  const counts: CueCounts = {};
+  for (const event of cueEvents) {
+    counts[event.cueId] = (counts[event.cueId] ?? 0) + 1;
+  }
+  const left = counts.check_left ?? 0;
+  const right = counts.check_right ?? 0;
+  const directional = left + right;
+  const leftPct = directional > 0 ? Math.round((left / directional) * 100) : 0;
+  const durationSec = Math.max(0, Math.round(durationDrillMs / 1000));
+  const minutes = Math.max(durationSec / 60, 1 / 60);
+  const cuesPerMin = Math.round((cuesFired / minutes) * 10) / 10;
+  const accent = persistStatus === 'saved' ? 'home' : 'field';
 
   const saveLabel =
     persistStatus === 'saving'
@@ -33,180 +54,169 @@ export function FinishedSummary({
           : 'Session finished.';
 
   return (
-    <ScrollView
-      style={styles.root}
-      contentContainerStyle={[
-        styles.content,
-        { paddingTop: insets.top + spacing.lg, paddingBottom: insets.bottom + 40 },
-      ]}
-    >
-      <Text style={styles.brand}>HalfTurn</Text>
-      <Text style={styles.title}>Session done</Text>
+    <GlassScreen scroll accent={accent}>
+      <Text style={styles.kicker}>
+        {config.mode === 'audio' ? 'Audio drill' : 'Turn & React'}
+      </Text>
+      <Text style={styles.title}>Nice work.</Text>
       <Text style={styles.subtitle}>{saveLabel}</Text>
 
-      <View style={styles.card}>
-        <Stat label="Duration" value={formatDurationMs(durationDrillMs)} />
-        <Stat label="Cues" value={String(cuesFired)} />
-        <Stat
-          label="Mode"
-          value={config.mode === 'audio' ? 'Audio' : 'Turn & React preview'}
-        />
-      </View>
+      <GradientSquircle accent={accent} style={styles.hero}>
+        <View style={styles.heroPad}>
+          <GlassStat
+            size="md"
+            value={formatDuration(durationSec)}
+            label="Trained"
+          />
+          <View style={styles.heroDivider} />
+          <GlassStat size="md" value={String(cuesFired)} label="Cues" />
+          <View style={styles.heroDivider} />
+          <GlassStat size="md" value={`${cuesPerMin}`} label="Cues / min" />
+        </View>
+      </GradientSquircle>
 
-      <Text style={styles.sectionTitle}>Distribution</Text>
-      {distribution.length === 0 ? (
-        <Text style={styles.empty}>No cues fired.</Text>
-      ) : (
-        distribution.map((row) => (
-          <View key={row.cueId} style={styles.distRow}>
-            <Text style={styles.distLabel}>{row.label}</Text>
-            <Text style={styles.distCount}>{row.count}</Text>
-          </View>
-        ))
-      )}
-
-      <Text style={styles.sectionTitle}>Cue timeline</Text>
-      {cueEvents.length === 0 ? (
-        <Text style={styles.empty}>Empty timeline</Text>
-      ) : (
-        cueEvents.map((cue) => (
-          <View key={cue.id} style={styles.timelineRow}>
-            <Text style={styles.timelineIndex}>#{cue.index + 1}</Text>
-            <View style={styles.timelineBody}>
-              <Text style={styles.timelinePhrase}>{cue.phrase}</Text>
-              <Text style={styles.timelineMeta}>{cue.cueId}</Text>
+      <View style={styles.stack}>
+        {directional > 0 ? (
+          <GlassCard title="Left / right checks">
+            <View style={styles.lr}>
+              <GlassStat
+                size="sm"
+                value={String(left)}
+                label={`Left · ${leftPct}%`}
+                color={accents.field.solid}
+              />
+              <GlassStat
+                size="sm"
+                value={String(right)}
+                label={`Right · ${100 - leftPct}%`}
+                color={accents.vocab.solid}
+              />
             </View>
-            <Text style={styles.timelineTime}>
-              {(cue.onsetDrillMs / 1000).toFixed(1)}s
-            </Text>
-          </View>
-        ))
-      )}
+          </GlassCard>
+        ) : null}
 
-      <Text style={styles.honesty}>
-        Verification metrics stay empty for audio-only sessions (not zero).
-      </Text>
+        <GlassCard title="Cue distribution">
+          <GlassCueDistribution counts={counts} total={cuesFired} />
+        </GlassCard>
+
+        {lastVerification ? (
+          <GlassCard
+            title="Scan verification"
+            subtitle={lastVerification.engine}
+          >
+            <View style={styles.verifyRow}>
+              <GlassStat
+                size="sm"
+                value={String(lastVerification.scansDetected)}
+                label="Turns"
+                color={accents.audio.solid}
+              />
+              <GlassStat
+                size="sm"
+                value={`${lastVerification.scansPerMinute}`}
+                label="Turns / min"
+                color={accents.vocab.solid}
+              />
+              <GlassStat
+                size="sm"
+                value={
+                  lastVerification.avgReactionMs != null
+                    ? `${lastVerification.avgReactionMs}ms`
+                    : '—'
+                }
+                label="Avg reaction"
+                color={accents.voice.solid}
+              />
+            </View>
+          </GlassCard>
+        ) : (
+          <Text style={styles.phaseNote}>
+            {config.mode === 'turn_react'
+              ? 'No scan data this run — camera verification needs the custom client.'
+              : 'Turn & React verifies shoulder checks, scan count, and reaction time.'}
+          </Text>
+        )}
+
+        {cueEvents.length > 0 ? (
+          <GlassCard title="Cue timeline">
+            {cueEvents.map((cue) => (
+              <View key={cue.id} style={styles.timelineRow}>
+                <Text style={styles.timelineIndex}>#{cue.index + 1}</Text>
+                <View style={styles.timelineBody}>
+                  <Text style={styles.timelinePhrase}>{cue.phrase}</Text>
+                  <Text style={styles.timelineMeta}>{cue.cueId}</Text>
+                </View>
+                <Text style={styles.timelineTime}>
+                  {(cue.onsetDrillMs / 1000).toFixed(1)}s
+                </Text>
+              </View>
+            ))}
+          </GlassCard>
+        ) : null}
+      </View>
 
       <View style={styles.actions}>
         {onRepeat ? (
-          <Pressable
+          <GlassButton
+            label="Repeat"
+            variant="secondary"
+            size="lg"
+            icon={Icons.Repeat}
             onPress={onRepeat}
-            style={({ pressed }) => [styles.secondaryBtn, pressed && styles.pressed]}
-          >
-            <Text style={styles.secondaryBtnText}>Repeat</Text>
-          </Pressable>
+            style={styles.flex}
+          />
         ) : null}
-        <Pressable
+        <GlassButton
+          label="Done"
+          size="lg"
+          icon={Icons.Check}
           onPress={onDone}
-          style={({ pressed }) => [styles.primaryBtn, pressed && styles.pressed]}
-        >
-          <Text style={styles.primaryBtnText}>Done</Text>
-        </Pressable>
+          style={styles.flex}
+        />
       </View>
-    </ScrollView>
-  );
-}
 
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <View style={styles.stat}>
-      <Text style={styles.statLabel}>{label}</Text>
-      <Text style={styles.statValue}>{value}</Text>
-    </View>
+      <Text style={styles.durationHint}>{formatDurationMs(durationDrillMs)}</Text>
+    </GlassScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bg },
-  content: {
-    paddingHorizontal: spacing.lg,
-    gap: spacing.md,
+  kicker: { ...glassType.overline, color: accents.home.solid, marginTop: spacing.lg },
+  title: { ...glassType.hero, fontSize: 44, marginTop: spacing.xs },
+  subtitle: { ...glassType.body, marginBottom: spacing.lg },
+  hero: {},
+  heroPad: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: spacing.xl,
   },
-  brand: {
-    ...typography.caption,
-    color: colors.accent,
-    textTransform: 'uppercase',
+  heroDivider: {
+    width: StyleSheet.hairlineWidth,
+    alignSelf: 'stretch',
+    backgroundColor: 'rgba(24,20,37,0.12)',
+    marginVertical: 4,
   },
-  title: { ...typography.title, color: colors.text },
-  subtitle: { ...typography.body, color: colors.textMuted },
-  card: {
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.lg,
-    gap: spacing.md,
-    marginTop: spacing.sm,
-  },
-  stat: { gap: 2 },
-  statLabel: { ...typography.caption, color: colors.textMuted, textTransform: 'uppercase' },
-  statValue: { fontSize: 28, fontWeight: '800', color: colors.text },
-  sectionTitle: {
-    ...typography.caption,
-    color: colors.textMuted,
-    textTransform: 'uppercase',
-    marginTop: spacing.sm,
-  },
-  empty: { color: colors.textMuted },
-  distRow: {
+  stack: { gap: spacing.lg, marginTop: spacing.xl },
+  lr: { flexDirection: 'row', gap: spacing.xl },
+  verifyRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
+    gap: spacing.md,
   },
-  distLabel: { color: colors.text, fontSize: 18, fontWeight: '600' },
-  distCount: { color: colors.accent, fontSize: 18, fontWeight: '800' },
+  phaseNote: { ...glassType.caption, lineHeight: 18 },
   timelineRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.sm,
-    paddingVertical: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: colors.border,
+    gap: 8,
+    paddingVertical: 6,
   },
-  timelineIndex: { color: colors.textMuted, width: 36, fontWeight: '600' },
-  timelineBody: { flex: 1, gap: 2 },
-  timelinePhrase: { color: colors.text, fontSize: 17, fontWeight: '700' },
-  timelineMeta: { color: colors.textMuted, fontSize: 13 },
-  timelineTime: {
-    color: colors.textMuted,
-    fontVariant: ['tabular-nums'],
-    fontWeight: '600',
-  },
-  honesty: {
-    color: colors.textMuted,
-    fontSize: 14,
-    lineHeight: 20,
-    marginTop: spacing.sm,
-  },
-  actions: {
-    marginTop: spacing.xl,
-    gap: spacing.sm,
-  },
-  primaryBtn: {
-    backgroundColor: colors.accent,
-    paddingVertical: 18,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  primaryBtnText: {
-    color: colors.bg,
-    fontSize: 18,
-    fontWeight: '800',
-  },
-  secondaryBtn: {
-    paddingVertical: 18,
-    borderRadius: 12,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.surface,
-  },
-  secondaryBtnText: {
-    color: colors.text,
-    fontSize: 18,
-    fontWeight: '800',
-  },
-  pressed: { opacity: 0.88 },
+  timelineIndex: { ...glassType.caption, width: 36 },
+  timelineBody: { flex: 1 },
+  timelinePhrase: { ...glassType.label, color: accents.home.solid },
+  timelineMeta: { ...glassType.caption },
+  timelineTime: { ...glassType.caption },
+  actions: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.xl },
+  flex: { flex: 1 },
+  durationHint: { ...glassType.caption, textAlign: 'center', marginTop: spacing.md },
 });
