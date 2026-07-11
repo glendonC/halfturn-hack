@@ -35,6 +35,8 @@ export interface AudioCueEngine {
    * Pass `vars` when a future color/number variant needs a resolved spoken value.
    */
   speakCue(cue: CueDefinition, vars?: SpeakCueVars): Promise<void>;
+  /** Raw TTS (countdown digits, readiness lines). Interruptible like speakCue. */
+  speakText(text: string): Promise<void>;
   stop(): Promise<void>;
   setOptions(options: Partial<AudioCueEngineOptions>): void;
 }

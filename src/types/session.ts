@@ -15,6 +15,8 @@ export interface DrillConfig {
   leftRightBalance: number;
   /** Pre-drill countdown in seconds (0 = none) */
   countdownSec: number;
+  /** Speak countdown numbers over TTS to warm the audio path */
+  spokenCountdown: boolean;
   haptics: boolean;
   mode: DrillMode;
   seed?: number;

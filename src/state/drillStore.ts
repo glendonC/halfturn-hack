@@ -36,6 +36,7 @@ let clocks = new PausableDrillClocks();
 let rng: () => number = Math.random;
 let scheduler: SchedulerSnapshot | null = null;
 let countdownEndsAtWallMs: WallMs | null = null;
+let lastSpokenCountdownSec: number | null = null;
 
 /** Test seam — swap TTS / clocks without touching UI. */
 export function __setDrillAudioEngineForTests(engine: AudioCueEngine): void {
@@ -121,6 +122,7 @@ function finishSession(
   void audioEngine.stop();
   scheduler = null;
   countdownEndsAtWallMs = null;
+  lastSpokenCountdownSec = null;
   set({
     status: 'finished',
     timeRemainingMs: 0,
@@ -171,7 +173,8 @@ export const useDrillStore = create<DrillStoreState>((set, get) => ({
     const { status, config } = get();
     if (status !== 'ready' && status !== 'idle') return;
     const wallNow = Date.now();
-    countdownEndsAtWallMs = wallNow + config.countdownSec * 1000;
+    countdownEndsAtWallMs = wallNow + Math.max(0, config.countdownSec) * 1000;
+    lastSpokenCountdownSec = null;
     void setKeepAwake(true);
     void audioEngine.prepare();
     set({
@@ -189,6 +192,11 @@ export const useDrillStore = create<DrillStoreState>((set, get) => ({
     });
     if (config.countdownSec <= 0) {
       get().beginRunning();
+      return;
+    }
+    if (config.spokenCountdown) {
+      lastSpokenCountdownSec = config.countdownSec;
+      void audioEngine.speakText(String(config.countdownSec));
     }
   },
 
@@ -265,6 +273,7 @@ export const useDrillStore = create<DrillStoreState>((set, get) => ({
     void audioEngine.stop();
     scheduler = null;
     countdownEndsAtWallMs = null;
+    lastSpokenCountdownSec = null;
     clocks = new PausableDrillClocks();
     set(baseState(get().config));
   },
@@ -284,6 +293,14 @@ export const useDrillStore = create<DrillStoreState>((set, get) => ({
       }
       if (remainingSec !== state.countdownRemainingSec) {
         set({ countdownRemainingSec: remainingSec });
+        if (
+          state.config.spokenCountdown &&
+          remainingSec > 0 &&
+          remainingSec !== lastSpokenCountdownSec
+        ) {
+          lastSpokenCountdownSec = remainingSec;
+          void audioEngine.speakText(String(remainingSec));
+        }
       }
       return;
     }

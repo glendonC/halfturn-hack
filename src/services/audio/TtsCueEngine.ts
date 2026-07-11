@@ -40,13 +40,18 @@ export class TtsCueEngine implements AudioCueEngine {
   async testSound(): Promise<void> {
     await this.ensurePrepared();
     // Neutral readiness line — not a drill cue.
-    await this.speakText('HalfTurn ready');
+    await this.utter('HalfTurn ready');
   }
 
   async speakCue(cue: CueDefinition, vars?: SpeakCueVars): Promise<void> {
     await this.ensurePrepared();
     const text = resolveSpokenText(cue, vars);
     await this.speakText(text);
+  }
+
+  async speakText(text: string): Promise<void> {
+    await this.ensurePrepared();
+    await this.utter(text);
   }
 
   async stop(): Promise<void> {
@@ -60,7 +65,7 @@ export class TtsCueEngine implements AudioCueEngine {
     }
   }
 
-  private async speakText(text: string): Promise<void> {
+  private async utter(text: string): Promise<void> {
     const generation = ++this.generation;
     // expo-speech queues by default — stop first so the new cue always wins.
     await Speech.stop();

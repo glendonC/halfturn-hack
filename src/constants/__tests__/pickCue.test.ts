@@ -53,6 +53,7 @@ describe('defaults + balance helpers', () => {
     expect(config.enabledCues).toEqual([...DEFAULT_ENABLED_CUES]);
     expect(config.leftRightBalance).toBe(0.5);
     expect(config.haptics).toBe(true);
+    expect(config.spokenCountdown).toBe(true);
   });
 
   it('clamps left/right balance into [0, 1]', () => {

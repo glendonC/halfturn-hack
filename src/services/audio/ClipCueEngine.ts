@@ -29,6 +29,10 @@ export class ClipCueEngine implements AudioCueEngine {
     // No-op until packs ship — callers should use TtsCueEngine for Phase 1.
   }
 
+  async speakText(_text: string): Promise<void> {
+    // No-op until packs ship.
+  }
+
   async stop(): Promise<void> {
     // No-op until packs ship.
   }

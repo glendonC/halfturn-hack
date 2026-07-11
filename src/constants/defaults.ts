@@ -36,6 +36,7 @@ export function createDefaultDrillConfig(
     enabledCues: [...DEFAULT_ENABLED_CUES],
     leftRightBalance: DEFAULT_LEFT_RIGHT_BALANCE,
     countdownSec: DEFAULT_COUNTDOWN_SEC,
+    spokenCountdown: true,
     haptics: true,
     mode: 'audio',
     ...overrides,
