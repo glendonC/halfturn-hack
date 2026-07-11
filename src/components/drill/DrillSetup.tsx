@@ -203,7 +203,7 @@ export function DrillSetup() {
         </View>
         {config.mode === 'turn_react' && (
           <Text style={styles.hint}>
-            Preview mode — cues still TTS only. Pose verification comes later
+            Preview: on-screen cues + beep, no camera. Verification stays null
             (NullPoseVerifier).
           </Text>
         )}

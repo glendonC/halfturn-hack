@@ -5,6 +5,7 @@ import { create } from 'zustand';
 import { summarizeCueDistribution } from '@/components/drill/sessionStats';
 import { createDefaultDrillConfig, getCueDefinition } from '@/constants';
 import { isVariableCue } from '@/constants';
+import { REVEAL_PAD_MS, REVEAL_WINDOW_MS } from '@/constants/turnReact';
 import {
   createInitialSchedulerSnapshot,
   fireCueAt,
@@ -12,7 +13,14 @@ import {
   shouldFireCue,
   type SchedulerSnapshot,
 } from '@/services/drill';
-import { TtsCueEngine, phraseToSpeakVars, releaseBeep, type AudioCueEngine } from '@/services/audio';
+import {
+  playBeep,
+  primeBeep,
+  releaseBeep,
+  TtsCueEngine,
+  phraseToSpeakVars,
+  type AudioCueEngine,
+} from '@/services/audio';
 import {
   saveSession,
   type AppSettings,
@@ -285,6 +293,9 @@ export const useDrillStore = create<DrillStoreState>((set, get) => ({
 
     void setKeepAwake(true);
     void audioEngine.prepare();
+    if (config.mode === 'turn_react') {
+      primeBeep();
+    }
 
     set({
       status: 'running',
@@ -403,6 +414,7 @@ export const useDrillStore = create<DrillStoreState>((set, get) => ({
       guard < 3
     ) {
       guard += 1;
+      const turnReact = state.config.mode === 'turn_react';
       const fired = fireCueAt({
         config: state.config,
         snapshot: nextScheduler,
@@ -411,7 +423,9 @@ export const useDrillStore = create<DrillStoreState>((set, get) => ({
         random: rng,
         id: createId('cue'),
         intervalFloorMs: (phrase) =>
-          audioEngine.estimateMs(phrase) + UTTERANCE_PAD_MS,
+          turnReact
+            ? REVEAL_WINDOW_MS + REVEAL_PAD_MS
+            : audioEngine.estimateMs(phrase) + UTTERANCE_PAD_MS,
       });
       nextScheduler = fired.snapshot;
       currentCue = fired.cue;
@@ -420,10 +434,15 @@ export const useDrillStore = create<DrillStoreState>((set, get) => ({
       cueEvents = [...cueEvents, fired.event];
       cuesFired = nextScheduler.cuesFired;
 
-      void audioEngine.speakCue(
-        fired.cue,
-        phraseToSpeakVars(fired.cue.id, fired.phrase),
-      );
+      if (turnReact) {
+        // Directionless beep; phrase is on-screen only (NullPoseVerifier).
+        playBeep();
+      } else {
+        void audioEngine.speakCue(
+          fired.cue,
+          phraseToSpeakVars(fired.cue.id, fired.phrase),
+        );
+      }
       void fireHaptic(state.config.haptics);
     }
 

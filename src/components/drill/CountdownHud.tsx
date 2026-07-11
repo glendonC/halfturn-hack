@@ -8,6 +8,7 @@ import { COUNTDOWN_FLOOD, HUD_NEUTRAL } from './cueColors';
 export function CountdownHud() {
   const insets = useSafeAreaInsets();
   const countdownRemainingSec = useDrillStore((s) => s.countdownRemainingSec);
+  const mode = useDrillStore((s) => s.config.mode);
   const stop = useDrillStore((s) => s.stop);
 
   return (
@@ -23,7 +24,11 @@ export function CountdownHud() {
       <Text style={styles.eyebrow}>Get set</Text>
       <View style={styles.center}>
         <Text style={styles.number}>{countdownRemainingSec}</Text>
-        <Text style={styles.hint}>Eyes up · headphones on</Text>
+        <Text style={styles.hint}>
+          {mode === 'turn_react'
+            ? 'Face the phone · turn to read'
+            : 'Eyes up · headphones on'}
+        </Text>
       </View>
       <Pressable
         onPress={stop}
