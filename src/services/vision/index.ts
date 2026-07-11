@@ -71,6 +71,14 @@ export {
   isExpoGo,
   isVisionEnvEnabled,
 } from './runtimeGuard';
+export { useCalibrationStore } from './calibration';
+export {
+  useFramingCalibration,
+  type FramingCalibration,
+  type FramingPhase,
+} from './useFramingCalibration';
+export { LazyCameraVerifier } from './LazyCameraVerifier';
+export type { CameraVerifierProps } from './CameraVerifierView';
 
 /**
  * Env intent flag (EXPO_PUBLIC_VISION=1). Prefer {@link canUseNativeVision} at

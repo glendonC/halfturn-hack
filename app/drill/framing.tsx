@@ -4,19 +4,25 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useDrillStore } from '@/state';
+import {
+  LazyCameraVerifier,
+  canUseNativeVision,
+  useFramingCalibration,
+} from '@/services/vision';
 import { colors, spacing, typography } from '@/theme';
 
 /**
- * Turn-react framing stub — mount/stance coaching only.
- * No VisionCamera, no calibration samples, NullPoseVerifier path only.
+ * Turn-react framing: mount coaching always; calibration + lazy camera when
+ * canUseNativeVision(). No static native imports.
  */
 export default function FramingScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const startCountdown = useDrillStore((s) => s.startCountdown);
   const mode = useDrillStore((s) => s.config.mode);
+  const vision = canUseNativeVision();
+  const cal = useFramingCalibration();
 
-  // Audio mode should never land here; bounce to active.
   useEffect(() => {
     if (mode !== 'turn_react') {
       startCountdown();
@@ -30,6 +36,13 @@ export default function FramingScreen() {
     startCountdown();
     router.replace('/drill/active');
   };
+
+  const captureLabel =
+    cal.phase === 'center'
+      ? 'Capture center'
+      : cal.phase === 'left'
+        ? 'Capture left turn'
+        : 'Start drill';
 
   return (
     <View
@@ -45,44 +58,95 @@ export default function FramingScreen() {
         <Text style={styles.backLabel}>‹ Back</Text>
       </Pressable>
 
-      <View style={styles.body}>
-        <Text style={styles.kicker}>Framing · Turn & React</Text>
-        <Text style={styles.title}>Mount the phone</Text>
-        <Text style={styles.lead}>
-          Preview mode — no camera yet. Practice the stance so Phase 2 can plug
-          in without rewriting this step.
-        </Text>
-
-        <View style={styles.steps}>
-          <Step
-            n="1"
-            title="Distance"
-            body="Set the phone 2–4 m away at chest height, screen facing you."
-          />
-          <Step
-            n="2"
-            title="Stance"
-            body="Start with your back to the camera. Half-turn to read each cue."
-          />
-          <Step
-            n="3"
-            title="Quiet room"
-            body="Headphones on. A beep marks onset; the screen holds the value."
+      {vision ? (
+        <View style={styles.cameraBox}>
+          <LazyCameraVerifier
+            style={styles.camera}
+            onSample={cal.onSample}
+            onTracking={cal.onTracking}
           />
         </View>
+      ) : null}
+
+      <View style={styles.body}>
+        <Text style={styles.kicker}>Framing · Turn & React</Text>
+        <Text style={styles.title}>
+          {vision ? 'Calibrate stance' : 'Mount the phone'}
+        </Text>
+        <Text style={styles.lead}>
+          {vision
+            ? cal.instruction
+            : 'Preview mode — no native camera on this runtime. Practice the stance; pose unlock needs a custom client with EXPO_PUBLIC_VISION=1.'}
+        </Text>
+
+        {!vision ? (
+          <View style={styles.steps}>
+            <Step
+              n="1"
+              title="Distance"
+              body="Set the phone 2–4 m away at chest height, screen facing you."
+            />
+            <Step
+              n="2"
+              title="Stance"
+              body="Start with your back to the camera. Half-turn to read each cue."
+            />
+            <Step
+              n="3"
+              title="Quiet room"
+              body="Headphones on. A beep marks onset; the screen holds the value."
+            />
+          </View>
+        ) : (
+          <Text style={styles.note}>
+            Tracking confidence: {(cal.confidence * 100).toFixed(0)}%
+            {cal.capturing ? ' · capturing…' : ''}
+          </Text>
+        )}
 
         <Text style={styles.note}>
-          Verification stays null (NullPoseVerifier). Pose unlock is a later
-          Phase 2 gate.
+          {vision
+            ? 'Verification uses NullPoseVerifier until RealPoseVerifier is selected for this run.'
+            : 'Verification stays null on Expo Go (NullPoseVerifier).'}
         </Text>
       </View>
 
-      <Pressable
-        onPress={continueToDrill}
-        style={({ pressed }) => [styles.primaryBtn, pressed && styles.pressed]}
-      >
-        <Text style={styles.primaryBtnText}>Continue</Text>
-      </Pressable>
+      {vision && cal.phase !== 'ready' ? (
+        <>
+          <Pressable
+            onPress={cal.capture}
+            disabled={cal.capturing}
+            style={({ pressed }) => [
+              styles.primaryBtn,
+              cal.capturing && styles.disabled,
+              pressed && styles.pressed,
+            ]}
+          >
+            <Text style={styles.primaryBtnText}>
+              {cal.capturing ? 'Hold…' : captureLabel}
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={() => {
+              cal.useLastOrDefault();
+            }}
+            style={({ pressed }) => [styles.secondaryBtn, pressed && styles.pressed]}
+          >
+            <Text style={styles.secondaryBtnText}>
+              {cal.hasSaved ? 'Use last setup' : 'Skip calibration'}
+            </Text>
+          </Pressable>
+        </>
+      ) : (
+        <Pressable
+          onPress={continueToDrill}
+          style={({ pressed }) => [styles.primaryBtn, pressed && styles.pressed]}
+        >
+          <Text style={styles.primaryBtnText}>
+            {vision ? 'Start drill' : 'Continue'}
+          </Text>
+        </Pressable>
+      )}
     </View>
   );
 }
@@ -119,6 +183,13 @@ const styles = StyleSheet.create({
     color: colors.textMuted,
     fontWeight: '700',
   },
+  cameraBox: {
+    height: 220,
+    borderRadius: 16,
+    overflow: 'hidden',
+    marginBottom: spacing.md,
+  },
+  camera: { flex: 1 },
   body: { flex: 1, gap: spacing.md },
   kicker: {
     ...typography.caption,
@@ -163,7 +234,7 @@ const styles = StyleSheet.create({
   note: {
     ...typography.caption,
     color: colors.textMuted,
-    marginTop: spacing.lg,
+    marginTop: spacing.sm,
     lineHeight: 18,
   },
   primaryBtn: {
@@ -177,5 +248,19 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '800',
   },
+  secondaryBtn: {
+    marginTop: spacing.sm,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  secondaryBtnText: {
+    color: colors.textMuted,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  disabled: { opacity: 0.6 },
   pressed: { opacity: 0.88 },
 });
