@@ -5,7 +5,7 @@
  * palette still dresses the frozen live-drill layouts (tuned for outdoor
  * glanceability); everything the player touches *between* drills — Home,
  * Settings, History, Summary, the nav — lives in this bright frosted world so
- * the glass surfaces and pastel accents read the way the reference does.
+ * the glass surfaces and pastel accents stay readable between drills.
  *
  * Accents are not arbitrary pastels: each one is keyed to a real part of the
  * drill (audio routing, TTS voice, cue vocabulary, field display) so the color
