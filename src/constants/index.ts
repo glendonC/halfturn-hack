@@ -33,3 +33,10 @@ export {
   type RandomFn,
 } from './pickCue';
 export { REVEAL_PAD_MS, REVEAL_WINDOW_MS } from './turnReact';
+export {
+  TURN_REACT_COLORS,
+  TURN_REACT_NUMBER_PLATE,
+  getTurnReactColor,
+  pickTurnReactColor,
+  type TurnReactColor,
+} from './turnReact';

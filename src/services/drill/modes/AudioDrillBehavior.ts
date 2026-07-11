@@ -3,7 +3,7 @@ import {
   type AudioCueEngine,
 } from '@/services/audio';
 import { NullPoseVerifier, type PoseVerifier } from '@/services/vision';
-import type { CueDefinition } from '@/types';
+import type { CueDefinition, DrillConfig } from '@/types';
 
 import type { DrillModeBehavior, PickedCue, ResolvedCue } from './types';
 
@@ -21,7 +21,12 @@ export class AudioDrillBehavior implements DrillModeBehavior {
     /* no extra prep beyond engine.prepare() */
   }
 
-  resolveCue(picked: PickedCue): ResolvedCue {
+  resolveCue(
+    picked: PickedCue,
+    _rng: () => number,
+    _config: DrillConfig,
+    _priorPhrase: string | null,
+  ): ResolvedCue {
     return { phrase: picked.phrase };
   }
 

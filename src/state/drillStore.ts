@@ -418,6 +418,7 @@ export const useDrillStore = create<DrillStoreState>((set, get) => ({
       guard < 3
     ) {
       guard += 1;
+      const priorPhrase = currentPhrase;
       const fired = fireCueAt({
         config: state.config,
         snapshot: nextScheduler,
@@ -432,6 +433,7 @@ export const useDrillStore = create<DrillStoreState>((set, get) => ({
         { cue: fired.cue, phrase: fired.phrase },
         rng,
         state.config,
+        priorPhrase,
       );
       const phrase = resolved.phrase;
       const event =

@@ -14,7 +14,7 @@ export interface PickedCue {
   phrase: string;
 }
 
-/** Phrase after mode resolve (turn-react may re-roll color later). */
+/** Phrase after mode resolve (turn-react may re-roll color). */
 export interface ResolvedCue {
   phrase: string;
 }
@@ -31,13 +31,15 @@ export interface DrillModeBehavior {
   prepareAudio(engine: AudioCueEngine): void;
 
   /**
-   * Adjust a freshly-fired cue's phrase. Audio passes through; turn-react may
-   * re-roll color from a readable flood palette (wired in a later issue).
+   * Adjust a freshly-fired cue's phrase. Audio passes through; turn-react
+   * re-rolls `color` from the readable flood palette (no White/Black).
+   * `priorPhrase` is the previous on-screen / spoken phrase (for avoid-repeat).
    */
   resolveCue(
     picked: PickedCue,
     rng: () => number,
     config: DrillConfig,
+    priorPhrase: string | null,
   ): ResolvedCue;
 
   /** Present cue audio: TTS speaks; turn-react plays a directionless beep. */
