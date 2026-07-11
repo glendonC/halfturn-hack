@@ -4,31 +4,27 @@
  * Real backends land behind createPoseVerifier() in a later phase.
  */
 
-export type VerificationOutcome =
-  | 'verified'
-  | 'missed'
-  | 'anticipated'
-  | 'unknown';
+import type {
+  PoseVerifier,
+  VerificationResult,
+  VerifyCueArgs,
+  YawSample,
+} from '@/types';
 
-export interface VerificationResult {
-  outcome: VerificationOutcome;
-  onsetDrillMs?: number;
-  reactionMs?: number;
-  peakExcursion?: number;
-  confidence?: number;
-  backendId: string;
-}
-
-export interface PoseVerifier {
-  calibrateBaseline(samples: unknown[]): void;
-  verifyCue(args: unknown): VerificationResult;
-}
+export type {
+  PerceptionBackend,
+  PoseVerifier,
+  VerificationOutcome,
+  VerificationResult,
+  VerifyCueArgs,
+  YawSample,
+} from '@/types';
 
 /** Always available — Expo Go / audio-only / tests */
 export class NullPoseVerifier implements PoseVerifier {
-  calibrateBaseline(): void {}
+  calibrateBaseline(_samples: YawSample[]): void {}
 
-  verifyCue(): VerificationResult {
+  verifyCue(_args: VerifyCueArgs): VerificationResult {
     return { outcome: 'unknown', backendId: 'null' };
   }
 }

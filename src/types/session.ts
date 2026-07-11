@@ -1,0 +1,70 @@
+import type { DrillMs, WallMs } from './clocks';
+import type { CueId, CueType } from './cues';
+import type { VerificationResult } from './verification';
+
+export type DrillMode = 'audio' | 'turn_react';
+
+export interface DrillConfig {
+  durationMs: number;
+  intervalMs: { min: number; max: number };
+  enabledCues: CueType[];
+  /**
+   * Target share of left checks among directional checks (0–1).
+   * 0.5 = balanced blind-side practice. Only affects check_left / check_right picks.
+   */
+  leftRightBalance: number;
+  /** Pre-drill countdown in seconds (0 = none) */
+  countdownSec: number;
+  haptics: boolean;
+  mode: DrillMode;
+  seed?: number;
+}
+
+export interface CueEvent {
+  id: string;
+  cueId: CueId;
+  index: number;
+  onsetWallMs: WallMs;
+  onsetDrillMs: DrillMs;
+  /** null in audio-only or when verifier cannot judge */
+  verification?: VerificationResult | null;
+}
+
+/**
+ * Evidence-weighted rollups (METRICS.md). Types only — no algorithms here.
+ * Audio-only: rates that require verification stay null (not zero).
+ */
+export interface ScanMetrics {
+  metricsVersion: 1;
+  scannedBeforeActionRate: number | null;
+  /** Signed (L − R) / (L + R); near 0 = balanced. null if no L/R verified checks */
+  blindSideBalance: number | null;
+  meanReactionMs: number | null;
+  /** Fraction anticipated; higher = worse (penalty) */
+  anticipationRate: number | null;
+}
+
+export interface SessionMetricsSummary extends ScanMetrics {
+  cueCount: number;
+  verifiedCount?: number;
+  missedCount?: number;
+  anticipatedCount?: number;
+  unknownCount?: number;
+  /** verified / (verified + missed); excludes unknown */
+  inWindowVerificationRate?: number | null;
+}
+
+export interface DrillSession {
+  id: string;
+  schemaVersion: 1;
+  mode: DrillMode;
+  startedAtWallMs: WallMs;
+  endedAtWallMs?: WallMs;
+  durationDrillMs: DrillMs;
+  config: DrillConfig;
+  cues: CueEvent[];
+  /** Convenience mirror of cues.length; optional denormalized field */
+  cueCount?: number;
+  metrics?: SessionMetricsSummary | null;
+  remoteId?: string | null;
+}

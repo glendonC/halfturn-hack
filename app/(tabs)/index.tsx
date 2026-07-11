@@ -1,5 +1,7 @@
 import { ScreenPlaceholder } from '@/components/ScreenPlaceholder';
 
+// Domain types + cue catalog live in src/types and src/constants — wired in the audio-engine pass.
+
 export default function TrainScreen() {
   return (
     <ScreenPlaceholder
