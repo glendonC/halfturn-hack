@@ -30,13 +30,10 @@ function fakeEngine(estimate = 800): AudioCueEngine & {
   return {
     spoken,
     async prepare() {},
-    async testSound() {},
-    async speakCue() {},
-    async speakText(text) {
+    async speak(text) {
       spoken.push(text);
     },
     async stop() {},
-    setOptions() {},
     estimateMs: () => estimate,
   };
 }

@@ -17,8 +17,8 @@ import {
 import { nextIntervalMs } from '@/services/drill/CueScheduler';
 import {
   releaseBeep,
+  speechSettingsFromAudio,
   TtsCueEngine,
-  type AudioCueEngine,
 } from '@/services/audio';
 import {
   saveSession,
@@ -54,7 +54,7 @@ export type PersistStatus = 'idle' | 'saving' | 'saved' | 'error';
 
 const KEEP_AWAKE_TAG = 'halfturn-drill';
 
-let audioEngine: AudioCueEngine = new TtsCueEngine();
+let audioEngine: TtsCueEngine = new TtsCueEngine();
 let poseVerifier: PoseVerifier = createPoseVerifier();
 let modeBehavior: DrillModeBehavior = getDrillModeBehavior('audio');
 let clocks = new PausableDrillClocks();
@@ -65,11 +65,11 @@ let lastSpokenCountdownSec: number | null = null;
 let keepAwakeDefault = true;
 
 /** Test seam — swap TTS / clocks without touching UI. */
-export function __setDrillAudioEngineForTests(engine: AudioCueEngine): void {
+export function __setDrillAudioEngineForTests(engine: TtsCueEngine): void {
   audioEngine = engine;
 }
 
-export function getDrillAudioEngine(): AudioCueEngine {
+export function getDrillAudioEngine(): TtsCueEngine {
   return audioEngine;
 }
 
@@ -313,7 +313,7 @@ export const useDrillStore = create<DrillStoreState>((set, get) => ({
     }
     if (config.spokenCountdown) {
       lastSpokenCountdownSec = config.countdownSec;
-      void audioEngine.speakText(String(config.countdownSec));
+      void audioEngine.speak(String(config.countdownSec));
     }
   },
 
@@ -435,7 +435,7 @@ export const useDrillStore = create<DrillStoreState>((set, get) => ({
           remainingSec !== lastSpokenCountdownSec
         ) {
           lastSpokenCountdownSec = remainingSec;
-          void audioEngine.speakText(String(remainingSec));
+          void audioEngine.speak(String(remainingSec));
         }
       }
       return;

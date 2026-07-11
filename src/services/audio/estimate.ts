@@ -1,7 +1,7 @@
 /**
- * Rough estimate of how long a TTS phrase takes to speak, so the scheduler
- * never plans the next cue before the previous utterance finishes (which
- * would otherwise interrupt mid-phrase or drift the timeline).
+ * Rough estimate of how long a TTS phrase takes to speak, so the drill engine
+ * never schedules the next cue before the previous utterance finishes (which
+ * would otherwise queue and drift the timeline late — see useDrillEngine).
  */
 export function estimateSpeechMs(phrase: string, rate = 1): number {
   const words = Math.max(1, phrase.trim().split(/\s+/).length);

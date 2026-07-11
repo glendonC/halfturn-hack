@@ -1,20 +1,35 @@
-import { ClipCueEngine } from './ClipCueEngine';
-import { TtsCueEngine } from './TtsCueEngine';
-import type { AudioCueEngine } from './types';
+import type { CueAudioSource, Settings } from '@/types';
+import { DEFAULT_SETTINGS } from '@/types/settings';
 
-export type CueAudioSource = 'tts' | 'clips';
+import type { AudioCueEngine } from './AudioCueEngine';
+import { TtsCueEngine } from './TtsCueEngine';
+import type { AudioCueEngineOptions } from './types';
+
+let engine: AudioCueEngine | null = null;
 
 /**
- * Factory for the active cue engine. Default remains TTS for Expo Go.
- * Clip packs opt in later without rewriting the drill store.
+ * Returns the shared cue-audio engine. Only the TTS backend is implemented
+ * today, so `clips` transparently falls back to TTS until voice packs ship.
  */
 export function getAudioCueEngine(
-  source: CueAudioSource = 'tts',
+  _source: CueAudioSource = 'tts',
 ): AudioCueEngine {
-  if (source === 'clips') {
-    const clips = new ClipCueEngine();
-    clips.setTtsFallback(new TtsCueEngine());
-    return clips;
-  }
-  return new TtsCueEngine();
+  if (!engine) engine = new TtsCueEngine();
+  return engine;
 }
+
+/** Map persisted AppSettings.audio into production Settings speech fields. */
+export function speechSettingsFromAudio(
+  audio: AudioCueEngineOptions,
+  patch: Partial<Settings> = {},
+): Settings {
+  return {
+    ...DEFAULT_SETTINGS,
+    cueVolume: audio.volume,
+    speechRate: audio.rate,
+    speechPitch: audio.pitch,
+    ...patch,
+  };
+}
+
+export type { CueAudioSource };

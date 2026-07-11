@@ -22,7 +22,7 @@ export class AudioDrillBehavior implements DrillModeBehavior {
   }
 
   presentCue(phrase: string, engine: AudioCueEngine): void {
-    void engine.speakText(phrase);
+    void engine.speak(phrase);
   }
 
   minIntervalFloorMs(phrase: string, engine: AudioCueEngine): number {

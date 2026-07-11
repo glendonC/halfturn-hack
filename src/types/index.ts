@@ -16,6 +16,12 @@ export type {
   SessionMetricsSummary,
 } from './session';
 export type {
+  AudioOutputMode,
+  CueAudioSource,
+  Settings,
+} from './settings';
+export { DEFAULT_SETTINGS } from './settings';
+export type {
   PerceptionBackend,
   VerificationOutcome,
   VerificationResult,

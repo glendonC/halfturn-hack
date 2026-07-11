@@ -2,7 +2,11 @@ import * as Haptics from 'expo-haptics';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { getCueDefinition } from '@/constants';
-import { releaseBeep, type AudioCueEngine } from '@/services/audio';
+import {
+  releaseBeep,
+  speechSettingsFromAudio,
+  type AudioCueEngine,
+} from '@/services/audio';
 import {
   getPoseVerifierAsync,
   toScanVerification,
@@ -12,6 +16,7 @@ import {
   formatRemainingClock,
   getDrillAudioEngine,
   useDrillStore,
+  useSettingsStore,
   type DrillStatus,
 } from '@/state';
 import type { CueEvent, ScanVerification } from '@/types';
@@ -322,7 +327,7 @@ export function useDrillEngine(): UseDrillEngineResult {
     setCountdownValue(steps[0]!);
     useDrillStore.setState({ countdownRemainingSec: steps[0]! });
     if (runCfg.spokenCountdown) {
-      void engine.speakText(String(steps[0]));
+      void engine.speak(String(steps[0]));
     }
 
     steps.slice(1).forEach((n, i) => {
@@ -330,7 +335,7 @@ export function useDrillEngine(): UseDrillEngineResult {
         setTimeout(() => {
           setCountdownValue(n);
           useDrillStore.setState({ countdownRemainingSec: n });
-          if (runCfg.spokenCountdown) void engine.speakText(String(n));
+          if (runCfg.spokenCountdown) void engine.speak(String(n));
         }, (i + 1) * 1000),
       );
     });
@@ -381,7 +386,8 @@ export function useDrillEngine(): UseDrillEngineResult {
 
     void (async () => {
       const engine = ensureEngine();
-      await engine.prepare();
+      const audio = useSettingsStore.getState().settings.audio;
+      await engine.prepare(speechSettingsFromAudio(audio));
       if (finalizedRef.current) return;
 
       const verifier =
@@ -434,8 +440,9 @@ export function useDrillEngine(): UseDrillEngineResult {
   const testAudio = useCallback(() => {
     void (async () => {
       const engine = ensureEngine();
-      await engine.prepare();
-      await engine.testSound();
+      const audio = useSettingsStore.getState().settings.audio;
+      await engine.prepare(speechSettingsFromAudio(audio));
+      await engine.speak('HalfTurn audio check');
       void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     })();
   }, [ensureEngine]);

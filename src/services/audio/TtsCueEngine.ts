@@ -1,117 +1,105 @@
 import * as Speech from 'expo-speech';
 
-import { getCueDefinition } from '@/constants';
-import type { CueDefinition } from '@/types';
+import type { Settings } from '@/types';
+import { DEFAULT_SETTINGS } from '@/types/settings';
 
-import { configureDrillAudioSession } from './audioSession';
+import type { AudioCueEngine, SpeakOptions } from './AudioCueEngine';
+import { configureAudioSession } from './audioMode';
 import { estimateSpeechMs } from './estimate';
-import { resolveSpokenText } from './resolveSpokenText';
-import type {
-  AudioCueEngine,
-  AudioCueEngineOptions,
-  SpeakCueVars,
-} from './types';
-import { DEFAULT_AUDIO_OPTIONS } from './types';
+import type { AudioCueEngineOptions } from './types';
 
 /**
- * Offline TTS cue engine via expo-speech — zero audio assets.
- * New cues always interrupt in-flight speech so timing stays honest.
+ * Cue engine backed by the device text-to-speech (expo-speech).
+ *
+ * Key correctness details (from the architecture review of SDK 56 expo-speech):
+ * - `Speech.speak()` QUEUES; it does not interrupt. We `Speech.stop()` before
+ *   each cue so cues fire on time instead of stacking up.
+ * - `Speech.pause()/resume()` are iOS/web only — never used here; the drill
+ *   engine pauses by calling `stop()`.
+ * - `volume`/`voice` are best-effort (often ignored on iOS).
  */
 export class TtsCueEngine implements AudioCueEngine {
-  private options: AudioCueEngineOptions = { ...DEFAULT_AUDIO_OPTIONS };
-  private prepared = false;
-  /** Bumps on every speak/stop so superseded utterances finish cleanly */
-  private generation = 0;
+  private settings: Settings = { ...DEFAULT_SETTINGS };
 
+  /** Map hack AppSettings.audio into the production Settings fields. */
   setOptions(options: Partial<AudioCueEngineOptions>): void {
-    this.options = {
-      ...this.options,
-      ...options,
-      volume: clamp01(options.volume ?? this.options.volume),
-      rate: clampRate(options.rate ?? this.options.rate),
-      pitch: clampPitch(options.pitch ?? this.options.pitch),
+    this.settings = {
+      ...this.settings,
+      cueVolume: clamp01(options.volume ?? this.settings.cueVolume),
+      speechRate: clampRate(options.rate ?? this.settings.speechRate),
+      speechPitch: clampPitch(options.pitch ?? this.settings.speechPitch),
     };
   }
 
-  async prepare(): Promise<void> {
-    await configureDrillAudioSession();
-    this.prepared = true;
-  }
-
-  async testSound(): Promise<void> {
-    await this.ensurePrepared();
-    // Neutral readiness line — not a drill cue.
-    await this.utter('HalfTurn ready');
-  }
-
-  async speakCue(cue: CueDefinition, vars?: SpeakCueVars): Promise<void> {
-    await this.ensurePrepared();
-    const text = resolveSpokenText(cue, vars);
-    await this.speakText(text);
-  }
-
-  async speakText(text: string): Promise<void> {
-    await this.ensurePrepared();
-    await this.utter(text);
-  }
-
-  async stop(): Promise<void> {
-    this.generation += 1;
-    await Speech.stop();
-  }
-
-  estimateMs(phrase: string): number {
-    return estimateSpeechMs(phrase, this.options.rate);
-  }
-
-  private async ensurePrepared(): Promise<void> {
-    if (!this.prepared) {
-      await this.prepare();
+  async prepare(settings?: Settings): Promise<void> {
+    if (settings) {
+      this.settings = { ...this.settings, ...settings };
+    }
+    await configureAudioSession(this.settings.audioOutputMode);
+    // Warm the TTS engine with a near-silent priming utterance so the first
+    // real cue isn't delayed by cold-start latency (~500-900ms on iOS).
+    try {
+      await Speech.stop();
+      Speech.speak(' ', {
+        volume: 0,
+        rate: this.rate,
+        pitch: this.pitch,
+        language: this.settings.language,
+      });
+    } catch {
+      // ignore — warm-up is best-effort
     }
   }
 
-  private async utter(text: string): Promise<void> {
-    const generation = ++this.generation;
-    // expo-speech queues by default — stop first so the new cue always wins.
-    await Speech.stop();
-    if (generation !== this.generation) return;
+  estimateMs(phrase: string): number {
+    return estimateSpeechMs(phrase, this.rate);
+  }
 
-    const { rate, pitch, volume } = this.options;
-
-    await new Promise<void>((resolve, reject) => {
-      if (generation !== this.generation) {
-        resolve();
-        return;
+  async speak(phrase: string, options: SpeakOptions = {}): Promise<void> {
+    const { interrupt = true, onStart, onDone } = options;
+    if (interrupt) {
+      try {
+        await Speech.stop();
+      } catch {
+        // ignore
       }
-
-      Speech.speak(text, {
-        language: 'en-US',
-        rate,
-        pitch,
-        volume,
-        // Use the session from configureDrillAudioSession (silent mode / ducking).
-        useApplicationAudioSession: true,
-        onDone: () => {
-          if (generation === this.generation) resolve();
-        },
-        onStopped: () => {
-          if (generation === this.generation) resolve();
-        },
-        onError: (error) => {
-          if (generation === this.generation) reject(error);
-        },
-      });
+    }
+    const s = this.settings;
+    Speech.speak(phrase, {
+      language: s.language,
+      rate: this.rate,
+      pitch: this.pitch,
+      volume: s.cueVolume,
+      voice: s.voiceId ?? undefined,
+      // iOS: let the system manage its own session so ducking/mixing works.
+      useApplicationAudioSession: false,
+      onStart: () => onStart?.(),
+      onDone: () => onDone?.(),
+      onStopped: () => onDone?.(),
+      onError: () => onDone?.(),
     });
   }
-}
 
-/** Convenience: speak a catalog id through a shared engine instance pattern */
-export async function speakCatalogCue(
-  engine: AudioCueEngine,
-  cueId: CueDefinition['id'],
-  vars?: SpeakCueVars,
-): Promise<void> {
-  await engine.speakCue(getCueDefinition(cueId), vars);
+  /** Readiness line for pre-drill headphone check. */
+  async testSound(): Promise<void> {
+    await this.speak('HalfTurn ready');
+  }
+
+  async stop(): Promise<void> {
+    try {
+      await Speech.stop();
+    } catch {
+      // ignore
+    }
+  }
+
+  private get rate(): number {
+    return this.settings.speechRate;
+  }
+
+  private get pitch(): number {
+    return this.settings.speechPitch;
+  }
 }
 
 function clamp01(value: number): number {
@@ -121,7 +109,6 @@ function clamp01(value: number): number {
 
 function clampRate(value: number): number {
   if (Number.isNaN(value)) return 1;
-  // expo-speech is happiest in a modest band
   return Math.min(2, Math.max(0.1, value));
 }
 

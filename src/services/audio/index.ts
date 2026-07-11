@@ -1,4 +1,8 @@
-export { configureDrillAudioSession } from './audioSession';
+export type { AudioCueEngine, SpeakOptions } from './AudioCueEngine';
+export {
+  configureAudioSession,
+  configureDrillAudioSession,
+} from './audioMode';
 export { primeBeep, playBeep, releaseBeep } from './beep';
 export { ClipCueEngine } from './ClipCueEngine';
 export {
@@ -9,13 +13,13 @@ export {
 export { estimateSpeechMs } from './estimate';
 export {
   getAudioCueEngine,
+  speechSettingsFromAudio,
   type CueAudioSource,
 } from './getAudioCueEngine';
 export { phraseToSpeakVars, resolveSpokenText } from './resolveSpokenText';
-export { speakCatalogCue, TtsCueEngine } from './TtsCueEngine';
+export { TtsCueEngine } from './TtsCueEngine';
 export {
   DEFAULT_AUDIO_OPTIONS,
-  type AudioCueEngine,
   type AudioCueEngineOptions,
   type SpeakCueVars,
 } from './types';

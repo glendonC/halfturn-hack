@@ -1,17 +1,15 @@
 import { createAudioPlayer } from 'expo-audio';
 
 /**
- * Directionless reaction-anchor beep (turn-react). Spoken value is suppressed
- * in that mode; a short beep + haptic is the clean onset signal.
+ * The directionless reaction-anchor beep for turn-and-react mode. In that mode
+ * the spoken cue value is suppressed (the player must physically turn to read it
+ * off the screen), so a short beep + haptic is the clean reaction anchor.
  *
- * Expo-Go-safe: uses expo-audio (already a dependency for the audio session).
- * One shared player is reused; each cue seeks to 0 and replays.
- *
- * Audio-mode MVP leaves this unwired by default (TTS is the cue). Turn-react
- * shell (#8) primes/plays it.
+ * Expo-Go-safe: expo-audio is already a dependency (audio session config). One
+ * shared player is reused; each cue seeks to 0 and replays.
  */
 
-// Asset module (Metro returns an opaque asset id).
+// Asset module (Metro returns an opaque asset id); RN's global require types it.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const BEEP_SOURCE = require('../../../assets/sounds/beep.wav');
 
