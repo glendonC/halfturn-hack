@@ -7,6 +7,12 @@ export const VOLUME_BOUNDS = { min: 0, max: 1, step: 0.05 } as const;
 export const RATE_BOUNDS = { min: 0.5, max: 1.5, step: 0.05 } as const;
 export const PITCH_BOUNDS = { min: 0.7, max: 1.6, step: 0.05 } as const;
 
+/** Duration presets / bounds in seconds for the Train setup brief. */
+export const DURATION_BOUNDS = { min: 60, max: 1800, step: 30 } as const;
+export const DURATION_PRESETS = [180, 300, 600, 900] as const;
+/** Interval bounds in seconds for cue spacing sliders. */
+export const INTERVAL_BOUNDS = { min: 1, max: 12, step: 0.5 } as const;
+
 /** Duration presets (ms) for setup UI later */
 export const DURATION_PRESETS_MS = {
   short: 60_000,
