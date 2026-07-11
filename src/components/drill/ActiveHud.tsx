@@ -7,10 +7,17 @@ import { useDrillStore } from '@/state';
 import { AudioCueSurface } from './AudioCueSurface';
 import { CueSurface } from './CueSurface';
 import { CUE_CATEGORY_FLOOD, HUD_NEUTRAL } from './cueColors';
+import { DrillTimer } from './DrillTimer';
 import type { DrillLayoutProps } from './layoutProps';
+import { PausedOverlay } from './PausedOverlay';
 import { TransportControls } from './TransportControls';
 
-export function ActiveHud({ engine }: DrillLayoutProps) {
+/** Production name for the audio running layout. */
+export function AudioDrillLayout(props: DrillLayoutProps) {
+  return <ActiveHud {...props} />;
+}
+
+export function ActiveHud({ engine, durationMs, cueCount }: DrillLayoutProps) {
   const insets = useSafeAreaInsets();
   const currentCue = useDrillStore((s) => s.currentCue);
   const currentPhrase = useDrillStore((s) => s.currentPhrase);
@@ -38,6 +45,13 @@ export function ActiveHud({ engine }: DrillLayoutProps) {
         },
       ]}
     >
+      <DrillTimer
+        remainingMs={engine.remainingMs}
+        elapsedMs={engine.elapsedMs}
+        durationMs={durationMs}
+        cueCount={cueCount}
+      />
+
       <Text style={[styles.meta, { color: flood.text }]}>
         {paused ? 'Paused' : 'Live'} · {cuesFired} cues
       </Text>
@@ -60,6 +74,8 @@ export function ActiveHud({ engine }: DrillLayoutProps) {
         onResume={engine.resume}
         onStop={engine.stop}
       />
+
+      {paused ? <PausedOverlay /> : null}
     </View>
   );
 }

@@ -35,6 +35,11 @@ export interface EnrichmentConfig {
   reactionMode: ReactionMode;
 }
 
+export const DEFAULT_ENRICHMENT: EnrichmentConfig = {
+  smoothing: null,
+  reactionMode: 'peak',
+};
+
 export type ScanDirection = 'left' | 'right';
 
 /** A detected shoulder-check / scan / half-turn. */

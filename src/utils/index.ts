@@ -1,4 +1,10 @@
 export { PausableDrillClocks, type WallNowFn } from './clocks';
+export {
+  formatClock,
+  formatDuration,
+  formatSeconds,
+  pluralize,
+} from './format';
 export { createId } from './id';
 export { createRng, pick, randomInt } from './rng';
 export {

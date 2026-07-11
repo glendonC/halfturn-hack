@@ -1,5 +1,5 @@
-export { ActiveHud } from './ActiveHud';
-export { ActiveTurnReactHud } from './ActiveTurnReactHud';
+export { ActiveHud, AudioDrillLayout } from './ActiveHud';
+export { ActiveTurnReactHud, TurnReactLayout } from './ActiveTurnReactHud';
 export { AudioCueSurface } from './AudioCueSurface';
 export { CountdownHud } from './CountdownHud';
 export { CueSurface } from './CueSurface';
@@ -9,7 +9,9 @@ export type { DrillLayoutProps } from './layoutProps';
 export { DrillCountdownView } from './DrillCountdownView';
 export { DrillReadyView } from './DrillReadyView';
 export { DrillSetup } from './DrillSetup';
+export { DrillTimer } from './DrillTimer';
 export { FinishedSummary } from './FinishedSummary';
+export { PausedOverlay } from './PausedOverlay';
 export { TransportControls } from './TransportControls';
 export { TurnReactCueSurface } from './TurnReactCueSurface';
 export {

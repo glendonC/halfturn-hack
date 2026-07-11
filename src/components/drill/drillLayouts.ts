@@ -2,8 +2,8 @@ import type { ComponentType } from 'react';
 
 import type { DrillLayout } from '@/services/drill';
 
-import { ActiveHud } from './ActiveHud';
-import { ActiveTurnReactHud } from './ActiveTurnReactHud';
+import { AudioDrillLayout } from './ActiveHud';
+import { TurnReactLayout } from './ActiveTurnReactHud';
 import type { DrillLayoutProps } from './layoutProps';
 
 /**
@@ -14,6 +14,6 @@ export const DRILL_LAYOUTS: Record<
   DrillLayout,
   ComponentType<DrillLayoutProps>
 > = {
-  'audio-hud': ActiveHud,
-  'turn-react-surface': ActiveTurnReactHud,
+  'audio-hud': AudioDrillLayout,
+  'turn-react-surface': TurnReactLayout,
 };

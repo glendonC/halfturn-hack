@@ -6,8 +6,14 @@ import { useDrillStore } from '@/state';
 import { CueSurface } from './CueSurface';
 import { HUD_NEUTRAL } from './cueColors';
 import type { DrillLayoutProps } from './layoutProps';
+import { PausedOverlay } from './PausedOverlay';
 import { TransportControls } from './TransportControls';
 import { TurnReactCueSurface } from './TurnReactCueSurface';
+
+/** Production name for the turn-react running layout. */
+export function TurnReactLayout(props: DrillLayoutProps) {
+  return <ActiveTurnReactHud {...props} />;
+}
 
 /**
  * Turn-react active shell: visual cue surface + shared transport (no camera).
@@ -51,6 +57,8 @@ export function ActiveTurnReactHud({ engine }: DrillLayoutProps) {
         onResume={engine.resume}
         onStop={engine.stop}
       />
+
+      {paused ? <PausedOverlay /> : null}
     </View>
   );
 }

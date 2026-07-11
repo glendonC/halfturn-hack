@@ -85,8 +85,8 @@ export type { CameraVerifierProps } from './CameraVerifierView';
 export {
   RealPoseVerifier,
   isRealPoseVerifier,
-  DEFAULT_ENRICHMENT,
 } from './RealPoseVerifier';
+export { DEFAULT_ENRICHMENT } from './types';
 
 /**
  * Env intent flag (EXPO_PUBLIC_VISION=1). Prefer {@link canUseNativeVision} at
