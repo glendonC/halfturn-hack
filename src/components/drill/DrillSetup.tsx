@@ -223,6 +223,10 @@ export function DrillSetup() {
         style={({ pressed }) => [styles.primaryBtn, pressed && styles.pressed]}
         onPress={() => {
           void patchDrillDefaults(config).finally(() => {
+            if (config.mode === 'turn_react') {
+              router.push('/drill/framing');
+              return;
+            }
             startCountdown();
             router.push('/drill/active');
           });

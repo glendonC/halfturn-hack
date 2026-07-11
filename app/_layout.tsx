@@ -38,6 +38,7 @@ export default function RootLayout() {
           name="drill/active"
           options={{ gestureEnabled: false, animation: 'fade' }}
         />
+        <Stack.Screen name="drill/framing" options={{ presentation: 'card' }} />
         <Stack.Screen name="drill/summary" options={{ presentation: 'card' }} />
         <Stack.Screen name="session/[id]" options={{ presentation: 'card' }} />
       </Stack>
