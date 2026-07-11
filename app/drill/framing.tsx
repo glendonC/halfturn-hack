@@ -1,23 +1,24 @@
 import { useRouter } from 'expo-router';
 import { useEffect } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { useDrillStore } from '@/state';
+import { trackingLevelColor } from '@/components/camera';
+import { isInFrame } from '@/constants/visionTuning';
 import {
   LazyCameraVerifier,
   canUseNativeVision,
   useFramingCalibration,
 } from '@/services/vision';
-import { colors, spacing, typography } from '@/theme';
+import { useDrillStore } from '@/state';
+import { colors, radius, spacing, typography } from '@/theme';
 
 /**
- * Turn-react framing: mount coaching always; calibration + lazy camera when
- * canUseNativeVision(). No static native imports.
+ * Turn-react framing: mount coaching on Expo Go; calibration + lazy camera
+ * when canUseNativeVision(). No static native imports.
  */
 export default function FramingScreen() {
   const router = useRouter();
-  const insets = useSafeAreaInsets();
   const enterReady = useDrillStore((s) => s.enterReady);
   const mode = useDrillStore((s) => s.config.mode);
   const vision = canUseNativeVision();
@@ -44,42 +45,19 @@ export default function FramingScreen() {
         ? 'Capture left turn'
         : 'Start drill';
 
-  return (
-    <View
-      style={[
-        styles.root,
-        {
-          paddingTop: insets.top + spacing.lg,
-          paddingBottom: insets.bottom + spacing.lg,
-        },
-      ]}
-    >
-      <Pressable onPress={() => router.back()} hitSlop={16} style={styles.back}>
-        <Text style={styles.backLabel}>‹ Back</Text>
-      </Pressable>
-
-      {vision ? (
-        <View style={styles.cameraBox}>
-          <LazyCameraVerifier
-            style={styles.camera}
-            onSample={cal.onSample}
-            onTracking={cal.onTracking}
-          />
-        </View>
-      ) : null}
-
-      <View style={styles.body}>
-        <Text style={styles.kicker}>Framing · Turn & React</Text>
-        <Text style={styles.title}>
-          {vision ? 'Calibrate stance' : 'Mount the phone'}
-        </Text>
-        <Text style={styles.lead}>
-          {vision
-            ? cal.instruction
-            : 'Preview mode — no native camera on this runtime. Practice the stance; pose unlock needs a custom client with EXPO_PUBLIC_VISION=1.'}
-        </Text>
-
-        {!vision ? (
+  if (!vision) {
+    return (
+      <SafeAreaView style={styles.wrap}>
+        <Pressable onPress={() => router.back()} hitSlop={16} style={styles.back}>
+          <Text style={styles.backLabel}>‹ Back</Text>
+        </Pressable>
+        <View style={styles.panel}>
+          <Text style={styles.kicker}>FRAMING · TURN & REACT</Text>
+          <Text style={styles.title}>Mount the phone</Text>
+          <Text style={styles.instruction}>
+            Preview mode — no native camera on this runtime. Practice the
+            stance; pose unlock needs a custom client with EXPO_PUBLIC_VISION=1.
+          </Text>
           <View style={styles.steps}>
             <Step
               n="1"
@@ -97,22 +75,50 @@ export default function FramingScreen() {
               body="Headphones on. A beep marks onset; the screen holds the value."
             />
           </View>
-        ) : (
-          <Text style={styles.note}>
-            Tracking confidence: {(cal.confidence * 100).toFixed(0)}%
-            {cal.capturing ? ' · capturing…' : ''}
-          </Text>
-        )}
+          <Pressable
+            onPress={continueToDrill}
+            style={({ pressed }) => [styles.primaryBtn, pressed && styles.pressed]}
+          >
+            <Text style={styles.primaryBtnText}>Continue</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
-        <Text style={styles.note}>
-          {vision
-            ? 'Pose samples feed RealPoseVerifier; session verification is computed on stop when a backend ran.'
-            : 'Session verification stays null on Expo Go (NullPoseVerifier).'}
-        </Text>
+  return (
+    <SafeAreaView style={styles.wrap}>
+      <View style={styles.cameraBox}>
+        <LazyCameraVerifier
+          style={styles.camera}
+          onSample={cal.onSample}
+          onTracking={cal.onTracking}
+        />
+        <View style={styles.trackPill}>
+          <View
+            style={[
+              styles.trackDot,
+              { backgroundColor: trackingLevelColor(cal.confidence) },
+            ]}
+          />
+          <Text style={styles.trackText}>
+            {isInFrame(cal.confidence) ? 'In frame' : 'Step into frame'}
+          </Text>
+        </View>
       </View>
 
-      {vision && cal.phase !== 'ready' ? (
-        <>
+      <View style={styles.panel}>
+        <Text style={styles.kicker}>FRAMING · TURN & REACT</Text>
+        <Text style={styles.instruction}>{cal.instruction}</Text>
+
+        {cal.phase === 'ready' ? (
+          <Pressable
+            onPress={continueToDrill}
+            style={({ pressed }) => [styles.primaryBtn, pressed && styles.pressed]}
+          >
+            <Text style={styles.primaryBtnText}>Start drill</Text>
+          </Pressable>
+        ) : (
           <Pressable
             onPress={cal.capture}
             disabled={cal.capturing}
@@ -126,28 +132,25 @@ export default function FramingScreen() {
               {cal.capturing ? 'Hold…' : captureLabel}
             </Text>
           </Pressable>
+        )}
+
+        {cal.phase !== 'ready' ? (
           <Pressable
-            onPress={() => {
-              cal.useLastOrDefault();
-            }}
-            style={({ pressed }) => [styles.secondaryBtn, pressed && styles.pressed]}
+            onPress={() => cal.useLastOrDefault()}
+            hitSlop={8}
+            style={styles.skip}
           >
-            <Text style={styles.secondaryBtnText}>
+            <Text style={styles.skipText}>
               {cal.hasSaved ? 'Use last setup' : 'Skip calibration'}
             </Text>
           </Pressable>
-        </>
-      ) : (
-        <Pressable
-          onPress={continueToDrill}
-          style={({ pressed }) => [styles.primaryBtn, pressed && styles.pressed]}
-        >
-          <Text style={styles.primaryBtnText}>
-            {vision ? 'Start drill' : 'Continue'}
-          </Text>
+        ) : null}
+
+        <Pressable onPress={() => router.back()} hitSlop={8} style={styles.skip}>
+          <Text style={styles.skipText}>Back</Text>
         </Pressable>
-      )}
-    </View>
+      </View>
+    </SafeAreaView>
   );
 }
 
@@ -172,45 +175,62 @@ function Step({
 }
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: colors.bg,
-    paddingHorizontal: spacing.lg,
-  },
-  back: { paddingVertical: spacing.sm, marginBottom: spacing.sm },
+  wrap: { flex: 1, backgroundColor: colors.background },
+  back: { paddingHorizontal: spacing.lg, paddingVertical: spacing.sm },
   backLabel: {
     ...typography.body,
     color: colors.textMuted,
     fontWeight: '700',
   },
   cameraBox: {
-    height: 220,
-    borderRadius: 16,
+    flex: 1,
+    margin: spacing.lg,
+    borderRadius: radius.xl,
     overflow: 'hidden',
-    marginBottom: spacing.md,
+    backgroundColor: colors.surface,
   },
   camera: { flex: 1 },
-  body: { flex: 1, gap: spacing.md },
-  kicker: {
+  trackPill: {
+    position: 'absolute',
+    top: spacing.md,
+    left: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.pill,
+    backgroundColor: 'rgba(7,20,15,0.7)',
+  },
+  trackDot: { width: 10, height: 10, borderRadius: 5 },
+  trackText: {
     ...typography.caption,
-    color: colors.accent,
-    textTransform: 'uppercase',
-    letterSpacing: 2,
+    color: colors.textPrimary,
+    fontWeight: '700',
+  },
+  panel: {
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.lg,
+    gap: spacing.md,
+  },
+  kicker: {
+    ...typography.label,
+    color: colors.primary,
+    letterSpacing: 3,
     fontWeight: '800',
   },
-  title: { ...typography.title, color: colors.text, fontSize: 34 },
-  lead: {
-    ...typography.body,
-    color: colors.textMuted,
+  title: { ...typography.title, color: colors.textPrimary },
+  instruction: {
+    ...typography.subtitle,
+    color: colors.textPrimary,
     lineHeight: 24,
   },
-  steps: { gap: spacing.lg, marginTop: spacing.md },
+  steps: { gap: spacing.lg, marginTop: spacing.sm },
   step: { flexDirection: 'row', gap: spacing.md, alignItems: 'flex-start' },
   stepN: {
     width: 36,
     height: 36,
     borderRadius: 10,
-    overflow: 'hidden',
     textAlign: 'center',
     lineHeight: 36,
     backgroundColor: colors.surface,
@@ -221,22 +241,8 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   stepBody: { flex: 1, gap: 4 },
-  stepTitle: {
-    color: colors.text,
-    fontSize: 18,
-    fontWeight: '800',
-  },
-  stepText: {
-    ...typography.body,
-    color: colors.textMuted,
-    lineHeight: 22,
-  },
-  note: {
-    ...typography.caption,
-    color: colors.textMuted,
-    marginTop: spacing.sm,
-    lineHeight: 18,
-  },
+  stepTitle: { color: colors.text, fontSize: 18, fontWeight: '800' },
+  stepText: { ...typography.body, color: colors.textMuted, lineHeight: 22 },
   primaryBtn: {
     backgroundColor: colors.accent,
     paddingVertical: 18,
@@ -248,17 +254,10 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '800',
   },
-  secondaryBtn: {
-    marginTop: spacing.sm,
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  secondaryBtnText: {
-    color: colors.textMuted,
-    fontSize: 16,
+  skip: { alignItems: 'center', paddingVertical: spacing.sm },
+  skipText: {
+    ...typography.label,
+    color: colors.textSecondary,
     fontWeight: '700',
   },
   disabled: { opacity: 0.6 },

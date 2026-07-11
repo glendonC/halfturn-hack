@@ -1,5 +1,5 @@
 /**
- * HalfTurn visual tokens — night-pitch training feel.
+ * HalfTurn visual tokens — night-pitch training feel for live drills.
  * Avoid default AI palettes (purple gradients, cream+terracotta, etc.).
  */
 export const colors = {
@@ -12,6 +12,16 @@ export const colors = {
   accent: '#C8F542',
   accentDim: '#8FB82E',
   danger: '#F07167',
+
+  // Aliases used by camera chrome + immersive layouts
+  background: '#0B1F17',
+  backgroundDeep: '#07140F',
+  borderStrong: '#3A6B58',
+  textPrimary: '#F2F7F4',
+  textSecondary: '#9BB5AA',
+  primary: '#C8F542',
+  success: '#34D399',
+  warning: '#FACC15',
 } as const;
 
 export const spacing = {
@@ -21,6 +31,14 @@ export const spacing = {
   lg: 24,
   xl: 32,
   xxl: 48,
+} as const;
+
+export const radius = {
+  sm: 8,
+  md: 12,
+  lg: 16,
+  xl: 20,
+  pill: 999,
 } as const;
 
 export const typography = {
@@ -34,10 +52,20 @@ export const typography = {
     fontWeight: '700' as const,
     letterSpacing: -0.3,
   },
+  subtitle: {
+    fontSize: 18,
+    fontWeight: '600' as const,
+    lineHeight: 24,
+  },
   body: {
     fontSize: 16,
     fontWeight: '400' as const,
     lineHeight: 24,
+  },
+  label: {
+    fontSize: 13,
+    fontWeight: '700' as const,
+    letterSpacing: 0.4,
   },
   caption: {
     fontSize: 13,
@@ -46,4 +74,4 @@ export const typography = {
   },
 } as const;
 
-export const theme = { colors, spacing, typography } as const;
+export const theme = { colors, spacing, radius, typography } as const;
