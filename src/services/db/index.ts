@@ -25,6 +25,7 @@ export {
   saveSession,
   softDeleteSession,
 } from './sessionRepository';
+export { rollupSessions, modeLabel, type HistoryRollup } from './historyStats';
 export {
   loadSettings,
   resetSettings,
