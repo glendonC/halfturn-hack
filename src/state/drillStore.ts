@@ -27,8 +27,8 @@ import {
 } from '@/services/db';
 import {
   createPoseVerifier,
+  computeScanVerification,
   getPoseVerifierAsync,
-  toScanVerification,
   type PoseVerifier,
 } from '@/services/vision';
 import type {
@@ -186,13 +186,13 @@ function finishSession(
     try {
       const scans = await verifier.stop();
       if (verifier.available) {
-        verification = toScanVerification(
+        verification = computeScanVerification(
           scans,
           snapshot.cueEvents,
           durationDrillMs / 1000,
           verifier.engine ?? 'vision',
           undefined,
-          verifier.quality?.() ?? null,
+          { quality: verifier.quality?.() ?? undefined },
         );
       }
     } catch (err) {

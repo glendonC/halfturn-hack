@@ -1,5 +1,4 @@
 import type { DrillMs, WallMs } from './clocks';
-import type { CueDefinition } from './cues';
 
 /** Yaw in radians relative to session baseline (prefer radians everywhere). */
 export interface YawSample {
@@ -34,15 +33,4 @@ export interface YawSampleBackend {
   start(): Promise<void>;
   stop(): Promise<void>;
   subscribe(cb: (sample: YawSample | null) => void): () => void;
-}
-
-/** @deprecated Prefer YawSampleBackend; PerceptionBackend now means frame backends in vision/. */
-export type PerceptionBackend = YawSampleBackend;
-
-/** @deprecated Per-cue verify path; production PoseVerifier is start/stop → ScanEvent[]. */
-export interface VerifyCueArgs {
-  cue: CueDefinition;
-  cueOnsetDrillMs: DrillMs;
-  samples: YawSample[];
-  windowMs: { early: number; late: number };
 }

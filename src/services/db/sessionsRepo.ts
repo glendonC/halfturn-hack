@@ -4,25 +4,15 @@
  */
 
 import { rollupSessions } from './historyStats';
-import {
-  clearAllSessions,
-  getSession,
-  listSessions,
-  saveSession,
-  softDeleteSession,
-} from './sessionRepository';
+import { listSessions } from './sessionRepository';
 
 export {
   saveSession,
   listSessions,
   getSession,
   clearAllSessions,
+  deleteSession,
 } from './sessionRepository';
-
-/** Soft-delete (production deleteSession name). */
-export async function deleteSession(id: string): Promise<void> {
-  await softDeleteSession(id);
-}
 
 export interface HistoryStats {
   totalSessions: number;

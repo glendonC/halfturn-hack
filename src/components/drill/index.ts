@@ -1,5 +1,5 @@
-export { ActiveHud, AudioDrillLayout } from './ActiveHud';
-export { ActiveTurnReactHud, TurnReactLayout } from './ActiveTurnReactHud';
+export { AudioDrillLayout } from './AudioDrillLayout';
+export { TurnReactLayout } from './TurnReactLayout';
 export { AudioCueSurface } from './AudioCueSurface';
 export { CountdownHud } from './CountdownHud';
 export { CueSurface } from './CueSurface';

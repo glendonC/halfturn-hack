@@ -28,8 +28,3 @@ export async function configureAudioSession(
     console.warn('[audio] failed to configure audio session', err);
   }
 }
-
-/** @deprecated Prefer {@link configureAudioSession}. */
-export async function configureDrillAudioSession(): Promise<void> {
-  await configureAudioSession('headphones');
-}

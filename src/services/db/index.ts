@@ -22,13 +22,12 @@ export {
 } from './mappers';
 export {
   clearAllSessions,
+  deleteSession,
   getSession,
   listSessions,
   saveSession,
-  softDeleteSession,
 } from './sessionRepository';
 export {
-  deleteSession,
   getHistoryStats,
   type HistoryStats,
 } from './sessionsRepo';

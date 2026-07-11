@@ -8,8 +8,8 @@ import {
   type AudioCueEngine,
 } from '@/services/audio';
 import {
+  computeScanVerification,
   getPoseVerifierAsync,
-  toScanVerification,
   type PoseVerifier,
 } from '@/services/vision';
 import {
@@ -140,13 +140,13 @@ export function useDrillEngine(): UseDrillEngineResult {
       try {
         const scans = (await verifier?.stop()) ?? [];
         if (verifier?.available) {
-          verification = toScanVerification(
+          verification = computeScanVerification(
             scans,
             store.cueEvents,
             actualDurationSec,
             verifier.engine ?? 'vision',
             undefined,
-            verifier.quality?.() ?? null,
+            { quality: verifier.quality?.() ?? undefined },
           );
         }
       } catch (err) {

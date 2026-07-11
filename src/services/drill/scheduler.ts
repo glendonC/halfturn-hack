@@ -111,32 +111,6 @@ export function fireCueAt(args: {
   return { cue, phrase, event, snapshot: next, picked, priorState };
 }
 
-/**
- * After mode resolveCue, thread the updated pick state and recompute the next
- * gap floor from the final phrase (production fireCue order).
- */
-export function applyResolvedPhrase(
-  fired: FireCueResult,
-  phrase: string,
-  nextPickState: SchedulerState,
-  config: DrillConfig,
-  random: Rng,
-  floorMs: number,
-): FireCueResult {
-  const interval = nextIntervalMs(random, config, floorMs);
-  const snapshot: SchedulerSnapshot = {
-    pickState: nextPickState,
-    nextCueAtDrillMs: fired.event.onsetDrillMs + interval,
-    cuesFired: fired.snapshot.cuesFired,
-  };
-  return {
-    ...fired,
-    phrase,
-    event: { ...fired.event, phrase },
-    snapshot,
-  };
-}
-
 export function remainingDrillMs(
   durationMs: number,
   drillNowMs: DrillMs,

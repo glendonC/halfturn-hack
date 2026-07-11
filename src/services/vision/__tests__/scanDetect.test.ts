@@ -1,5 +1,4 @@
 import {
-  computeScanMetrics,
   computeScanVerification,
   computeTrackingQuality,
   detectScans,
@@ -82,14 +81,22 @@ describe('synthetic fixture', () => {
     expect(scans[1]!.tMonoMs).toBe(1254);
   });
 
-  it('computes null-honest scan metrics against the cue timeline', () => {
+  it('computes null-honest scan verification against the cue timeline', () => {
     const scans = detectScans(SYNTHETIC_SAMPLES, SYNTHETIC_CONFIG);
-    const metrics = computeScanMetrics(scans, SYNTHETIC_CUES, SYNTHETIC_CONFIG);
-    expect(metrics.metricsVersion).toBe(1);
-    expect(metrics.scannedBeforeActionRate).toBe(0.5);
-    expect(metrics.meanReactionMs).toBe(112);
-    expect(metrics.blindSideBalance).toBe(0);
-    expect(metrics.anticipationRate).toBeNull();
+    const v = computeScanVerification(
+      scans,
+      [...SYNTHETIC_CUES],
+      60,
+      'hack',
+      SYNTHETIC_CONFIG,
+    );
+    expect(v.metricsVersion).toBe(1);
+    expect(v.scannedBeforeActionRate).toBe(0.5);
+    expect(v.avgReactionMs).toBe(112);
+    const left = scans.filter((s) => s.direction === 'left').length;
+    const right = scans.filter((s) => s.direction === 'right').length;
+    expect(left).toBe(right);
+    expect(v.anticipationRate).toBeUndefined();
   });
 
   it('reports tracking quality over the synthetic run', () => {
@@ -121,13 +128,18 @@ describe('computeScanVerification', () => {
   });
 });
 
-describe('computeScanMetrics', () => {
+describe('computeScanVerification empty', () => {
   it('returns null rates when there are no cues or scans', () => {
     const cues: CueEvent[] = [];
-    const m = computeScanMetrics([], cues, DEFAULT_SCAN_DETECT_CONFIG);
-    expect(m.scannedBeforeActionRate).toBeNull();
-    expect(m.meanReactionMs).toBeNull();
-    expect(m.blindSideBalance).toBeNull();
-    expect(m.anticipationRate).toBeNull();
+    const v = computeScanVerification(
+      [],
+      cues,
+      60,
+      'hack',
+      DEFAULT_SCAN_DETECT_CONFIG,
+    );
+    expect(v.scannedBeforeActionRate).toBeNull();
+    expect(v.avgReactionMs).toBeNull();
+    expect(v.anticipationRate).toBeUndefined();
   });
 });

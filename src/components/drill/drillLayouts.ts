@@ -2,8 +2,8 @@ import type { ComponentType } from 'react';
 
 import type { DrillLayout } from '@/services/drill';
 
-import { AudioDrillLayout } from './ActiveHud';
-import { TurnReactLayout } from './ActiveTurnReactHud';
+import { AudioDrillLayout } from './AudioDrillLayout';
+import { TurnReactLayout } from './TurnReactLayout';
 import type { DrillLayoutProps } from './layoutProps';
 
 /**

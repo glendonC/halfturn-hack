@@ -100,7 +100,7 @@ export async function getSession(
   return rowsToDetail(row, cues);
 }
 
-export async function softDeleteSession(id: string): Promise<void> {
+export async function deleteSession(id: string): Promise<void> {
   const db = await getDatabase();
   await db.runAsync(
     `UPDATE sessions SET deleted_at = ?, dirty = 1 WHERE id = ?`,

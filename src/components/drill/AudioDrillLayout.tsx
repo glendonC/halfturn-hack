@@ -12,12 +12,8 @@ import type { DrillLayoutProps } from './layoutProps';
 import { PausedOverlay } from './PausedOverlay';
 import { TransportControls } from './TransportControls';
 
-/** Production name for the audio running layout. */
-export function AudioDrillLayout(props: DrillLayoutProps) {
-  return <ActiveHud {...props} />;
-}
-
-export function ActiveHud({ engine, durationMs, cueCount }: DrillLayoutProps) {
+/** Audio-mode running layout (production AudioDrillLayout). */
+export function AudioDrillLayout({ engine, durationMs, cueCount }: DrillLayoutProps) {
   const insets = useSafeAreaInsets();
   const currentCue = useDrillStore((s) => s.currentCue);
   const currentPhrase = useDrillStore((s) => s.currentPhrase);

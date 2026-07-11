@@ -12,16 +12,12 @@ import { canUseNativeVision } from './runtimeGuard';
 export type {
   VerificationOutcome,
   VerificationResult,
-  VerifyCueArgs,
   YawSample,
   YawSampleBackend,
 } from '@/types';
 
 export type { PoseVerifier } from './PoseVerifier';
 export { NullPoseVerifier } from './PoseVerifier';
-
-/** @deprecated Prefer YawSampleBackend from @/types; frame backends use vision PerceptionBackend. */
-export type { PerceptionBackend as YawSamplePerceptionBackend } from '@/types';
 
 export {
   DEFAULT_SCAN_DETECT_CONFIG,
@@ -36,11 +32,9 @@ export {
   type TrackingQuality,
 } from './types';
 export {
-  computeScanMetrics,
   computeScanVerification,
   computeTrackingQuality,
   detectScans,
-  toScanVerification,
   type ScanVerificationOptions,
 } from './scanDetect';
 export { yawSamplesToPoseSamples } from './yawSampleAdapter';
@@ -87,6 +81,14 @@ export {
   isRealPoseVerifier,
 } from './RealPoseVerifier';
 export { DEFAULT_ENRICHMENT } from './types';
+export {
+  recordFrameStat,
+  readDiagnostics,
+  resetDiagnostics,
+  summarizeFrameStats,
+  type FrameStat,
+  type VisionDiagnostics,
+} from './diagnostics';
 
 /**
  * Env intent flag (EXPO_PUBLIC_VISION=1). Prefer {@link canUseNativeVision} at

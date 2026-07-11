@@ -22,10 +22,8 @@ export type {
 } from './settings';
 export { DEFAULT_SETTINGS } from './settings';
 export type {
-  PerceptionBackend,
   VerificationOutcome,
   VerificationResult,
-  VerifyCueArgs,
   YawSample,
   YawSampleBackend,
 } from './verification';

@@ -10,15 +10,10 @@ import { PausedOverlay } from './PausedOverlay';
 import { TransportControls } from './TransportControls';
 import { TurnReactCueSurface } from './TurnReactCueSurface';
 
-/** Production name for the turn-react running layout. */
-export function TurnReactLayout(props: DrillLayoutProps) {
-  return <ActiveTurnReactHud {...props} />;
-}
-
 /**
  * Turn-react active shell: visual cue surface + shared transport (no camera).
  */
-export function ActiveTurnReactHud({ engine }: DrillLayoutProps) {
+export function TurnReactLayout({ engine }: DrillLayoutProps) {
   const insets = useSafeAreaInsets();
   const currentCue = useDrillStore((s) => s.currentCue);
   const currentPhrase = useDrillStore((s) => s.currentPhrase);

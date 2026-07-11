@@ -35,7 +35,7 @@ We call `setAudioModeAsync({ playsInSilentMode: true, interruptionMode: 'duckOth
 If cues are silent on device:
 
 1. Confirm headphones / Bluetooth route.
-2. Confirm `prepare()` / `configureDrillAudioSession()` ran.
+2. Confirm `prepare()` / `configureAudioSession()` ran.
 3. Remember: **volume** on native TTS is mostly the hardware volume rocker — `AudioCueEngineOptions.volume` is primarily honored on web.
 
 ## Android

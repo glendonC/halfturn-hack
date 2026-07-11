@@ -1,4 +1,3 @@
-export { pickIntervalMs } from './pickInterval';
 export {
   nextIntervalMs,
   pickCue,
@@ -10,7 +9,6 @@ export {
 export {
   createInitialSchedulerSnapshot,
   fireCueAt,
-  applyResolvedPhrase,
   remainingDrillMs,
   shouldFireCue,
   type FireCueResult,

@@ -2,7 +2,6 @@ import { createDefaultDrillConfig } from '@/constants';
 import { PausableDrillClocks } from '@/utils/clocks';
 import { createRng } from '@/utils/rng';
 
-import { pickIntervalMs } from '../pickInterval';
 import {
   buildCandidates,
   initialSchedulerState,
@@ -16,26 +15,19 @@ import {
   shouldFireCue,
 } from '../scheduler';
 
-describe('pickIntervalMs', () => {
-  it('stays within inclusive bounds', () => {
+describe('CueScheduler', () => {
+  it('nextIntervalMs stays within configured bounds', () => {
+    const config = createDefaultDrillConfig({
+      intervalMs: { min: 2500, max: 5000 },
+    });
     const random = createRng(42);
     for (let i = 0; i < 50; i++) {
-      const v = pickIntervalMs(2500, 5000, random);
+      const v = nextIntervalMs(random, config);
       expect(v).toBeGreaterThanOrEqual(2500);
       expect(v).toBeLessThanOrEqual(5000);
     }
   });
 
-  it('returns min when min === max', () => {
-    expect(pickIntervalMs(3000, 3000, () => 0.99)).toBe(3000);
-  });
-
-  it('respects a speech-duration floor above the sampled range', () => {
-    expect(pickIntervalMs(1000, 1000, () => 0, 2500)).toBe(2500);
-  });
-});
-
-describe('CueScheduler', () => {
   it('nextIntervalMs respects floor', () => {
     const config = createDefaultDrillConfig({
       intervalMs: { min: 1000, max: 1000 },

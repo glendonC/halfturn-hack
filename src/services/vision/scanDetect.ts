@@ -3,7 +3,7 @@
  * onsetDrillMs / index instead of firedAtMonoMs / seq).
  */
 
-import type { CueEvent, ScanMetrics, ScanVerification } from '@/types';
+import type { CueEvent, ScanVerification } from '@/types';
 import {
   DEFAULT_SCAN_DETECT_CONFIG,
   type PoseSample,
@@ -324,37 +324,4 @@ export function computeScanVerification(
   }
 
   return base;
-}
-
-/** Hack-facing metrics shape used by older fixtures/tests. */
-export function computeScanMetrics(
-  scans: ScanEvent[],
-  cues: readonly CueEvent[],
-  cfg: ScanDetectConfig = DEFAULT_SCAN_DETECT_CONFIG,
-): ScanMetrics {
-  const left = scans.filter((s) => s.direction === 'left').length;
-  const right = scans.filter((s) => s.direction === 'right').length;
-  const directional = left + right;
-  const v = computeScanVerification(scans, [...cues], 60, 'hack', cfg);
-  return {
-    metricsVersion: 1,
-    scannedBeforeActionRate: v.scannedBeforeActionRate,
-    blindSideBalance: directional > 0 ? (left - right) / directional : null,
-    meanReactionMs: v.avgReactionMs,
-    anticipationRate: v.anticipationRate ?? null,
-  };
-}
-
-/** Thin alias for drillStore finish path. */
-export function toScanVerification(
-  scans: ScanEvent[],
-  cues: readonly CueEvent[],
-  actualDurationSec: number,
-  engineLabel: string,
-  cfg: ScanDetectConfig = DEFAULT_SCAN_DETECT_CONFIG,
-  quality?: TrackingQuality | null,
-): ScanVerification {
-  return computeScanVerification(scans, [...cues], actualDurationSec, engineLabel, cfg, {
-    quality: quality ?? undefined,
-  });
 }
