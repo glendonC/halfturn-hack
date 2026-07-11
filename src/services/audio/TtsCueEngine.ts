@@ -1,12 +1,11 @@
 import * as Speech from 'expo-speech';
 
 import type { Settings } from '@/types';
-import { DEFAULT_SETTINGS } from '@/types/settings';
+import { DEFAULT_SETTINGS } from '@/constants/defaults';
 
 import type { AudioCueEngine, SpeakOptions } from './AudioCueEngine';
 import { configureAudioSession } from './audioMode';
 import { estimateSpeechMs } from './estimate';
-import type { AudioCueEngineOptions } from './types';
 
 /**
  * Cue engine backed by the device text-to-speech (expo-speech).
@@ -20,16 +19,6 @@ import type { AudioCueEngineOptions } from './types';
  */
 export class TtsCueEngine implements AudioCueEngine {
   private settings: Settings = { ...DEFAULT_SETTINGS };
-
-  /** Map hack AppSettings.audio into the Settings fields. */
-  setOptions(options: Partial<AudioCueEngineOptions>): void {
-    this.settings = {
-      ...this.settings,
-      cueVolume: clamp01(options.volume ?? this.settings.cueVolume),
-      speechRate: clampRate(options.rate ?? this.settings.speechRate),
-      speechPitch: clampPitch(options.pitch ?? this.settings.speechPitch),
-    };
-  }
 
   async prepare(settings?: Settings): Promise<void> {
     if (settings) {
@@ -100,19 +89,4 @@ export class TtsCueEngine implements AudioCueEngine {
   private get pitch(): number {
     return this.settings.speechPitch;
   }
-}
-
-function clamp01(value: number): number {
-  if (Number.isNaN(value)) return 1;
-  return Math.min(1, Math.max(0, value));
-}
-
-function clampRate(value: number): number {
-  if (Number.isNaN(value)) return 1;
-  return Math.min(2, Math.max(0.1, value));
-}
-
-function clampPitch(value: number): number {
-  if (Number.isNaN(value)) return 1;
-  return Math.min(2, Math.max(0.5, value));
 }

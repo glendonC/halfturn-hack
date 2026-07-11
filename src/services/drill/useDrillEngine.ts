@@ -4,7 +4,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { getCueDefinition } from '@/constants';
 import {
   releaseBeep,
-  speechSettingsFromAudio,
   type AudioCueEngine,
 } from '@/services/audio';
 import {
@@ -384,8 +383,7 @@ export function useDrillEngine(): UseDrillEngineResult {
 
     void (async () => {
       const engine = ensureEngine();
-      const audio = useSettingsStore.getState().settings.audio;
-      await engine.prepare(speechSettingsFromAudio(audio));
+      await engine.prepare(useSettingsStore.getState().settings);
       if (finalizedRef.current) return;
 
       const verifier =
@@ -438,8 +436,7 @@ export function useDrillEngine(): UseDrillEngineResult {
   const testAudio = useCallback(() => {
     void (async () => {
       const engine = ensureEngine();
-      const audio = useSettingsStore.getState().settings.audio;
-      await engine.prepare(speechSettingsFromAudio(audio));
+      await engine.prepare(useSettingsStore.getState().settings);
       await engine.speak('HalfTurn audio check');
       void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     })();

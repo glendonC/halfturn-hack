@@ -20,10 +20,14 @@ export {
   DEFAULT_INTERVAL_MS,
   DEFAULT_LEFT_RIGHT_BALANCE,
   DEFAULT_REACTION_WINDOW_MS,
+  DEFAULT_SETTINGS,
   DURATION_PRESETS_MS,
   filterEnabledCues,
   leftShare,
+  PITCH_BOUNDS,
+  RATE_BOUNDS,
   signedBlindSideBalance,
+  VOLUME_BOUNDS,
   type DurationPreset,
 } from './defaults';
 export {

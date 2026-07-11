@@ -1,5 +1,5 @@
 import type { CueAudioSource, Settings } from '@/types';
-import { DEFAULT_SETTINGS } from '@/types/settings';
+import { DEFAULT_SETTINGS } from '@/constants/defaults';
 
 import type { AudioCueEngine } from './AudioCueEngine';
 import { TtsCueEngine } from './TtsCueEngine';
@@ -18,7 +18,7 @@ export function getAudioCueEngine(
   return engine;
 }
 
-/** Map persisted AppSettings.audio into Settings speech fields. */
+/** Map a legacy audio options bag into Settings speech fields. */
 export function speechSettingsFromAudio(
   audio: AudioCueEngineOptions,
   patch: Partial<Settings> = {},

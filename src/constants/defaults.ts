@@ -1,6 +1,11 @@
-import type { DrillConfig, CueType } from '@/types';
+import type { DrillConfig, CueType, Settings } from '@/types';
 
-import { DEFAULT_ENABLED_CUES } from './cues';
+import { ALL_CUE_TYPES, DEFAULT_ENABLED_CUES } from './cues';
+
+/** Slider/control bounds, shared by setup + settings screens. */
+export const VOLUME_BOUNDS = { min: 0, max: 1, step: 0.05 } as const;
+export const RATE_BOUNDS = { min: 0.5, max: 1.5, step: 0.05 } as const;
+export const PITCH_BOUNDS = { min: 0.7, max: 1.6, step: 0.05 } as const;
 
 /** Duration presets (ms) for setup UI later */
 export const DURATION_PRESETS_MS = {
@@ -8,6 +13,22 @@ export const DURATION_PRESETS_MS = {
   standard: 180_000,
   long: 300_000,
 } as const;
+
+/** Persisted app-wide speech / session defaults. */
+export const DEFAULT_SETTINGS: Settings = {
+  cueVolume: 1,
+  speechRate: 1,
+  speechPitch: 1,
+  voiceId: null,
+  language: 'en-US',
+  enabledVocabulary: [...ALL_CUE_TYPES],
+  audioOutputMode: 'headphones',
+  audioSource: 'tts',
+  hapticsEnabled: true,
+  keepAwake: true,
+  brightnessBoost: false,
+  turnReactLandscape: false,
+};
 
 export type DurationPreset = keyof typeof DURATION_PRESETS_MS;
 

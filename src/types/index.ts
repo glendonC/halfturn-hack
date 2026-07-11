@@ -21,7 +21,7 @@ export type {
   CueAudioSource,
   Settings,
 } from './settings';
-export { DEFAULT_SETTINGS } from './settings';
+export type { Profile } from './profile';
 export type {
   VerificationOutcome,
   VerificationResult,

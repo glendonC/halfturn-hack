@@ -15,16 +15,8 @@ import {
   type SchedulerSnapshot,
 } from '@/services/drill';
 import { nextIntervalMs } from '@/services/drill/CueScheduler';
-import {
-  releaseBeep,
-  speechSettingsFromAudio,
-  TtsCueEngine,
-} from '@/services/audio';
-import {
-  saveSession,
-  DRILL_SESSION_SCHEMA_VERSION,
-  type AppSettings,
-} from '@/services/db';
+import { releaseBeep, TtsCueEngine } from '@/services/audio';
+import { saveSession, DRILL_SESSION_SCHEMA_VERSION } from '@/services/db';
 import {
   createPoseVerifier,
   computeScanVerification,
@@ -41,6 +33,8 @@ import type {
   WallMs,
 } from '@/types';
 import { createId, createRng, PausableDrillClocks } from '@/utils';
+
+import { useSettingsStore } from './useSettingsStore';
 
 export type DrillStatus =
   | 'idle'
@@ -62,8 +56,6 @@ let rng: () => number = Math.random;
 let scheduler: SchedulerSnapshot | null = null;
 let countdownEndsAtWallMs: WallMs | null = null;
 let lastSpokenCountdownSec: number | null = null;
-let keepAwakeDefault = true;
-
 /** Test seam — swap TTS / clocks without touching UI. */
 export function __setDrillAudioEngineForTests(engine: TtsCueEngine): void {
   audioEngine = engine;
@@ -98,7 +90,6 @@ export interface DrillStoreState {
   lastVerification: ScanVerification | null;
 
   setConfig: (patch: Partial<DrillConfig>) => void;
-  hydrateFromSettings: (settings: AppSettings) => void;
   enterReady: () => void;
   startCountdown: () => void;
   beginRunning: () => void;
@@ -134,7 +125,7 @@ function baseState(config: DrillConfig = createDefaultDrillConfig()) {
 async function setKeepAwake(active: boolean): Promise<void> {
   try {
     if (active) {
-      if (!keepAwakeDefault) return;
+      if (!useSettingsStore.getState().settings.keepAwake) return;
       await activateKeepAwakeAsync(KEEP_AWAKE_TAG);
     } else {
       deactivateKeepAwake(KEEP_AWAKE_TAG);
@@ -264,19 +255,6 @@ export const useDrillStore = create<DrillStoreState>((set, get) => ({
     });
   },
 
-  hydrateFromSettings: (settings) => {
-    keepAwakeDefault = settings.keepAwakeDefault;
-    audioEngine.setOptions(settings.audio);
-    const { status } = get();
-    if (status === 'countdown' || status === 'running' || status === 'paused') {
-      return;
-    }
-    set({
-      ...baseState(settings.drill),
-      status: 'idle',
-    });
-  },
-
   enterReady: () => {
     const { status, config } = get();
     if (status !== 'idle' && status !== 'finished') return;
@@ -295,7 +273,7 @@ export const useDrillStore = create<DrillStoreState>((set, get) => ({
     countdownEndsAtWallMs = wallNow + Math.max(0, config.countdownSec) * 1000;
     lastSpokenCountdownSec = null;
     void setKeepAwake(true);
-    void audioEngine.prepare();
+    void audioEngine.prepare(useSettingsStore.getState().settings);
     set({
       status: 'countdown',
       countdownRemainingSec: config.countdownSec,
@@ -345,7 +323,7 @@ export const useDrillStore = create<DrillStoreState>((set, get) => ({
     }
 
     void setKeepAwake(true);
-    void audioEngine.prepare();
+    void audioEngine.prepare(useSettingsStore.getState().settings);
     modeBehavior.prepareAudio(audioEngine);
 
     set({
@@ -520,7 +498,7 @@ export const useDrillStore = create<DrillStoreState>((set, get) => ({
   },
 
   testSound: async () => {
-    await audioEngine.prepare();
+    await audioEngine.prepare(useSettingsStore.getState().settings);
     await audioEngine.testSound();
   },
 }));

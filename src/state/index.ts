@@ -11,7 +11,10 @@ export {
 } from './drillStore';
 export { useDrillConfigStore } from './useDrillConfigStore';
 export { zustandStorage } from './storage';
+export { useSettingsStore, useSettings } from './useSettingsStore';
 export {
-  useSettingsStore,
-  type SettingsStoreState,
-} from './settingsStore';
+  useProfileStore,
+  useProfile,
+  generateDefaultName,
+  DEFAULT_PROFILE,
+} from './useProfileStore';

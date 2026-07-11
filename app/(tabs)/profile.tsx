@@ -1,449 +1,294 @@
-import { useState, type ReactNode } from 'react';
-import {
-  Alert,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Switch,
-  Text,
-  View,
-} from 'react-native';
+import Constants from 'expo-constants';
+import { useRef, useState } from 'react';
+import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { CUE_CATALOG, DURATION_PRESETS_MS } from '@/constants';
-import { getDrillAudioEngine, useSettingsStore } from '@/state';
-import { colors, spacing, typography } from '@/theme';
+import {
+  GlassButton,
+  GlassCard,
+  GlassScreen,
+  GlassSegmented,
+  GlassSlider,
+  GlassToggleRow,
+  GradientSquircle,
+  Icon,
+  Icons,
+} from '@/components/glass';
+import { RATE_BOUNDS, VOLUME_BOUNDS } from '@/constants/defaults';
+import { configureAudioSession, getAudioCueEngine } from '@/services/audio';
+import { clearAllSessions } from '@/services/db';
+import { useProfileStore, useSettingsStore } from '@/state';
+import { glassRadius, glassType, hitSlop, light, spacing } from '@/theme';
+import type { AudioOutputMode } from '@/types';
 
-const RATE_PRESETS = [
-  { label: 'Slow', value: 0.85 },
-  { label: 'Normal', value: 1 },
-  { label: 'Fast', value: 1.15 },
-] as const;
+/** Space the floating nav reserves at the bottom, so the last card clears it. */
+const NAV_CLEARANCE = 96;
 
-const PITCH_PRESETS = [
-  { label: 'Low', value: 0.9 },
-  { label: 'Mid', value: 1 },
-  { label: 'High', value: 1.15 },
-] as const;
+/** Up to two initials from the player's name, for the avatar. */
+function initialsOf(name: string): string | null {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return null;
+  const first = parts[0][0] ?? '';
+  const last = parts.length > 1 ? parts[parts.length - 1][0] ?? '' : '';
+  return (first + last).toUpperCase() || null;
+}
 
-const VOLUME_PRESETS = [
-  { label: 'Low', value: 0.5 },
-  { label: 'Med', value: 0.75 },
-  { label: 'Max', value: 1 },
-] as const;
-
-const INTERVAL_STEP_MS = 500;
+function Divider() {
+  return <View style={styles.divider} />;
+}
 
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const settings = useSettingsStore((s) => s.settings);
-  const patchAudio = useSettingsStore((s) => s.patchAudio);
-  const patchDrillDefaults = useSettingsStore((s) => s.patchDrillDefaults);
-  const setKeepAwakeDefault = useSettingsStore((s) => s.setKeepAwakeDefault);
-  const setBrightnessBoost = useSettingsStore((s) => s.setBrightnessBoost);
-  const setTurnReactLandscape = useSettingsStore((s) => s.setTurnReactLandscape);
-  const toggleDefaultCue = useSettingsStore((s) => s.toggleDefaultCue);
-  const clearHistory = useSettingsStore((s) => s.clearHistory);
-  const [clearing, setClearing] = useState(false);
+  const setSetting = useSettingsStore((s) => s.setSetting);
+  const displayName = useProfileStore((s) => s.profile.displayName);
+  const setDisplayName = useProfileStore((s) => s.setDisplayName);
 
-  const durationPreset = (
-    Object.entries(DURATION_PRESETS_MS) as [string, number][]
-  ).find(([, ms]) => ms === settings.drill.durationMs)?.[0] ?? 'custom';
+  const [name, setName] = useState(displayName ?? '');
+  const nameRef = useRef<TextInput>(null);
+  const initials = initialsOf(name);
 
-  function bumpInterval(key: 'min' | 'max', delta: number) {
-    const next = {
-      min: settings.drill.intervalMs.min,
-      max: settings.drill.intervalMs.max,
-      [key]: Math.max(1000, settings.drill.intervalMs[key] + delta),
-    };
-    if (next.min > next.max) {
-      if (key === 'min') next.max = next.min;
-      else next.min = next.max;
+  const commitName = () => {
+    const trimmed = name.trim();
+    setDisplayName(trimmed);
+    setName(trimmed);
+  };
+
+  const testVoice = async () => {
+    try {
+      await configureAudioSession(settings.audioOutputMode);
+      const engine = getAudioCueEngine(settings.audioSource);
+      await engine.prepare(settings);
+      void engine.speak('Check left. Man on. Turn.');
+    } catch (err) {
+      console.warn('[profile] test voice failed', err);
     }
-    void patchDrillDefaults({ intervalMs: next });
-  }
+  };
 
-  function confirmClear() {
+  const clearHistory = () => {
     Alert.alert(
-      'Clear history?',
-      'This soft-deletes all local sessions on this device. It cannot be undone in-app.',
+      'Clear all history?',
+      'This permanently deletes every saved drill.',
       [
         { text: 'Cancel', style: 'cancel' },
         {
           text: 'Clear',
           style: 'destructive',
-          onPress: () => {
-            void (async () => {
-              setClearing(true);
-              try {
-                await clearHistory();
-              } finally {
-                setClearing(false);
-              }
-            })();
-          },
+          onPress: () => clearAllSessions(),
         },
       ],
     );
-  }
+  };
 
   return (
-    <ScrollView
-      style={styles.root}
-      contentContainerStyle={{
-        paddingTop: insets.top + spacing.lg,
-        paddingBottom: insets.bottom + 40,
-        paddingHorizontal: spacing.lg,
-        gap: spacing.md,
-      }}
+    <GlassScreen
+      scroll
+      accent="voice"
+      contentStyle={{ paddingBottom: insets.bottom + NAV_CLEARANCE }}
     >
-      <Text style={styles.brand}>HalfTurn</Text>
-      <Text style={styles.title}>Profile</Text>
-      <Text style={styles.subtitle}>
-        Voice, field ergonomics, and drill defaults. Stored on this device only.
-      </Text>
+      <View style={styles.header}>
+        <GradientSquircle
+          accent="voice"
+          radius={glassRadius.squircle}
+          style={styles.avatar}
+        >
+          <View style={styles.avatarInner}>
+            {initials ? (
+              <Text style={styles.avatarText}>{initials}</Text>
+            ) : (
+              <Icon
+                icon={Icons.UserRound}
+                size={30}
+                color={light.inkSoft}
+                strokeWidth={1.75}
+              />
+            )}
+          </View>
+        </GradientSquircle>
+        <View style={styles.headerText}>
+          <Text style={styles.headerOverline}>Player</Text>
+          <View style={styles.nameRow}>
+            <TextInput
+              ref={nameRef}
+              style={styles.nameInput}
+              value={name}
+              onChangeText={setName}
+              onBlur={commitName}
+              onSubmitEditing={commitName}
+              placeholder="Add your name"
+              placeholderTextColor={light.inkFaint}
+              returnKeyType="done"
+              maxLength={40}
+              autoCapitalize="words"
+            />
+            <Pressable
+              onPress={() => nameRef.current?.focus()}
+              hitSlop={hitSlop}
+              accessibilityRole="button"
+              accessibilityLabel="Edit name"
+              style={({ pressed }) => [
+                styles.editBtn,
+                { opacity: pressed ? 0.55 : 1 },
+              ]}
+            >
+              <Icon
+                icon={Icons.SquarePen}
+                size={18}
+                color={light.inkMuted}
+                strokeWidth={1.75}
+              />
+            </Pressable>
+          </View>
+        </View>
+      </View>
 
-      <Section title="Voice">
-        <Text style={styles.hint}>
-          Prefer headphones on the field. Device Silent switch is handled for
-          cues — still turn media volume up.
+      <Text style={styles.groupHeading}>Preferences</Text>
+
+      <GlassCard title="Background music" style={styles.card}>
+        <GlassSegmented<AudioOutputMode>
+          options={[
+            { label: 'Lower it', value: 'headphones' },
+            { label: 'Keep it up', value: 'speaker' },
+          ]}
+          value={settings.audioOutputMode}
+          onChange={(v) => setSetting('audioOutputMode', v)}
+          accent="audio"
+        />
+        <Text style={styles.note}>
+          When a cue plays, duck your music or let it keep going. Output —
+          AirPods, Bluetooth, or the speaker — is picked automatically by iOS.
         </Text>
-        <Label>Volume (web TTS; native uses hardware volume)</Label>
-        <PresetRow
-          presets={VOLUME_PRESETS}
-          value={settings.audio.volume}
-          onSelect={(volume) => void patchAudio({ volume })}
-        />
-        <Label>Speech rate</Label>
-        <PresetRow
-          presets={RATE_PRESETS}
-          value={settings.audio.rate}
-          onSelect={(rate) => void patchAudio({ rate })}
-        />
-        <Label>Pitch</Label>
-        <PresetRow
-          presets={PITCH_PRESETS}
-          value={settings.audio.pitch}
-          onSelect={(pitch) => void patchAudio({ pitch })}
-        />
-        <Pressable
-          style={styles.secondaryBtn}
-          onPress={() => {
-            getDrillAudioEngine().setOptions(settings.audio);
-            void getDrillAudioEngine().testSound();
-          }}
-        >
-          <Text style={styles.secondaryBtnText}>Test sound</Text>
-        </Pressable>
-      </Section>
+      </GlassCard>
 
-      <Section title="Drill defaults">
-        <Label>Duration</Label>
-        <View style={styles.rowWrap}>
-          {(
-            [
-              ['short', '1 min'],
-              ['standard', '3 min'],
-              ['long', '5 min'],
-            ] as const
-          ).map(([key, label]) => (
-            <Pressable
-              key={key}
-              onPress={() =>
-                void patchDrillDefaults({ durationMs: DURATION_PRESETS_MS[key] })
-              }
-              style={[
-                styles.chip,
-                durationPreset === key && styles.chipActive,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.chipText,
-                  durationPreset === key && styles.chipTextActive,
-                ]}
-              >
-                {label}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-        <Label>Cue interval</Label>
-        <Stepper
-          label={`Min ${(settings.drill.intervalMs.min / 1000).toFixed(1)}s`}
-          onMinus={() => bumpInterval('min', -INTERVAL_STEP_MS)}
-          onPlus={() => bumpInterval('min', INTERVAL_STEP_MS)}
+      <GlassCard title="Voice" style={styles.card}>
+        <GlassSlider
+          label="Volume"
+          value={settings.cueVolume}
+          min={VOLUME_BOUNDS.min}
+          max={VOLUME_BOUNDS.max}
+          step={VOLUME_BOUNDS.step}
+          valueLabel={`${Math.round(settings.cueVolume * 100)}%`}
+          accent="voice"
+          onValueChange={(v) => setSetting('cueVolume', v)}
         />
-        <Stepper
-          label={`Max ${(settings.drill.intervalMs.max / 1000).toFixed(1)}s`}
-          onMinus={() => bumpInterval('max', -INTERVAL_STEP_MS)}
-          onPlus={() => bumpInterval('max', INTERVAL_STEP_MS)}
+        <GlassSlider
+          label="Speed"
+          value={settings.speechRate}
+          min={RATE_BOUNDS.min}
+          max={RATE_BOUNDS.max}
+          step={RATE_BOUNDS.step}
+          valueLabel={`${settings.speechRate.toFixed(2)}×`}
+          accent="voice"
+          onValueChange={(v) => setSetting('speechRate', v)}
         />
-        <Label>Countdown</Label>
-        <View style={styles.rowWrap}>
-          {(
-            [
-              [0, 'Off'],
-              [3, '3s'],
-              [5, '5s'],
-            ] as const
-          ).map(([sec, label]) => (
-            <Pressable
-              key={label}
-              onPress={() => void patchDrillDefaults({ countdownSec: sec })}
-              style={[
-                styles.chip,
-                settings.drill.countdownSec === sec && styles.chipActive,
-              ]}
-            >
-              <Text
-                style={[
-                  styles.chipText,
-                  settings.drill.countdownSec === sec && styles.chipTextActive,
-                ]}
-              >
-                {label}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-        <ToggleRow
-          label="Haptics on cues"
-          value={settings.drill.haptics}
-          onValueChange={(haptics) => void patchDrillDefaults({ haptics })}
+        <GlassButton
+          label="Test voice"
+          variant="secondary"
+          icon={Icons.Volume2}
+          onPress={testVoice}
         />
-        <ToggleRow
-          label="Avoid repeating last cue"
-          value={settings.drill.avoidLastN > 0}
-          onValueChange={(on) =>
-            void patchDrillDefaults({ avoidLastN: on ? 1 : 0 })
-          }
+      </GlassCard>
+
+      <GlassCard title="Feedback" style={styles.card}>
+        <GlassToggleRow
+          label="Haptics"
+          description="Buzz on every cue for eyes-free reinforcement."
+          value={settings.hapticsEnabled}
+          onValueChange={(v) => setSetting('hapticsEnabled', v)}
+          accent="feedback"
         />
-        <ToggleRow
-          label="Spoken countdown"
-          value={settings.drill.spokenCountdown}
-          onValueChange={(spokenCountdown) =>
-            void patchDrillDefaults({ spokenCountdown })
-          }
+        <Divider />
+        <GlassToggleRow
+          label="Keep screen awake"
+          description="Prevent the screen from locking during a drill."
+          value={settings.keepAwake}
+          onValueChange={(v) => setSetting('keepAwake', v)}
+          accent="feedback"
         />
-        <ToggleRow
-          label="Keep screen awake in drills"
-          value={settings.keepAwakeDefault}
-          onValueChange={(v) => void setKeepAwakeDefault(v)}
-        />
-        <ToggleRow
-          label="Brightness boost while drilling"
+      </GlassCard>
+
+      <GlassCard title="Field display" style={styles.card}>
+        <GlassToggleRow
+          label="Boost brightness"
+          description="Max out brightness while a drill runs; restores it after."
           value={settings.brightnessBoost}
-          onValueChange={(v) => void setBrightnessBoost(v)}
+          onValueChange={(v) => setSetting('brightnessBoost', v)}
+          accent="field"
         />
-        <ToggleRow
-          label="Landscape for Turn & React"
+        <Divider />
+        <GlassToggleRow
+          label="Landscape in Turn & React"
+          description="Rotate to landscape for a wider cue at distance."
           value={settings.turnReactLandscape}
-          onValueChange={(v) => void setTurnReactLandscape(v)}
+          onValueChange={(v) => setSetting('turnReactLandscape', v)}
+          accent="field"
         />
-      </Section>
+      </GlassCard>
 
-      <Section title="Default cue mix">
-        <View style={styles.rowWrap}>
-          {CUE_CATALOG.map((cue) => {
-            const active = settings.drill.enabledCues.includes(cue.id);
-            return (
-              <Pressable
-                key={cue.id}
-                onPress={() => void toggleDefaultCue(cue.id)}
-                style={[styles.chip, active && styles.chipActive]}
-              >
-                <Text style={[styles.chipText, active && styles.chipTextActive]}>
-                  {cue.label}
-                </Text>
-              </Pressable>
-            );
-          })}
-        </View>
-      </Section>
-
-      <Section title="Data">
-        <Pressable
-          style={[styles.dangerBtn, clearing && styles.disabled]}
-          disabled={clearing}
-          onPress={confirmClear}
-        >
-          <Text style={styles.dangerBtnText}>
-            {clearing ? 'Clearing…' : 'Clear history'}
-          </Text>
-        </Pressable>
-      </Section>
-    </ScrollView>
-  );
-}
-
-function Section({
-  title,
-  children,
-}: {
-  title: string;
-  children: ReactNode;
-}) {
-  return (
-    <View style={styles.section}>
-      <Text style={styles.sectionTitle}>{title}</Text>
-      {children}
-    </View>
-  );
-}
-
-function Label({ children }: { children: string }) {
-  return <Text style={styles.label}>{children}</Text>;
-}
-
-function PresetRow({
-  presets,
-  value,
-  onSelect,
-}: {
-  presets: readonly { label: string; value: number }[];
-  value: number;
-  onSelect: (v: number) => void;
-}) {
-  return (
-    <View style={styles.rowWrap}>
-      {presets.map((p) => {
-        const active = Math.abs(value - p.value) < 0.02;
-        return (
-          <Pressable
-            key={p.label}
-            onPress={() => onSelect(p.value)}
-            style={[styles.chip, active && styles.chipActive]}
-          >
-            <Text style={[styles.chipText, active && styles.chipTextActive]}>
-              {p.label}
-            </Text>
-          </Pressable>
-        );
-      })}
-    </View>
-  );
-}
-
-function ToggleRow({
-  label,
-  value,
-  onValueChange,
-}: {
-  label: string;
-  value: boolean;
-  onValueChange: (v: boolean) => void;
-}) {
-  return (
-    <View style={styles.toggleRow}>
-      <Text style={styles.toggleLabel}>{label}</Text>
-      <Switch
-        value={value}
-        onValueChange={onValueChange}
-        trackColor={{ false: colors.border, true: colors.accentDim }}
-        thumbColor={value ? colors.accent : colors.textMuted}
-      />
-    </View>
-  );
-}
-
-function Stepper({
-  label,
-  onMinus,
-  onPlus,
-}: {
-  label: string;
-  onMinus: () => void;
-  onPlus: () => void;
-}) {
-  return (
-    <View style={styles.stepper}>
-      <Pressable onPress={onMinus} style={styles.stepBtn}>
-        <Text style={styles.stepBtnText}>−</Text>
-      </Pressable>
-      <Text style={styles.stepperLabel}>{label}</Text>
-      <Pressable onPress={onPlus} style={styles.stepBtn}>
-        <Text style={styles.stepBtnText}>+</Text>
-      </Pressable>
-    </View>
+      <GlassCard title="Data" style={styles.card}>
+        <GlassButton
+          label="Clear history"
+          variant="danger"
+          icon={Icons.Trash2}
+          onPress={clearHistory}
+        />
+        <Text style={styles.version}>
+          HalfTurn v{Constants.expoConfig?.version ?? '0.1.0'} · local-first
+        </Text>
+      </GlassCard>
+    </GlassScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.bg },
-  brand: {
-    ...typography.caption,
-    color: colors.accent,
-    textTransform: 'uppercase',
-  },
-  title: { ...typography.title, color: colors.text },
-  subtitle: { ...typography.body, color: colors.textMuted },
-  section: { gap: spacing.sm, marginTop: spacing.sm },
-  sectionTitle: {
-    ...typography.caption,
-    color: colors.textMuted,
-    textTransform: 'uppercase',
-  },
-  hint: { color: colors.textMuted, fontSize: 14, lineHeight: 20 },
-  label: { color: colors.text, fontWeight: '600', marginTop: spacing.xs },
-  rowWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  chip: {
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: colors.bgElevated,
-  },
-  chipActive: {
-    backgroundColor: colors.accent,
-    borderColor: colors.accent,
-  },
-  chipText: { color: colors.text, fontWeight: '600' },
-  chipTextActive: { color: colors.bg },
-  toggleRow: {
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: spacing.xs,
+    gap: spacing.lg,
+    marginTop: spacing.sm,
+    marginBottom: spacing.xl,
   },
-  toggleLabel: { color: colors.text, fontSize: 16, fontWeight: '500', flex: 1 },
-  stepper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: colors.surface,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.sm,
-  },
-  stepperLabel: { color: colors.text, fontWeight: '600', fontSize: 16 },
-  stepBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 8,
+  avatar: { width: 72, height: 72 },
+  avatarInner: {
+    ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.bgElevated,
   },
-  stepBtnText: { color: colors.text, fontSize: 24, fontWeight: '700' },
-  secondaryBtn: {
+  avatarText: { ...glassType.title, fontSize: 26, color: light.inkSoft },
+  headerText: { flex: 1, gap: 2 },
+  headerOverline: { ...glassType.overline, color: light.inkMuted },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  nameInput: {
+    ...glassType.hero,
+    fontSize: 34,
+    lineHeight: 40,
+    color: light.ink,
+    padding: 0,
+    flex: 1,
+  },
+  editBtn: { padding: 6 },
+
+  groupHeading: {
+    ...glassType.overline,
+    color: 'rgba(24,20,37,0.45)',
+    marginBottom: spacing.sm,
+    marginLeft: spacing.xs,
+  },
+  card: { marginBottom: spacing.md },
+
+  note: {
+    ...glassType.caption,
+    color: 'rgba(24,20,37,0.55)',
+    lineHeight: 16,
+  },
+  divider: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: 'rgba(24,20,37,0.12)',
+  },
+  version: {
+    ...glassType.caption,
+    color: 'rgba(24,20,37,0.5)',
+    textAlign: 'center',
     marginTop: spacing.sm,
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
   },
-  secondaryBtnText: { color: colors.textMuted, fontWeight: '700' },
-  dangerBtn: {
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.danger,
-  },
-  dangerBtnText: { color: colors.danger, fontWeight: '800', fontSize: 16 },
-  disabled: { opacity: 0.6 },
 });

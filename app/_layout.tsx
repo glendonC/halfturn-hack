@@ -1,28 +1,27 @@
-import { useEffect, useState } from 'react';
-import { ActivityIndicator, StyleSheet, View } from 'react-native';
+import { useEffect } from 'react';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 
+import { configureAudioSession } from '@/services/audio';
+import { getDatabase } from '@/services/db';
 import { useSettingsStore } from '@/state';
 import { colors } from '@/theme';
 
 export default function RootLayout() {
-  const hydrate = useSettingsStore((s) => s.hydrate);
-  const hydrated = useSettingsStore((s) => s.hydrated);
-  const [failed, setFailed] = useState(false);
+  const audioMode = useSettingsStore((s) => s.settings.audioOutputMode);
 
   useEffect(() => {
-    void hydrate().catch(() => setFailed(true));
-  }, [hydrate]);
-
-  if (!hydrated && !failed) {
-    return (
-      <View style={styles.boot}>
-        <StatusBar style="light" />
-        <ActivityIndicator color={colors.accent} size="large" />
-      </View>
-    );
-  }
+    (async () => {
+      try {
+        await getDatabase();
+        await configureAudioSession(audioMode);
+      } catch (err) {
+        console.warn('[init] startup failed', err);
+      }
+    })();
+    // Run once on startup — settings hydrate synchronously from kv-store.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   return (
     <>
@@ -45,12 +44,3 @@ export default function RootLayout() {
     </>
   );
 }
-
-const styles = StyleSheet.create({
-  boot: {
-    flex: 1,
-    backgroundColor: colors.bg,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});

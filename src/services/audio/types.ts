@@ -1,6 +1,5 @@
 /**
- * Hack-only audio option bag persisted in AppSettings.
- * Maps into {@link Settings} via speechSettingsFromAudio.
+ * Legacy TTS option bag. Prefer Settings speech fields on the settings store.
  */
 
 export interface AudioCueEngineOptions {

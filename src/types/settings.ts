@@ -6,10 +6,7 @@ export type AudioOutputMode = 'headphones' | 'speaker';
 /** Source of cue audio. `tts` is today's default; `clips` is not yet wired. */
 export type CueAudioSource = 'tts' | 'clips';
 
-/**
- * Persisted app-wide speech / session settings (Settings shape).
- * Hack AppSettings.audio maps into the speech fields via speechSettingsFromAudio.
- */
+/** Persisted app-wide settings. */
 export interface Settings {
   /** Cue loudness, 0..1. */
   cueVolume: number;
@@ -36,18 +33,3 @@ export interface Settings {
   /** Rotate to landscape during Turn & React. Off by default. */
   turnReactLandscape: boolean;
 }
-
-export const DEFAULT_SETTINGS: Settings = {
-  cueVolume: 1,
-  speechRate: 1,
-  speechPitch: 1,
-  voiceId: null,
-  language: 'en-US',
-  enabledVocabulary: [],
-  audioOutputMode: 'headphones',
-  audioSource: 'tts',
-  hapticsEnabled: true,
-  keepAwake: true,
-  brightnessBoost: false,
-  turnReactLandscape: false,
-};

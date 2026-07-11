@@ -12,7 +12,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { CUE_CATALOG, DURATION_PRESETS_MS } from '@/constants';
-import { useDrillStore, useSettingsStore } from '@/state';
+import { useDrillConfigStore, useDrillStore } from '@/state';
 import { colors, spacing, typography } from '@/theme';
 import type { CueType, DrillMode } from '@/types';
 
@@ -28,10 +28,9 @@ export function DrillSetup() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const config = useDrillStore((s) => s.config);
-  const setConfig = useDrillStore((s) => s.setConfig);
+  const setConfig = useDrillConfigStore((s) => s.setConfig);
   const enterReady = useDrillStore((s) => s.enterReady);
   const testSound = useDrillStore((s) => s.testSound);
-  const patchDrillDefaults = useSettingsStore((s) => s.patchDrillDefaults);
 
   const durationPreset = useMemo(() => {
     const match = (
@@ -222,14 +221,13 @@ export function DrillSetup() {
       <Pressable
         style={({ pressed }) => [styles.primaryBtn, pressed && styles.pressed]}
         onPress={() => {
-          void patchDrillDefaults(config).finally(() => {
-            enterReady();
-            if (config.mode === 'turn_react') {
-              router.push('/drill/framing');
-              return;
-            }
-            router.push('/drill/active');
-          });
+          setConfig(config);
+          enterReady();
+          if (config.mode === 'turn_react') {
+            router.push('/drill/framing');
+            return;
+          }
+          router.push('/drill/active');
         }}
       >
         <Text style={styles.primaryBtnText}>Start drill</Text>
