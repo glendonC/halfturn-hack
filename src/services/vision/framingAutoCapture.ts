@@ -44,15 +44,21 @@ export interface AutoCaptureConfig {
   /** LEFT only: min |capture mean − neutral baseline| (else: 'not_turned').
    * Sign-agnostic — `resolveYawSign` owns which rotation is "left". */
   leftMinDeltaDeg: number;
-  /** CENTER only: max median face visibility. The yaw math is front/back
-   * SYMMETRIC (a square chest and a square back both read ~0°), so facing the
-   * camera during the back-to-camera capture would pass silently and INVERT
-   * the yaw sign for the real back-turned stance — the face is the only tell
-   * (else: 'facing'). */
-  maxBackFaceVis: number;
   /** Refractory after any capture ends before presence can re-arm. */
   rearmMs: number;
 }
+
+/*
+ * There is deliberately NO facing (front-vs-back) check, although calibrating
+ * while facing the camera and then training back-turned would invert the yaw
+ * sign. A faceVis-based guard was built and field-measured: MediaPipe reports
+ * anterior-face visibility of 0.92–0.99 with the player's BACK fully turned
+ * (visibility is hallucinated for occluded landmarks), so no threshold
+ * separates the stances — the guard rejected honest back-turned captures.
+ * Stance consistency is coached by the spoken instructions instead; the yaw
+ * sign is self-consistent as long as the player calibrates in the stance they
+ * train in. faceVis stays in CaptureStats/logs as research data only.
+ */
 
 export const DEFAULT_AUTO_CAPTURE: AutoCaptureConfig = {
   armMs: 1400,
@@ -62,7 +68,6 @@ export const DEFAULT_AUTO_CAPTURE: AutoCaptureConfig = {
   maxDriftDeg: 6,
   maxMadDeg: 12,
   leftMinDeltaDeg: 25,
-  maxBackFaceVis: 0.6,
   rearmMs: 2000,
 };
 
@@ -107,7 +112,7 @@ export function isPresent({
 }
 
 /** Why a captured window was rejected — drives the targeted spoken retry line. */
-export type CaptureFailReason = 'lost' | 'moving' | 'not_turned' | 'facing';
+export type CaptureFailReason = 'lost' | 'moving' | 'not_turned';
 
 /** One in-frame observation collected during a capture window. */
 export interface CaptureSample {
@@ -170,12 +175,6 @@ export function validateCapture(
   const stats = samples.length > 0 ? captureStats(samples) : null;
   if (samples.length < cfg.minCaptureSamples) return { ok: false, reason: 'lost', stats };
   const s = stats as CaptureStats;
-
-  // CENTER must be a BACK: a visible face here would calibrate the yaw sign
-  // for the wrong stance (checked first — fixing it changes everything else).
-  if (phase === 'center' && s.faceVisMedian > cfg.maxBackFaceVis) {
-    return { ok: false, reason: 'facing', stats: s };
-  }
 
   if (Math.abs(s.driftDeg) > cfg.maxDriftDeg || s.madDeg > cfg.maxMadDeg) {
     return { ok: false, reason: 'moving', stats: s };

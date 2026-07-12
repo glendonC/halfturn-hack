@@ -69,11 +69,8 @@ describe('validateCapture — center', () => {
     if (result.ok) expect(result.avgYawDeg).toBe(2);
   });
 
-  it('rejects a player FACING the camera (yaw alone cannot tell front from back)', () => {
-    expect(validateCapture(win([2, 2, 2, 2, 2, 2], 0.95), 'center', null)).toMatchObject({
-      ok: false,
-      reason: 'facing',
-    });
+  it('does NOT face-check (MediaPipe hallucinates ~0.95 faceVis on a turned back)', () => {
+    expect(validateCapture(win([2, 2, 2, 2, 2, 2], 0.95), 'center', null).ok).toBe(true);
   });
 
   it('rejects too few samples as lost', () => {

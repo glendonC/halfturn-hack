@@ -136,9 +136,7 @@ export default function FramingScreen() {
         ? 'Too much movement. Hold really still this time.'
         : pulse.reason === 'not_turned'
           ? 'Turn further to your left, then hold.'
-          : pulse.reason === 'facing'
-            ? 'I can see your face. Turn your back to the phone.'
-            : 'I lost you. Step into frame and hold.';
+          : 'I lost you. Step into frame and hold.';
     void engineRef.current.speak(retryLine);
     if (haptics) void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
   }, [cal.coachPulse, settings.hapticsEnabled]);
