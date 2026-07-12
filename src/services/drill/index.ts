@@ -6,14 +6,11 @@ export {
   type ScheduledCue,
   type SchedulerState,
 } from './CueScheduler';
-export { useDrillEngine, type UseDrillEngineResult } from './useDrillEngine';
 export {
-  getDrillModeBehavior,
-  MODE_LAYOUT,
-  AudioDrillBehavior,
-  TurnReactDrillBehavior,
-  type DrillLayout,
-  type DrillModeBehavior,
-  type PickedCue,
-  type ResolvedCue,
-} from './modes';
+  isDirectionalCue,
+  scanConfirmsCue,
+  type ConfirmableCue,
+  type ConfirmableScan,
+} from './scanConfirm';
+export { useDrillEngine, type UseDrillEngineResult } from './useDrillEngine';
+export { getDrillModeBehavior, MODE_LAYOUT, type DrillLayout, type DrillModeBehavior } from './modes';

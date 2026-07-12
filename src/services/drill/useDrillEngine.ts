@@ -40,6 +40,7 @@ import {
   pickCue,
   type SchedulerState,
 } from './CueScheduler';
+import { scanConfirmsCue } from './scanConfirm';
 import { getDrillModeBehavior, type DrillModeBehavior } from './modes';
 
 const TICK_MS = 250;
@@ -334,8 +335,7 @@ export function useDrillEngine(): UseDrillEngineResult {
       const store = useDrillStore.getState();
       if (store.status !== 'running') return;
       const cue = store.currentCue;
-      if (!cue || scan.tMonoMs < cue.firedAtMonoMs) return;
-      if (cue.side && scan.direction !== cue.side) return; // cued side must match
+      if (!cue || !scanConfirmsCue(scan, cue)) return;
       if (confirmedCueSeqRef.current === cue.seq) return;
       confirmedCueSeqRef.current = cue.seq;
       store.recordScanConfirm(cue.seq, scan.direction);
