@@ -19,5 +19,6 @@ export { GlassToggleRow } from './GlassToggleRow';
 export { GlassCueChip } from './GlassCueChip';
 export { GlassCueDistribution, type CueCounts } from './GlassCueDistribution';
 export { GlassTabBar } from './GlassTabBar';
+export { GlassPageHeader, GlassActionPill, PAGE_CHROME_SIZE } from './GlassPageHeader';
 export { nativeGlassAvailable } from './liquidGlassNative';
 export * as Icons from './icons';

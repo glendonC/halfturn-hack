@@ -9,6 +9,7 @@ export {
   listSessions,
   getSession,
   deleteSession,
+  deleteSessions,
   clearAllSessions,
   getHistoryStats,
   type HistoryStats,

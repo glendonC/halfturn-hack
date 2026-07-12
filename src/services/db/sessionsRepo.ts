@@ -173,7 +173,22 @@ export async function deleteSession(id: string): Promise<void> {
   await db.runAsync('DELETE FROM drill_sessions WHERE id = ?', id);
 }
 
-/** Wipe all history (used by Settings → "Clear history"). */
+/** Hard-delete many sessions in one transaction (cue_events cascade). */
+export async function deleteSessions(ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+  if (ids.length === 1) {
+    await deleteSession(ids[0]!);
+    return;
+  }
+  const db = await getDatabase();
+  await db.withTransactionAsync(async () => {
+    for (const id of ids) {
+      await db.runAsync('DELETE FROM drill_sessions WHERE id = ?', id);
+    }
+  });
+}
+
+/** Wipe all history (used by Profile / History → "Clear history"). */
 export async function clearAllSessions(): Promise<void> {
   const db = await getDatabase();
   await db.execAsync('DELETE FROM cue_events; DELETE FROM drill_sessions;');

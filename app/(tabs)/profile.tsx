@@ -1,14 +1,18 @@
 import Constants from 'expo-constants';
-import { useEffect, useRef, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
+  GlassActionPill,
   GlassButton,
   GlassCard,
+  GlassPageHeader,
   GlassScreen,
   GlassSegmented,
   GlassSlider,
+  GlassStat,
   GlassSurface,
   GlassToggleRow,
   GradientSquircle,
@@ -22,7 +26,7 @@ import {
   listNaturalVoices,
   type VoiceOption,
 } from '@/services/audio';
-import { clearAllSessions } from '@/services/db';
+import { clearAllSessions, getHistoryStats, type HistoryStats } from '@/services/db';
 import { useProfileStore } from '@/state/useProfileStore';
 import { useSettingsStore } from '@/state/useSettingsStore';
 import {
@@ -30,6 +34,7 @@ import {
   glass,
   glassRadius,
   glassType,
+  glow,
   hitSlop,
   light,
   spacing,
@@ -52,6 +57,18 @@ function Divider() {
   return <View style={styles.divider} />;
 }
 
+/** Compact preference readout chip inside the identity hero. */
+function PrefChip({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.prefChip}>
+      <Text style={styles.prefChipLabel}>{label}</Text>
+      <Text style={styles.prefChipValue} numberOfLines={1}>
+        {value}
+      </Text>
+    </View>
+  );
+}
+
 export default function ProfileScreen() {
   const insets = useSafeAreaInsets();
   const settings = useSettingsStore((s) => s.settings);
@@ -61,6 +78,7 @@ export default function ProfileScreen() {
 
   const [name, setName] = useState(displayName ?? '');
   const [voices, setVoices] = useState<VoiceOption[]>([]);
+  const [stats, setStats] = useState<HistoryStats | null>(null);
   const nameRef = useRef<TextInput>(null);
   const initials = initialsOf(name);
 
@@ -73,6 +91,21 @@ export default function ProfileScreen() {
       cancelled = true;
     };
   }, [settings.language]);
+
+  const loadStats = useCallback(async () => {
+    try {
+      setStats(await getHistoryStats());
+    } catch (err) {
+      console.warn('[profile] stats load failed', err);
+      setStats({ totalSessions: 0, totalCues: 0, totalDurationSec: 0, sessionsThisWeek: 0 });
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      void loadStats();
+    }, [loadStats]),
+  );
 
   const commitName = () => {
     const trimmed = name.trim();
@@ -106,9 +139,16 @@ export default function ProfileScreen() {
   };
 
   const clearHistory = () => {
-    Alert.alert('Clear all history?', 'This permanently deletes every saved drill.', [
+    Alert.alert('Clear all data?', 'This permanently deletes every saved drill from your history.', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Clear', style: 'destructive', onPress: () => clearAllSessions() },
+      {
+        text: 'Clear data',
+        style: 'destructive',
+        onPress: async () => {
+          await clearAllSessions();
+          void loadStats();
+        },
+      },
     ]);
   };
 
@@ -124,48 +164,86 @@ export default function ProfileScreen() {
     ...voices.map((v) => ({ id: v.identifier, label: v.name })),
   ];
 
+  const musicLabel = settings.audioOutputMode === 'headphones' ? 'Ducks' : 'Keeps up';
+  const totalSessions = stats?.totalSessions ?? 0;
+  const weekSessions = stats?.sessionsThisWeek ?? 0;
+
   return (
     <GlassScreen scroll accent="voice" contentStyle={{ paddingBottom: insets.bottom + NAV_CLEARANCE }}>
-      <View style={styles.header}>
-        <GradientSquircle accent="voice" radius={glassRadius.squircle} style={styles.avatar}>
-          <View style={styles.avatarInner}>
-            {initials ? (
-              <Text style={styles.avatarText}>{initials}</Text>
-            ) : (
-              <Icon icon={Icons.UserRound} size={30} color={light.inkSoft} strokeWidth={1.75} />
-            )}
+      <GlassPageHeader
+        title="Profile"
+        actions={
+          <>
+            <GlassActionPill label="Test" icon={Icons.Volume2} onPress={testVoice} accent="voice" />
+            <GlassActionPill label="Clear data" icon={Icons.Trash2} danger onPress={clearHistory} />
+          </>
+        }
+      />
+
+      {/* Identity hero — same GradientSquircle language as Stats. */}
+      <GradientSquircle accent="voice" style={styles.hero}>
+        <View style={styles.heroPad}>
+          <View style={styles.heroTop}>
+            <View style={styles.avatarShadow}>
+              <GlassSurface radius={glassRadius.squircle} intensity="thick" fill={glass.fillStrong} style={styles.avatar}>
+                <View style={styles.avatarInner}>
+                  {initials ? (
+                    <Text style={styles.avatarText}>{initials}</Text>
+                  ) : (
+                    <Icon icon={Icons.UserRound} size={28} color={light.inkSoft} strokeWidth={1.75} />
+                  )}
+                </View>
+              </GlassSurface>
+            </View>
+
+            <View style={styles.heroIdentity}>
+              <Text style={styles.heroOverline}>Display name</Text>
+              <View style={styles.nameRow}>
+                <TextInput
+                  ref={nameRef}
+                  style={styles.nameInput}
+                  value={name}
+                  onChangeText={setName}
+                  onBlur={commitName}
+                  onSubmitEditing={commitName}
+                  placeholder="Add your name"
+                  placeholderTextColor={light.inkFaint}
+                  returnKeyType="done"
+                  maxLength={40}
+                  autoCapitalize="words"
+                />
+                <Pressable
+                  onPress={() => nameRef.current?.focus()}
+                  hitSlop={hitSlop}
+                  accessibilityRole="button"
+                  accessibilityLabel="Edit name"
+                  style={({ pressed }) => [styles.editBtn, { opacity: pressed ? 0.55 : 1 }]}
+                >
+                  <Icon icon={Icons.SquarePen} size={18} color={light.inkMuted} strokeWidth={1.75} />
+                </Pressable>
+              </View>
+              <Text style={styles.heroNote}>Shown on Home when you open a session.</Text>
+            </View>
           </View>
-        </GradientSquircle>
-        <View style={styles.headerText}>
-          <Text style={styles.headerOverline}>Player</Text>
-          <View style={styles.nameRow}>
-            <TextInput
-              ref={nameRef}
-              style={styles.nameInput}
-              value={name}
-              onChangeText={setName}
-              onBlur={commitName}
-              onSubmitEditing={commitName}
-              placeholder="Add your name"
-              placeholderTextColor={light.inkFaint}
-              returnKeyType="done"
-              maxLength={40}
-              autoCapitalize="words"
-            />
-            <Pressable
-              onPress={() => nameRef.current?.focus()}
-              hitSlop={hitSlop}
-              accessibilityRole="button"
-              accessibilityLabel="Edit name"
-              style={({ pressed }) => [styles.editBtn, { opacity: pressed ? 0.55 : 1 }]}
-            >
-              <Icon icon={Icons.SquarePen} size={18} color={light.inkMuted} strokeWidth={1.75} />
-            </Pressable>
+
+          <View style={styles.statRow}>
+            <GlassStat size="sm" value={String(totalSessions)} label="Sessions" accent="home" />
+            <View style={styles.statSep} />
+            <GlassStat size="sm" value={String(weekSessions)} label="This week" accent="field" />
+            <View style={styles.statSep} />
+            <GlassStat size="sm" value={speakerLabel} label="Voice" accent="voice" />
+          </View>
+
+          <View style={styles.prefChipRow}>
+            <PrefChip label="Music" value={musicLabel} />
+            <PrefChip label="Haptics" value={settings.hapticsEnabled ? 'On' : 'Off'} />
+            <PrefChip label="Screen" value={settings.keepAwake ? 'Awake' : 'Sleep'} />
+            <PrefChip label="Field" value={settings.brightnessBoost ? 'Bright' : 'Normal'} />
           </View>
         </View>
-      </View>
+      </GradientSquircle>
 
-      <Text style={styles.groupHeading}>Preferences</Text>
+      <Text style={styles.groupHeading}>Training preferences</Text>
 
       <GlassCard title="Background music" style={styles.card}>
         <GlassSegmented<AudioOutputMode>
@@ -276,26 +354,51 @@ export default function ProfileScreen() {
         />
       </GlassCard>
 
-      <GlassCard title="Data" style={styles.card}>
-        <GlassButton label="Clear history" variant="danger" icon={Icons.Trash2} onPress={clearHistory} />
-        <Text style={styles.version}>HalfTurn v{Constants.expoConfig?.version ?? '0.1.0'} · local-first</Text>
-      </GlassCard>
+      <Text style={styles.version}>HalfTurn v{Constants.expoConfig?.version ?? '0.1.0'} · local-first</Text>
     </GlassScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  header: { flexDirection: 'row', alignItems: 'center', gap: spacing.lg, marginTop: spacing.sm, marginBottom: spacing.xl },
+  hero: { marginBottom: spacing.xl },
+  heroPad: { padding: spacing.xl, gap: spacing.lg },
+  heroTop: { flexDirection: 'row', alignItems: 'center', gap: spacing.lg },
+  avatarShadow: { borderRadius: glassRadius.squircle, ...glow.card },
   avatar: { width: 72, height: 72 },
   avatarInner: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
   avatarText: { ...glassType.title, fontSize: 26, color: light.inkSoft },
-  headerText: { flex: 1, gap: 2 },
-  headerOverline: { ...glassType.overline, color: light.inkMuted },
+  heroIdentity: { flex: 1, gap: 4 },
+  heroOverline: { ...glassType.overline, color: 'rgba(24,20,37,0.5)' },
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  nameInput: { ...glassType.hero, fontSize: 34, lineHeight: 40, color: light.ink, padding: 0, flex: 1 },
+  nameInput: { ...glassType.title, fontSize: 26, lineHeight: 32, color: light.ink, padding: 0, flex: 1 },
   editBtn: { padding: 6 },
+  heroNote: { ...glassType.caption, color: 'rgba(24,20,37,0.55)', marginTop: 2 },
 
-  groupHeading: { ...glassType.overline, color: 'rgba(24,20,37,0.45)', marginBottom: spacing.sm, marginLeft: spacing.xs },
+  statRow: { flexDirection: 'row', alignItems: 'flex-end', gap: spacing.md },
+  statSep: { width: StyleSheet.hairlineWidth, alignSelf: 'stretch', backgroundColor: 'rgba(24,20,37,0.12)', marginVertical: 4 },
+
+  prefChipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  prefChip: {
+    paddingVertical: 8,
+    paddingHorizontal: spacing.md,
+    borderRadius: glassRadius.chip,
+    borderCurve: 'continuous',
+    backgroundColor: 'rgba(255,255,255,0.55)',
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(255,255,255,0.75)',
+    gap: 2,
+    minWidth: 72,
+  },
+  prefChipLabel: { ...glassType.overline, fontSize: 9, letterSpacing: 1.2, color: 'rgba(24,20,37,0.45)' },
+  prefChipValue: { ...glassType.label, fontSize: 13, color: light.inkSoft },
+
+  groupHeading: {
+    ...glassType.overline,
+    color: 'rgba(24,20,37,0.45)',
+    marginBottom: spacing.sm,
+    marginLeft: spacing.xs,
+    marginTop: spacing.xs,
+  },
   card: { marginBottom: spacing.md },
 
   chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
@@ -306,5 +409,5 @@ const styles = StyleSheet.create({
 
   note: { ...glassType.caption, color: 'rgba(24,20,37,0.55)', lineHeight: 16 },
   divider: { height: StyleSheet.hairlineWidth, backgroundColor: 'rgba(24,20,37,0.12)' },
-  version: { ...glassType.caption, color: 'rgba(24,20,37,0.5)', textAlign: 'center', marginTop: spacing.sm },
+  version: { ...glassType.caption, color: 'rgba(24,20,37,0.5)', textAlign: 'center', marginTop: spacing.md },
 });

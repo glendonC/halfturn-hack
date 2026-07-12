@@ -6,6 +6,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   GlassCard,
   GlassCueDistribution,
+  GlassPageHeader,
   GlassScreen,
   GlassStat,
   GradientSquircle,
@@ -82,8 +83,7 @@ export default function StatsScreen() {
 
   return (
     <GlassScreen scroll accent="home" contentStyle={{ paddingBottom: insets.bottom + NAV_CLEARANCE }}>
-      <Text style={styles.overline}>Your progress</Text>
-      <Text style={styles.title}>Stats</Text>
+      <GlassPageHeader title="Stats" />
 
       {empty ? (
         <View style={styles.emptyWrap}>
@@ -108,7 +108,7 @@ export default function StatsScreen() {
                 </View>
               </View>
               <Text style={styles.heroNote}>
-                {thisWeek > 0 ? `${pluralize(thisWeek, 'session')} this week - keep it up.` : 'No sessions yet this week.'}
+                {thisWeek > 0 ? `${pluralize(thisWeek, 'session')} this week — keep it up.` : 'No sessions yet this week.'}
               </Text>
             </View>
           </GradientSquircle>
@@ -154,9 +154,6 @@ export default function StatsScreen() {
 }
 
 const styles = StyleSheet.create({
-  overline: { ...glassType.overline, marginTop: spacing.lg, color: accents.home.solid },
-  title: { ...glassType.hero, fontSize: 44, marginTop: spacing.xs, marginBottom: spacing.lg },
-
   hero: { marginBottom: spacing.md },
   heroPad: { padding: spacing.xl, gap: spacing.md },
   heroTop: { flexDirection: 'row', alignItems: 'flex-end', gap: spacing.lg },
