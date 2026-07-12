@@ -169,7 +169,7 @@ export default function ProfileScreen() {
   const weekSessions = stats?.sessionsThisWeek ?? 0;
 
   return (
-    <GlassScreen scroll accent="voice" contentStyle={{ paddingBottom: insets.bottom + NAV_CLEARANCE }}>
+    <GlassScreen scroll scrollUnderTop transitionOnFocus accent="voice" contentStyle={{ paddingBottom: insets.bottom + NAV_CLEARANCE }}>
       <GlassPageHeader
         title="Profile"
         actions={

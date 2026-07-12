@@ -8,8 +8,9 @@ export default function TabsLayout() {
       screenOptions={{
         headerShown: false,
         sceneStyle: { backgroundColor: 'transparent' },
-        // Clean cross-fade between tabs, matching the in-screen section swaps.
-        animation: 'fade',
+        // Native glass can render a tab scene blank while it is being transformed.
+        // Keep tab content stationary; selection feedback lives in GlassTabBar.
+        animation: 'none',
       }}
       tabBar={(props) => <GlassTabBar {...props} />}
     >

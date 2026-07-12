@@ -1,5 +1,6 @@
 import type { BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import { Pressable, StyleSheet, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { Animated, Pressable, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { glass, glassRadius, glow, hitSlop, light } from '@/theme';
@@ -20,6 +21,36 @@ interface PillTabProps {
   label: string;
 }
 
+function TabGlyph({ icon, active, size = 23 }: { icon: IconComponent; active: boolean; size?: number }) {
+  const progress = useRef(new Animated.Value(active ? 1 : 0)).current;
+  useEffect(() => {
+    Animated.spring(progress, {
+      toValue: active ? 1 : 0,
+      damping: 18,
+      stiffness: 240,
+      mass: 0.7,
+      useNativeDriver: true,
+    }).start();
+  }, [active, progress]);
+  const scale = progress.interpolate({ inputRange: [0, 1], outputRange: [0.86, 1] });
+  return (
+    <>
+      <Animated.View
+        pointerEvents="none"
+        style={[styles.selectedDisc, { opacity: progress, transform: [{ scale }] }]}
+      />
+      <Animated.View style={[styles.glyph, { transform: [{ scale }] }]}>
+        <Icon
+          icon={icon}
+          size={size}
+          color={active ? light.white : light.inkMuted}
+          strokeWidth={active ? 2 : 1.75}
+        />
+      </Animated.View>
+    </>
+  );
+}
+
 /** A tap target inside the shared pill; a solid dark disc + white glyph when selected. */
 function PillTab({ icon, active, onPress, label }: PillTabProps) {
   return (
@@ -31,8 +62,7 @@ function PillTab({ icon, active, onPress, label }: PillTabProps) {
       accessibilityState={{ selected: active }}
       style={({ pressed }) => [styles.tab, { opacity: pressed ? 0.7 : 1 }]}
     >
-      {active ? <View style={styles.selectedDisc} pointerEvents="none" /> : null}
-      <Icon icon={icon} size={23} color={active ? light.white : light.inkMuted} strokeWidth={active ? 2 : 1.75} />
+      <TabGlyph icon={icon} active={active} />
     </Pressable>
   );
 }
@@ -48,6 +78,13 @@ function PillTab({ icon, active, onPress, label }: PillTabProps) {
 export function GlassTabBar({ state, navigation }: BottomTabBarProps) {
   const insets = useSafeAreaInsets();
   const activeName = state.routes[state.index]?.name;
+  // Liquid Glass often fails to initialise on the first paint (especially under a
+  // tab navigator). Remount once after layout so the light material actually sticks.
+  const [glassEpoch, setGlassEpoch] = useState(0);
+  useEffect(() => {
+    const id = requestAnimationFrame(() => setGlassEpoch((n) => n + 1));
+    return () => cancelAnimationFrame(id);
+  }, []);
 
   const goTo = (name: string) => {
     const route = state.routes.find((r) => r.name === name);
@@ -62,18 +99,18 @@ export function GlassTabBar({ state, navigation }: BottomTabBarProps) {
 
   return (
     <View style={[styles.wrap, { paddingBottom: insets.bottom + 10 }]} pointerEvents="box-none">
-      <GlassCluster spacing={22} style={styles.group}>
-        {/* Home is always glass (so it always merges into the pill); the dark disc is an overlay. */}
+      <GlassCluster key={glassEpoch} spacing={22} style={styles.group}>
+        {/* Home is always glass (so it always merges into the pill); the dark disc is an overlay.
+            Never put opacity < 1 on this Pressable — it parents a GlassView and breaks the effect. */}
         <Pressable
           onPress={() => goTo('index')}
           accessibilityRole="button"
           accessibilityLabel="Home"
           accessibilityState={{ selected: homeActive }}
-          style={({ pressed }) => [styles.homeShadow, glow.floating, { opacity: pressed ? 0.85 : 1 }]}
+          style={styles.homeShadow}
         >
           <GlassSurface radius={NAV_SIZE / 2} intensity="regular" fill={glass.fill} style={styles.home}>
-            {homeActive ? <View style={styles.selectedDisc} pointerEvents="none" /> : null}
-            <Icon icon={House} size={24} color={homeActive ? light.white : light.inkSoft} strokeWidth={homeActive ? 2 : 1.9} />
+            <TabGlyph icon={House} active={homeActive} size={24} />
           </GlassSurface>
         </Pressable>
 
@@ -100,12 +137,13 @@ const styles = StyleSheet.create({
   },
   group: { flexDirection: 'row', alignItems: 'center', gap: 8 },
 
-  homeShadow: { borderRadius: NAV_SIZE / 2 },
+  homeShadow: { borderRadius: NAV_SIZE / 2, ...glow.floating },
   home: { width: NAV_SIZE, height: NAV_SIZE, alignItems: 'center', justifyContent: 'center' },
 
   pillShadow: { borderRadius: glassRadius.pill },
   pill: { height: NAV_SIZE, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 4 },
   tab: { width: NAV_SIZE, height: NAV_SIZE, alignItems: 'center', justifyContent: 'center' },
+  glyph: { zIndex: 1 },
 
   // The single, consistent selected indicator across every tab: a solid dark disc
   // with a thin glass halo, drawn on top of the glass so the merge stays intact.

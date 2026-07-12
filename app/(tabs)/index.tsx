@@ -1,6 +1,6 @@
 import { useFocusEffect, useRouter } from 'expo-router';
-import { useCallback, useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { Pressable, StyleSheet, Text, View, type LayoutChangeEvent } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
@@ -163,64 +163,47 @@ export default function TrainScreen() {
     }
   };
 
-  // The session read as a plain-English brief. Each setting is a soft, tappable
-  // highlight; the connective copy carries the meaning so nothing needs a label,
-  // and trailing punctuation travels with its token so it still reads as prose.
+  // Coach briefing. Tokens stay tappable; connective copy carries the meaning.
   const secLabel = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1));
-  const durationText = `${Math.round(config.durationSec / 60)} minute`;
+  const durationMins = Math.round(config.durationSec / 60);
+  const durationText = pluralize(durationMins, 'minute');
   const intervalText =
     config.intervalMinSec === config.intervalMaxSec
       ? `${secLabel(config.intervalMinSec)} seconds`
       : `${secLabel(config.intervalMinSec)} to ${secLabel(config.intervalMaxSec)} seconds`;
-  const activeCues = config.enabledCues.filter((c) => vocab.includes(c));
-  const cueExamples = activeCues.slice(0, 2).map((id) => CUES[id].label).join(' and ');
-  const evenBalance = rightPct === 50;
-  const balanceText = evenBalance
-    ? 'evenly'
-    : `${Math.max(rightPct, 100 - rightPct)}% to your ${rightPct > 50 ? 'right' : 'left'}`;
 
-  const modeSegs: BriefSeg[] = isTurnReact
-    ? [
-        { t: 'token', key: 'mode', s: 'turn and react' },
-        { t: 'text', s: 'session. A new cue appears every' },
-      ]
-    : [
-        { t: 'text', s: 'session of' },
-        { t: 'token', key: 'mode', s: 'spoken cues', trail: '.' },
-        { t: 'text', s: "You'll hear a call every" },
-      ];
+  const evenBalance = rightPct === 50;
+  const favorSide = rightPct > 50 ? 'right' : 'left';
+  const balanceText = evenBalance
+    ? 'evenly left and right'
+    : rightPct === 0 || rightPct === 100
+      ? `only your ${favorSide}`
+      : `mostly your ${favorSide}`;
+
   const cueSegs: BriefSeg[] =
     activeCueCount > 0
       ? [
-          { t: 'text', s: 'drawn from' },
-          { t: 'token', key: 'cues', s: pluralize(activeCueCount, 'cue') },
-          { t: 'text', s: `like ${cueExamples},` },
+          { t: 'text', s: 'from' },
+          { t: 'token', key: 'cues', s: pluralize(activeCueCount, 'cue type'), trail: ',' },
         ]
       : [
-          { t: 'text', s: 'drawn from' },
+          { t: 'text', s: 'from' },
           { t: 'token', key: 'cues', s: 'no cues yet', trail: ',', warn: true },
         ];
-  const balanceSegs: BriefSeg[] = evenBalance
-    ? [
-        { t: 'text', s: 'split' },
-        { t: 'token', key: 'balance', s: 'evenly' },
-        { t: 'text', s: 'across both sides.' },
-      ]
-    : [
-        { t: 'text', s: 'weighted' },
-        { t: 'token', key: 'balance', s: balanceText, trail: '.' },
-      ];
+
   const brief: BriefSeg[] = [
     { t: 'text', s: 'A' },
-    { t: 'token', key: 'duration', s: durationText },
-    ...modeSegs,
+    { t: 'token', key: 'mode', s: isTurnReact ? 'turn and react' : 'spoken cues' },
+    { t: 'text', s: 'session for' },
+    { t: 'token', key: 'duration', s: durationText, trail: '.' },
+    { t: 'text', s: 'A new cue every' },
     { t: 'token', key: 'interval', s: intervalText, trail: ',' },
     ...cueSegs,
-    ...balanceSegs,
+    { t: 'token', key: 'balance', s: balanceText, trail: '.' },
   ];
 
   return (
-    <GlassScreen accent={accent} contentStyle={{ paddingBottom: insets.bottom + NAV_CLEARANCE }}>
+    <GlassScreen transitionOnFocus accent={accent} contentStyle={{ paddingBottom: insets.bottom + NAV_CLEARANCE }}>
       <View style={styles.frame}>
         {/* Ambient dot-field + light sweep, tinted to the active section, behind the hero. */}
         <HeroBackdrop accent={accent} style={styles.backdrop} />
@@ -280,27 +263,7 @@ export default function TrainScreen() {
               {current ? (
                 renderSection(current.key, { config, setConfig, toggleCue, setInterval, vocab, accent })
               ) : (
-                <View style={styles.brief}>
-                  {brief.map((seg, i) =>
-                    seg.t === 'text' ? (
-                      seg.s.split(' ').map((w, j) => (
-                        <Text key={`t${i}-${j}`} style={styles.briefText}>
-                          {w}
-                        </Text>
-                      ))
-                    ) : (
-                      <ParamToken
-                        key={`k${i}`}
-                        value={seg.s}
-                        trail={seg.trail}
-                        accent={SECTION_ACCENT[seg.key]}
-                        warn={seg.warn}
-                        label={SECTIONS.find((s) => s.key === seg.key)!.title}
-                        onPress={() => select(seg.key)}
-                      />
-                    ),
-                  )}
-                </View>
+                <SessionBrief brief={brief} onSelect={select} />
               )}
             </View>
           </View>
@@ -330,6 +293,87 @@ function tintChip(hex: string, t: number): string {
   return `rgb(${mix((n >> 16) & 255)}, ${mix((n >> 8) & 255)}, ${mix(n & 255)})`;
 }
 
+const BRIEF_FONT_MIN = 18;
+const BRIEF_FONT_MAX = 34;
+
+/**
+ * Session brief that scales its type to fill the squircle. `adjustsFontSizeToFit`
+ * can't handle mixed Text + pressable tokens, so we measure the wrap and step the
+ * font down from a large max until the copy fits the available height.
+ */
+function SessionBrief({
+  brief,
+  onSelect,
+}: {
+  brief: BriefSeg[];
+  onSelect: (key: SectionKey) => void;
+}) {
+  const [areaH, setAreaH] = useState(0);
+  const [fontSize, setFontSize] = useState(BRIEF_FONT_MAX);
+  const fontSizeRef = useRef(fontSize);
+  fontSizeRef.current = fontSize;
+
+  const briefKey = brief
+    .map((seg) => (seg.t === 'text' ? seg.s : `${seg.key}:${seg.s}:${seg.trail ?? ''}:${seg.warn ? 1 : 0}`))
+    .join('|');
+
+  // Fresh max whenever the copy or the box height changes; onLayout shrinks to fit.
+  useEffect(() => {
+    setFontSize(BRIEF_FONT_MAX);
+  }, [briefKey, areaH]);
+
+  const lineHeight = Math.round(fontSize * 1.3);
+  const gap = Math.max(4, Math.round(fontSize * 0.22));
+  const textStyle = [styles.briefText, { fontSize, lineHeight }];
+
+  const onAreaLayout = (e: LayoutChangeEvent) => {
+    const h = Math.round(e.nativeEvent.layout.height);
+    if (h > 0 && h !== areaH) setAreaH(h);
+  };
+
+  const onBriefLayout = (e: LayoutChangeEvent) => {
+    if (!areaH) return;
+    const contentH = e.nativeEvent.layout.height;
+    if (contentH <= areaH + 2) return;
+    const current = fontSizeRef.current;
+    const next = Math.max(BRIEF_FONT_MIN, Math.floor(current * (areaH / contentH) * 0.96));
+    if (next < current) setFontSize(next);
+  };
+
+  return (
+    <View style={styles.briefArea} onLayout={onAreaLayout}>
+      {/* Remount when the box size arrives so onLayout runs with a known areaH. */}
+      <View
+        key={`${briefKey}:${areaH}`}
+        style={[styles.brief, { columnGap: gap, rowGap: gap }]}
+        onLayout={onBriefLayout}
+      >
+        {brief.map((seg, i) =>
+          seg.t === 'text' ? (
+            seg.s.split(' ').map((w, j) => (
+              <Text key={`t${i}-${j}`} style={textStyle}>
+                {w}
+              </Text>
+            ))
+          ) : (
+            <ParamToken
+              key={`k${i}`}
+              value={seg.s}
+              trail={seg.trail}
+              accent={SECTION_ACCENT[seg.key]}
+              warn={seg.warn}
+              label={SECTIONS.find((s) => s.key === seg.key)!.title}
+              fontSize={fontSize}
+              lineHeight={lineHeight}
+              onPress={() => onSelect(seg.key)}
+            />
+          ),
+        )}
+      </View>
+    </View>
+  );
+}
+
 /**
  * One highlighted parameter inside the session brief. The value keeps the ink
  * color of the surrounding prose; only a soft, section-tinted squircle highlight
@@ -342,6 +386,8 @@ function ParamToken({
   accent,
   warn,
   label,
+  fontSize,
+  lineHeight,
   onPress,
 }: {
   value: string;
@@ -349,20 +395,29 @@ function ParamToken({
   accent: AccentKey;
   warn?: boolean;
   label: string;
+  fontSize: number;
+  lineHeight: number;
   onPress: () => void;
 }) {
   const base = warn ? accents.data.solid : accents[accent].solid;
+  const textStyle = [styles.briefText, { fontSize, lineHeight }];
+  const padV = Math.max(1, Math.round(fontSize * 0.06));
+  const padH = Math.max(6, Math.round(fontSize * 0.28));
   return (
     <View style={styles.tokenWrap}>
       <Pressable
         onPress={onPress}
         accessibilityRole="button"
         accessibilityLabel={`${label}: ${value}`}
-        style={({ pressed }) => [styles.token, { backgroundColor: tintChip(base, warn ? 0.74 : 0.82) }, pressed && { opacity: 0.6 }]}
+        style={({ pressed }) => [
+          styles.token,
+          { backgroundColor: tintChip(base, warn ? 0.74 : 0.82), paddingVertical: padV, paddingHorizontal: padH },
+          pressed && { opacity: 0.6 },
+        ]}
       >
-        <Text style={styles.briefText}>{value}</Text>
+        <Text style={textStyle}>{value}</Text>
       </Pressable>
-      {trail ? <Text style={styles.briefText}>{trail}</Text> : null}
+      {trail ? <Text style={textStyle}>{trail}</Text> : null}
     </View>
   );
 }
@@ -527,12 +582,12 @@ const styles = StyleSheet.create({
   sqOverline: { ...glassType.overline, color: 'rgba(24,20,37,0.5)' },
   sqBody: { flex: 1, justifyContent: 'center', gap: spacing.md },
 
-  // Default state: the session read as a plain-English brief, each setting a soft
-  // section-tinted squircle highlight behind ink text, flowing inline with the copy.
-  brief: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', columnGap: 5, rowGap: 8 },
-  briefText: { ...glassType.body, fontSize: 17, lineHeight: 24, color: light.ink },
+  // Default state: coach brief scales to fill this area; tokens stay inline highlights.
+  briefArea: { flex: 1, justifyContent: 'center' },
+  brief: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center' },
+  briefText: { ...glassType.body, fontWeight: '500', color: light.ink },
   tokenWrap: { flexDirection: 'row', alignItems: 'center' },
-  token: { paddingVertical: 2, paddingHorizontal: 8, borderRadius: 9, borderCurve: 'continuous' },
+  token: { borderRadius: 9, borderCurve: 'continuous' },
 
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
   choices: { gap: spacing.sm },
