@@ -1,3 +1,5 @@
+import { CUE_GATE } from '@/constants/visionTuning';
+
 import { CAPTURE_ENABLED, recordVerifierRun } from './frameCapture';
 import type { BackendStartConfig, PerceptionBackend, RawPoseFrame } from './PerceptionBackend';
 import type { PoseVerifier } from './PoseVerifier';
@@ -6,7 +8,6 @@ import { computeTrackingQuality, detectScans } from './scanDetect';
 import {
   DEFAULT_ENRICHMENT,
   DEFAULT_SCAN_DETECT_CONFIG,
-  DEFAULT_CALIBRATION,
   type CalibrationProfile,
   type EnrichmentConfig,
   type PoseSample,
@@ -55,11 +56,17 @@ export class RealPoseVerifier implements PoseVerifier {
 
   constructor(
     private readonly backend: PerceptionBackend,
-    private readonly calibration: CalibrationProfile = DEFAULT_CALIBRATION,
+    private readonly calibration: CalibrationProfile,
     private readonly cfg: ScanDetectConfig = DEFAULT_SCAN_DETECT_CONFIG,
     private readonly startCfg?: BackendStartConfig,
     /** Body-signal enrichment toggles (§9). Default OFF = today's behavior. */
     private readonly enrichment: EnrichmentConfig = DEFAULT_ENRICHMENT,
+    /**
+     * Cue-gate "back at neutral" band (deg). Resolved by the caller alongside `cfg` so the two
+     * always agree — a band wider than the scan threshold would let a player be simultaneously
+     * "at neutral" and "turning". Defaults to the fixed `CUE_GATE` band.
+     */
+    readonly neutralMaxYawDeg: number = CUE_GATE.neutralMaxYawDeg,
   ) {}
 
   get available(): boolean {
@@ -191,8 +198,4 @@ export class RealPoseVerifier implements PoseVerifier {
   quality(): TrackingQuality | null {
     return this.lastQuality;
   }
-}
-
-export function isRealPoseVerifier(v: PoseVerifier): v is RealPoseVerifier {
-  return v instanceof RealPoseVerifier;
 }

@@ -56,9 +56,34 @@ export interface OneEuroConfig {
   dCutoff: number;
 }
 
+/**
+ * The library's generic starting point — NOT a tune for this signal.
+ *
+ * ⚠️ Applied to the DETECTION stream at the shipped scan threshold, this config makes detection
+ * strictly WORSE: phantom scans 181 → 291 and onset SD ±1283 ms, measured against real captured
+ * noise (docs/scan-tracking-architecture.md §10c). The mechanism is the opposite of the intuition
+ * that reaches for a filter: raw noise spikes are single-frame and die to the 150 ms hold debounce,
+ * while smoothing SPREADS them into sustained excursions that then satisfy the hold. Use
+ * `TUNED_ONE_EURO_CONFIG` for the detection stream.
+ */
 export const DEFAULT_ONE_EURO_CONFIG: OneEuroConfig = {
   minCutoff: 1.0,
   beta: 0.015,
+  dCutoff: 1.0,
+};
+
+/**
+ * Tuned against the REAL captured back-turned traces in the Casiez order
+ * (docs/field-validation-protocol.md §10): beta = 0, then `minCutoff` lowered against a STILL
+ * athlete's capture until the jitter dies.
+ *
+ * Only safe ON TOP OF a scan threshold the noise cannot already reach (see `thresholdAdapt.ts`).
+ * There it is a genuine precision win: onset SD 93 → 60 ms with zero phantoms and full recall.
+ * Still opt-in (`EXPO_PUBLIC_SMOOTH`) pending its own field trace.
+ */
+export const TUNED_ONE_EURO_CONFIG: OneEuroConfig = {
+  minCutoff: 0.2,
+  beta: 0,
   dCutoff: 1.0,
 };
 

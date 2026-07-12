@@ -76,7 +76,10 @@ export class TurnReactDrillBehavior implements DrillModeBehavior {
   allowCueNow(verifier: PoseVerifier | null, overdueMs: number, drillMs: number): boolean {
     if (!verifier?.available || !verifier.latest) return true; // beep-only preview
     if (overdueMs >= CUE_GATE.maxHoldMs) return true; // stall valve
-    return isReadyForCue(verifier.latest(), drillMs);
+    // The verifier owns the neutral band: it is scaled from the player's own measured noise floor
+    // when their calibration carries one, so "at neutral" and "is turning" are defined against the
+    // same noise (a fixed 20° band is narrower than the noise itself, σ 15-25°).
+    return isReadyForCue(verifier.latest(), drillMs, verifier.neutralMaxYawDeg);
   }
 
   async resolveVerifier(): Promise<PoseVerifier> {
