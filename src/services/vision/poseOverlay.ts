@@ -12,6 +12,8 @@
  * declared shape-compatible with the library's ViewCoordinator instead.
  */
 
+import { OneEuroFilter, type OneEuroConfig } from './OneEuroFilter';
+
 /** One landmark in VIEW coordinates (px within the camera view). */
 export interface PoseViewPoint {
   x: number;
@@ -111,6 +113,59 @@ export function landmarksToOverlayFrame(
     return { x: p.x, y: p.y, v: l.visibility ?? 0 };
   });
   return { points };
+}
+
+/**
+ * One-Euro tuning for VIEW-space pixels at the plugin's ~15fps: minCutoff kills
+ * the standing-still jitter; landmark speeds are hundreds of px/s during a turn,
+ * so a small beta already lifts the cutoff enough to keep fast motion tight.
+ */
+export const OVERLAY_SMOOTHING: OneEuroConfig = {
+  minCutoff: 1.2,
+  beta: 0.01,
+  dCutoff: 1.0,
+};
+
+/** Stateful per-landmark smoother for the overlay feed (presentation only). */
+export interface PoseOverlaySmoother {
+  /** Smooth one converted frame stamped at `tMs`; pass `null` to reset on lost pose. */
+  smooth(frame: PoseOverlayFrame | null, tMs: number): PoseOverlayFrame | null;
+}
+
+/**
+ * Per-landmark One-Euro smoothing of the drawn skeleton. PRESENTATION ONLY —
+ * this never touches the RawPoseFrame path, so yaw/scan metrics are unaffected
+ * and its timestamps only need to be monotonic, not on the drill clock.
+ * A landmark's filter resets whenever that landmark (or the whole pose) drops
+ * out, so a re-acquired point snaps to its real position instead of smearing
+ * in from where it was last seen.
+ */
+export function createPoseOverlaySmoother(
+  cfg: OneEuroConfig = OVERLAY_SMOOTHING,
+): PoseOverlaySmoother {
+  const filters: ({ x: OneEuroFilter; y: OneEuroFilter } | null)[] =
+    POSE_OVERLAY_LANDMARKS.map(() => null);
+  return {
+    smooth(frame, tMs) {
+      if (!frame) {
+        filters.fill(null);
+        return null;
+      }
+      const points = frame.points.map((p, i) => {
+        if (!p) {
+          filters[i] = null;
+          return null;
+        }
+        let f = filters[i];
+        if (!f) {
+          f = { x: new OneEuroFilter(cfg), y: new OneEuroFilter(cfg) };
+          filters[i] = f;
+        }
+        return { x: f.x.filter(p.x, tMs), y: f.y.filter(p.y, tMs), v: p.v };
+      });
+      return { points };
+    },
+  };
 }
 
 /**

@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 import { useCameraPermission } from 'react-native-vision-camera';
 import {
@@ -14,7 +14,11 @@ import { glassType, light } from '@/theme';
 import type { RawPoseFrame } from './PerceptionBackend';
 import { recordFrameStat, resetDiagnostics } from './diagnostics';
 import { feedRawFrame, toRawPoseFrame } from './backends/MediaPipeBackend';
-import { landmarksToOverlayFrame, type PoseOverlayFrame } from './poseOverlay';
+import {
+  createPoseOverlaySmoother,
+  landmarksToOverlayFrame,
+  type PoseOverlayFrame,
+} from './poseOverlay';
 
 /**
  * DEV-BUILD ONLY camera + MediaPipe Pose preview. Reached only via the lazy
@@ -56,6 +60,11 @@ export function CameraVerifierView({
 }: CameraVerifierProps) {
   const { hasPermission, requestPermission } = useCameraPermission();
 
+  // Presentation-only jitter filter for the skeleton overlay (fresh per mount).
+  // Date.now() is safe here: the smoother only needs monotonic time; these
+  // timestamps never reach the drill clock / reaction-time path.
+  const overlaySmoother = useRef(createPoseOverlaySmoother()).current;
+
   useEffect(() => {
     if (!hasPermission) void requestPermission();
   }, [hasPermission, requestPermission]);
@@ -72,9 +81,10 @@ export function CameraVerifierView({
         // library's ViewCoordinator (it owns rotation/mirror/cover-crop math).
         if (onPosePoints) {
           const image = bundle.results?.[0]?.landmarks?.[0];
-          onPosePoints(
-            image?.length ? landmarksToOverlayFrame(image, vc.getFrameDims(bundle), vc) : null,
-          );
+          const frame = image?.length
+            ? landmarksToOverlayFrame(image, vc.getFrameDims(bundle), vc)
+            : null;
+          onPosePoints(overlaySmoother.smooth(frame, Date.now()));
         }
         const raw = toRawPoseFrame(bundle);
         if (!raw) return;
@@ -98,6 +108,14 @@ export function CameraVerifierView({
     {
       numPoses: 1, // single-subject lock (perception-architecture §3.4)
       delegate: Delegate.GPU, // lite + GPU for the ~15fps native target
+      // The iOS front-camera PREVIEW is mirrored (AVCaptureVideoPreviewLayer
+      // auto-mirroring) while landmarks arrive unmirrored — but the plugin's
+      // iOS default is 'no-mirror', so overlay points would draw horizontally
+      // flipped relative to the preview. Android's default already is
+      // 'mirror-front-only'; this pins the same on both platforms. Overlay
+      // conversion only — the raw landmark/yaw path never goes through the
+      // ViewCoordinator.
+      mirrorMode: 'mirror-front-only',
       minPoseDetectionConfidence: 0.5,
       minPosePresenceConfidence: 0.5,
       minTrackingConfidence: 0.5,
