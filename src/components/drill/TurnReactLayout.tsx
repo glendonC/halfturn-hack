@@ -27,6 +27,7 @@ const CONFIRM_OUT_MS = 260;
  */
 export function TurnReactLayout({ engine, cueCount }: DrillLayoutProps) {
   const paused = engine.status === 'paused';
+  const verifiedCount = useDrillStore((s) => s.verifiedCount);
   return (
     <View style={styles.root}>
       <CueSurface>
@@ -38,7 +39,11 @@ export function TurnReactLayout({ engine, cueCount }: DrillLayoutProps) {
           <View style={[styles.statusShadow, glow.floating]}>
             <GlassSurface radius={glassRadius.pill} intensity="regular" fill={glass.fill} style={styles.statusPill}>
               <Text style={styles.statusTime}>{formatClock(engine.remainingMs / 1000)}</Text>
-              <Text style={styles.statusMeta}>{cueCount} cues</Text>
+              {/* Live score: camera-verified turns over cues fired — the always-on
+                  "it is watching and scoring me" readout. */}
+              <Text style={styles.statusMeta}>
+                {verifiedCount}/{cueCount} <Text style={styles.statusCheck}>✓</Text>
+              </Text>
             </GlassSurface>
           </View>
           <VisionDiagnostics />
@@ -150,6 +155,7 @@ const styles = StyleSheet.create({
     fontVariant: ['tabular-nums'],
   },
   statusMeta: { ...glassType.caption, color: light.inkMuted, fontWeight: '600' },
+  statusCheck: { color: accents.home.solid, fontWeight: '700' },
   squircle: { position: 'absolute', right: spacing.lg, bottom: SQUIRCLE_BOTTOM },
   verifiedWrap: {
     position: 'absolute',

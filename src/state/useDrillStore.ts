@@ -29,6 +29,8 @@ interface DrillRuntimeStore {
   currentCue: CueEvent | null;
   /** Most recent live-verified turn (turn-react with a real camera; else null). */
   scanConfirm: ScanConfirm | null;
+  /** Running count of live-verified turns this run (turn-react; else 0). */
+  verifiedCount: number;
   cueCounts: CueCounts;
   events: CueEvent[];
   /** The finished session, handed to the Summary screen (in-memory). */
@@ -53,6 +55,7 @@ const IDLE = {
   remainingMs: 0,
   currentCue: null,
   scanConfirm: null as ScanConfirm | null,
+  verifiedCount: 0,
   cueCounts: {} as CueCounts,
   events: [] as CueEvent[],
   result: null as DrillSession | null,
@@ -85,7 +88,10 @@ export const useDrillStore = create<DrillRuntimeStore>((set) => ({
     })),
 
   recordScanConfirm: (cueSeq, direction) =>
-    set({ scanConfirm: { id: ++scanConfirmId, cueSeq, direction } }),
+    set((s) => ({
+      scanConfirm: { id: ++scanConfirmId, cueSeq, direction },
+      verifiedCount: s.verifiedCount + 1,
+    })),
 
   setResult: (result) => set({ result }),
 
