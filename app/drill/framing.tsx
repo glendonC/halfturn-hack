@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { ScanFieldOverlay, VisionChecklist } from '@/components';
+import { PoseModelPicker, ScanFieldOverlay, VisionChecklist } from '@/components';
 import {
   GlassCluster,
   GlassScreen,
@@ -130,13 +130,17 @@ export default function FramingScreen() {
       if (haptics) void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
       return;
     }
-    // retry — say the player-fixable cause, not a generic failure.
+    // retry — say the player-fixable cause, not a generic failure. Each reason names a
+    // DIFFERENT fix: 'unstable' is a setup problem (the tracker can't hold a read), so telling
+    // that player to "hold stiller" just loops them through the same failure.
     const retryLine =
       pulse.reason === 'moving'
-        ? 'Too much movement. Hold really still this time.'
-        : pulse.reason === 'not_turned'
-          ? 'Turn further to your left, then hold.'
-          : 'I lost you. Step into frame and hold.';
+        ? 'You turned during the hold. Freeze until you hear the beep.'
+        : pulse.reason === 'unstable'
+          ? 'I can’t get a steady read on you. Try standing closer, or somewhere with a plainer background.'
+          : pulse.reason === 'not_turned'
+            ? 'Turn further to your left, then hold.'
+            : 'I lost you. Step into frame and hold.';
     void engineRef.current.speak(retryLine);
     if (haptics) void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
   }, [cal.coachPulse, settings.hapticsEnabled]);
@@ -190,6 +194,8 @@ export default function FramingScreen() {
           <Text style={styles.kicker}>Framing · Turn & React</Text>
           <PhaseStepper phase={cal.phase} />
           <Text style={styles.instruction}>{cal.instruction}</Text>
+          {/* Dev-only: swap the pose variant between A/B blocks. Renders nothing in production. */}
+          <PoseModelPicker style={styles.modelPicker} />
         </View>
       </View>
 
@@ -443,6 +449,8 @@ const styles = StyleSheet.create({
     bottom: spacing.md,
     alignItems: 'center',
   },
+
+  modelPicker: { marginTop: spacing.sm },
 
   sweepTrack: {
     position: 'absolute',

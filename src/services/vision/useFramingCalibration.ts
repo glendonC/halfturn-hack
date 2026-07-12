@@ -45,8 +45,16 @@ export interface FramingCoachPulse {
   reason?: CaptureFailReason;
 }
 
-/** How long each capture averages frames for, ms (exported for the UI's hold-still sweep). */
-export const FRAMING_CAPTURE_MS = 1500;
+/**
+ * How long each capture averages frames for, ms (exported for the UI's hold-still sweep).
+ *
+ * 3000, not 1500: the baseline's standard error falls as 1/√n, and back-to-camera the per-frame
+ * yaw noise is large enough (field-measured σ ≈ 8–21° at ~3 m) that 1.5 s — about 15 frames at
+ * the ~10 fps we actually observe — could not pin a baseline tightly enough to pass. Doubling the
+ * window is the cheapest real fix: it takes a measured capture from SE 6.8° (rejected) to 5.3°
+ * (accepted) with no change to the signal at all. See DEFAULT_AUTO_CAPTURE's noise-floor note.
+ */
+export const FRAMING_CAPTURE_MS = 3000;
 /** Countdown length — sized so the spoken "three, two, one, hold" lands before capture. */
 const COUNTDOWN_MS = 2600;
 /** Speak a "step into frame" nudge after this long without seeing the player. */
@@ -106,6 +114,12 @@ export function useFramingCalibration(): FramingCalibration {
   const busyRef = useRef(false); // countdown OR capture in flight
   const capturingRef = useRef(false); // set synchronously with the capture window
   const baselineRef = useRef<number | null>(null);
+  /**
+   * The CENTER hold's measured noise floor (σ, deg). Captured in the neutral, back-to-camera stance
+   * — which is the one the drill spends all its time in — so it is the σ the scan thresholds have
+   * to clear. Persisted with the profile and consumed by `thresholdAdapt.ts` (§10c).
+   */
+  const neutralSigmaRef = useRef<number | null>(null);
   const pulseIdRef = useRef(0);
 
   const windowRef = useRef<AutoCaptureSample[]>([]);
@@ -141,12 +155,22 @@ export function useFramingCalibration(): FramingCalibration {
       const result = validateCapture(samplesRef.current, capturePhase, baselineRef.current);
       if (__DEV__) {
         const s = result.stats;
+        // Read `flip` + `axialMad` together — they are what separate a noisy tracker from a
+        // moving player, and they decide whether the thresholds or the SIGNAL are at fault:
+        //   flip≈0, mad high        ⇒ genuine jitter (thresholds may be too tight for the field)
+        //   flip high, axialMad low ⇒ the player was still and the TRACKER flipped front/back
         console.log(
           `[framing] ${capturePhase} capture ${result.ok ? 'ok' : `rejected (${result.reason})`}` +
             (s
-              ? ` n=${s.n} median=${s.medianDeg.toFixed(1)}° mad=${s.madDeg.toFixed(1)}° drift=${s.driftDeg.toFixed(1)}° faceVis=${s.faceVisMedian.toFixed(2)}`
+              ? ` n=${s.n} median=${s.medianDeg.toFixed(1)}° mad=${s.madDeg.toFixed(1)}° drift=${s.driftDeg.toFixed(1)}°` +
+                ` sigma=${s.sigmaDeg.toFixed(1)}° baseSE=${s.baselineSeDeg.toFixed(1)}° driftSE=${s.driftSeDeg.toFixed(1)}°` +
+                ` axialMad=${s.axialMadDeg.toFixed(1)}° flip=${(s.flipRate * 100).toFixed(0)}% faceVis=${s.faceVisMedian.toFixed(2)}`
               : ' n=0'),
         );
+        if (s) {
+          // The raw yaw stream, so a single paste settles what the window actually looked like.
+          console.log(`[framing] yaw=[${samplesRef.current.map((x) => x.yawDeg.toFixed(0)).join(',')}]`);
+        }
       }
       if (!result.ok) {
         pulse('retry', result.reason);
@@ -154,15 +178,19 @@ export function useFramingCalibration(): FramingCalibration {
       }
       if (capturePhase === 'center') {
         baselineRef.current = result.avgYawDeg;
+        // The neutral hold is the only place this player's back-turned noise floor gets measured.
+        neutralSigmaRef.current = result.stats?.sigmaDeg ?? null;
         pulse('ok');
         setPhase('left');
         return;
       }
       const yawSign = resolveYawSign(baselineRef.current as number, result.avgYawDeg);
+      const sigma = neutralSigmaRef.current;
       setProfile({
         neutralYawBaselineDeg: baselineRef.current as number,
         yawSign,
         capturedAtEpochMs: Date.now(),
+        ...(sigma != null && Number.isFinite(sigma) ? { neutralNoiseSigmaDeg: sigma } : {}),
       });
       pulse('ok');
       setPhase('ready');
