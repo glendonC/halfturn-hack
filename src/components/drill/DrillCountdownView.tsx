@@ -1,36 +1,45 @@
 import { StyleSheet, Text, View } from 'react-native';
 
-import { colors, typography } from '@/theme';
+import { GlassScreen } from '@/components/glass';
+import { accents, glassType, light, type AccentKey } from '@/theme';
+import type { DrillMode } from '@/types';
 
 interface DrillCountdownViewProps {
   /** 3 / 2 / 1 then 0 (rendered as "GO"); null shows nothing. */
   value: number | null;
+  /** Tints the glass bloom toward the drill mode. */
+  mode?: DrillMode;
 }
 
 /** The 3-2-1-GO pre-roll shown while the engine warms audio + verifier. */
-export function DrillCountdownView({ value }: DrillCountdownViewProps) {
+export function DrillCountdownView({ value, mode = 'audio' }: DrillCountdownViewProps) {
   const text = value === 0 ? 'GO' : value != null ? String(value) : '';
+  const accent: AccentKey = mode === 'turn-react' ? 'home' : 'audio';
+
   return (
-    <View style={styles.wrap}>
-      <Text style={styles.kicker}>GET READY</Text>
-      <Text style={styles.number}>{text}</Text>
-    </View>
+    <GlassScreen accent={accent} edges={['top', 'left', 'right', 'bottom']} padded={false}>
+      <View style={styles.center}>
+        <Text style={[styles.kicker, { color: accents[accent].solid }]}>Get ready</Text>
+        <Text style={styles.number}>{text}</Text>
+      </View>
+    </GlassScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: {
+  center: {
     flex: 1,
-    backgroundColor: colors.background,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 12,
+    gap: 8,
   },
-  kicker: {
-    ...typography.title,
-    color: colors.textMuted,
-    letterSpacing: 4,
-    fontWeight: '800',
+  kicker: { ...glassType.overline },
+  number: {
+    ...glassType.hero,
+    fontSize: 140,
+    lineHeight: 150,
+    fontWeight: '200',
+    letterSpacing: -4,
+    color: light.ink,
   },
-  number: { fontSize: 160, fontWeight: '900', color: colors.primary },
 });

@@ -54,7 +54,7 @@ export default function ActiveDrillScreen() {
     );
   }
   if (status === 'countdown') {
-    return <DrillCountdownView value={engine.countdownValue} />;
+    return <DrillCountdownView value={engine.countdownValue} mode={runMode} />;
   }
 
   // Pick the layout the run's mode maps to — no branch on the mode itself, so a
