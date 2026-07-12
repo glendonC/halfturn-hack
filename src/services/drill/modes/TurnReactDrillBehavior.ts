@@ -1,5 +1,5 @@
 import { REVEAL_WINDOW_MS, pickTurnReactColor } from '@/constants/turnReact';
-import { playBeep, primeBeep, type AudioCueEngine } from '@/services/audio';
+import { playBeep, primeBeep, primeConfirm, type AudioCueEngine } from '@/services/audio';
 import { getPoseVerifierAsync, type PoseVerifier } from '@/services/vision';
 import type { DrillConfig } from '@/types';
 import type { Rng } from '@/utils/random';
@@ -23,6 +23,7 @@ export class TurnReactDrillBehavior implements DrillModeBehavior {
 
   prepareAudio(): void {
     primeBeep(); // warm the beep sink so the first cue isn't silent/late
+    primeConfirm(); // and the verified-turn ding, for the same reason
   }
 
   /**

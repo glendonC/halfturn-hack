@@ -16,6 +16,7 @@ const BEEP_SOURCE = require('../../../assets/sounds/beep.wav');
 type BeepPlayer = ReturnType<typeof createAudioPlayer>;
 
 let player: BeepPlayer | null = null;
+let confirmPlayer: BeepPlayer | null = null;
 
 /** Pre-create the player so the first beep isn't delayed by cold-start. */
 export function primeBeep(): void {
@@ -25,6 +26,37 @@ export function primeBeep(): void {
   } catch {
     player = null; // best-effort; turn-react still works with haptics only
   }
+}
+
+
+/**
+ * Pre-create the verified-turn confirm sound: the same beep sample sped up so
+ * it reads as a higher, shorter "ding" — audibly distinct from the cue beep
+ * without shipping a second asset.
+ */
+export function primeConfirm(): void {
+  if (confirmPlayer) return;
+  try {
+    confirmPlayer = createAudioPlayer(BEEP_SOURCE);
+    confirmPlayer.setPlaybackRate(1.6);
+  } catch {
+    confirmPlayer = null; // best-effort; haptic confirm still fires
+  }
+}
+
+/** Fire the verified-turn confirm (fire-and-forget). */
+export function playConfirm(): void {
+  primeConfirm();
+  const p = confirmPlayer;
+  if (!p) return;
+  void (async () => {
+    try {
+      await p.seekTo(0);
+      p.play();
+    } catch {
+      // best-effort
+    }
+  })();
 }
 
 /** Fire the beep from the start (fire-and-forget; safe to call on every cue). */
@@ -42,7 +74,7 @@ export function playBeep(): void {
   })();
 }
 
-/** Release the shared player (call when the drill tears down). */
+/** Release the shared players (call when the drill tears down). */
 export function releaseBeep(): void {
   try {
     player?.remove();
@@ -50,4 +82,10 @@ export function releaseBeep(): void {
     // ignore
   }
   player = null;
+  try {
+    confirmPlayer?.remove();
+  } catch {
+    // ignore
+  }
+  confirmPlayer = null;
 }

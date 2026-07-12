@@ -46,6 +46,12 @@ export class RealPoseVerifier implements PoseVerifier {
   private pendingResumeReanchor = false;
   /** Per-run tracking quality, computed at stop() for the metrics layer. */
   private lastQuality: TrackingQuality | null = null;
+  /** Live-scan subscriber (UX feedback loop); see onScan(). */
+  private scanCb: ((scan: ScanEvent) => void) | null = null;
+  /** How many completed scans have already been emitted live. */
+  private emittedScans = 0;
+  /** Frame counter for throttling live detection. */
+  private frameCount = 0;
 
   constructor(
     private readonly backend: PerceptionBackend,
@@ -64,11 +70,26 @@ export class RealPoseVerifier implements PoseVerifier {
     return `${this.backend.id}@${this.backend.version}`;
   }
 
+  /**
+   * Live scan feed: `handleFrame` re-runs the pure detector on the growing
+   * sample stream (throttled) and emits each newly COMPLETED scan — a scan
+   * exists only once yaw has re-crossed the exit threshold, so an emit lands
+   * right as the player finishes the turn. The detector is causal (hysteresis
+   * over a prefix never un-detects a scan), so count-diffing is sound. UX-only:
+   * live detection runs on RAW samples, while stop() may apply the smoothing
+   * enrichment — the timeline stop() returns stays authoritative.
+   */
+  onScan(cb: (scan: ScanEvent) => void): void {
+    this.scanCb = cb;
+  }
+
   start(sessionT0Mono: number): void {
     if (this.started) return;
     this.started = true;
     this.paused = false;
     this.samples = [];
+    this.emittedScans = 0;
+    this.frameCount = 0;
     this.clockOffsetMs = null;
     this.lastCaptureClockMs = null;
     this.pausedAtCaptureClockMs = null;
@@ -120,6 +141,16 @@ export class RealPoseVerifier implements PoseVerifier {
       hipConfidence: r.hipConfidence,
       faceVis: r.faceVis,
     });
+
+    // Live feedback: every 3rd frame (~5Hz at the 15fps cap), detect and emit
+    // newly completed scans. detectScans is O(n) arithmetic — cheap at this rate.
+    this.frameCount += 1;
+    if (this.scanCb && this.frameCount % 3 === 0) {
+      const scans = detectScans(this.samples, this.cfg);
+      for (; this.emittedScans < scans.length; this.emittedScans += 1) {
+        this.scanCb(scans[this.emittedScans]);
+      }
+    }
   }
 
   async stop(): Promise<ScanEvent[]> {
@@ -136,8 +167,9 @@ export class RealPoseVerifier implements PoseVerifier {
     const scans = detectScans(detectInput, this.cfg);
     this.lastQuality = computeTrackingQuality(this.samples, this.cfg);
 
-    // Dev-only: stash the DERIVED trace (yaw samples + scans, never landmarks)
-    // for finalize to complete with the cue timeline. Inert unless capture is on.
+    // Dev-only: stash the DERIVED trace (yaw samples + scans, never landmarks) for
+    // the engine's finalize() to complete with the cue timeline. Inert unless the
+    // capture flag is set — see frameCapture.ts.
     if (CAPTURE_ENABLED) {
       recordVerifierRun({
         engineLabel: this.engine,

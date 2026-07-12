@@ -8,6 +8,8 @@
 // `mock`-prefixed so jest's mock-factory hoisting guard allows the references.
 const mockPlayBeep = jest.fn();
 const mockPrimeBeep = jest.fn();
+const mockPlayConfirm = jest.fn();
+const mockPrimeConfirm = jest.fn();
 const mockGetPoseVerifierAsync = jest.fn(async () => ({
   available: true,
   engine: 'mock@1',
@@ -21,6 +23,8 @@ jest.mock('@/services/audio', () => ({
   __esModule: true,
   playBeep: (...args: unknown[]) => mockPlayBeep(...args),
   primeBeep: (...args: unknown[]) => mockPrimeBeep(...args),
+  playConfirm: (...args: unknown[]) => mockPlayConfirm(...args),
+  primeConfirm: (...args: unknown[]) => mockPrimeConfirm(...args),
 }));
 
 jest.mock('@/services/vision', () => ({

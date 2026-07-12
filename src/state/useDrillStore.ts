@@ -2,6 +2,14 @@ import { create } from 'zustand';
 
 import type { CueCounts, CueEvent, DrillConfig, DrillSession, DrillStatus } from '@/types';
 
+/** A live camera-verified turn, matched to the cue it answered (UX pulse only). */
+export interface ScanConfirm {
+  /** Monotonic id so UI effects re-fire on every confirm. */
+  id: number;
+  cueSeq: number;
+  direction: 'left' | 'right';
+}
+
 /** Deep-ish clone so the run snapshot can't be mutated by the persisted store. */
 function cloneConfig(config: DrillConfig): DrillConfig {
   return { ...config, enabledCues: [...config.enabledCues] };
@@ -19,6 +27,8 @@ interface DrillRuntimeStore {
   remainingMs: number;
   /** Most recent fired cue — drives the HUD flood/flash (keyed on `seq`). */
   currentCue: CueEvent | null;
+  /** Most recent live-verified turn (turn-react with a real camera; else null). */
+  scanConfirm: ScanConfirm | null;
   cueCounts: CueCounts;
   events: CueEvent[];
   /** The finished session, handed to the Summary screen (in-memory). */
@@ -30,6 +40,7 @@ interface DrillRuntimeStore {
   markStarted: (startedAtEpoch: number) => void;
   setClock: (elapsedMs: number, remainingMs: number) => void;
   recordCue: (event: CueEvent) => void;
+  recordScanConfirm: (cueSeq: number, direction: 'left' | 'right') => void;
   setResult: (result: DrillSession) => void;
   reset: () => void;
 }
@@ -41,10 +52,13 @@ const IDLE = {
   elapsedMs: 0,
   remainingMs: 0,
   currentCue: null,
+  scanConfirm: null as ScanConfirm | null,
   cueCounts: {} as CueCounts,
   events: [] as CueEvent[],
   result: null as DrillSession | null,
 };
+
+let scanConfirmId = 0;
 
 export const useDrillStore = create<DrillRuntimeStore>((set) => ({
   ...IDLE,
@@ -69,6 +83,9 @@ export const useDrillStore = create<DrillRuntimeStore>((set) => ({
       events: [...s.events, event],
       cueCounts: { ...s.cueCounts, [event.cueId]: (s.cueCounts[event.cueId] ?? 0) + 1 },
     })),
+
+  recordScanConfirm: (cueSeq, direction) =>
+    set({ scanConfirm: { id: ++scanConfirmId, cueSeq, direction } }),
 
   setResult: (result) => set({ result }),
 

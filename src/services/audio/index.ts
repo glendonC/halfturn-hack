@@ -1,6 +1,6 @@
 export type { AudioCueEngine, SpeakOptions } from './AudioCueEngine';
 export { configureAudioSession } from './audioMode';
-export { primeBeep, playBeep, releaseBeep } from './beep';
+export { playBeep, playConfirm, primeBeep, primeConfirm, releaseBeep } from './beep';
 export { ClipCueEngine } from './ClipCueEngine';
 export { estimateSpeechMs } from './estimate';
 export {

@@ -24,6 +24,12 @@ export interface PoseVerifier {
   pause?(): void;
   /** Resume sampling after a {@link pause}, re-anchoring the clock. Optional. */
   resume?(): void;
+  /**
+   * Subscribe to scans as they complete DURING the run (optional). Drives the
+   * live "turn verified" feedback loop; UX-only — the authoritative timeline is
+   * still the one {@link stop} resolves. Verifiers that don't sample omit it.
+   */
+  onScan?(cb: (scan: ScanEvent) => void): void;
   /** Stop sampling and resolve the detected scan timeline. */
   stop(): Promise<ScanEvent[]>;
   /**

@@ -6,6 +6,7 @@ import { CUES } from '@/constants/cues';
 import {
   configureAudioSession,
   getAudioCueEngine,
+  playConfirm,
   releaseBeep,
   type AudioCueEngine,
 } from '@/services/audio';
@@ -115,6 +116,7 @@ export function useDrillEngine(): UseDrillEngineResult {
   const engineRef = useRef<AudioCueEngine | null>(null);
   const verifierRef = useRef<PoseVerifier | null>(null);
   const behaviorRef = useRef<DrillModeBehavior | null>(null);
+  const confirmedCueSeqRef = useRef<number | null>(null);
 
   const stopTick = useCallback(() => {
     if (tickRef.current) {
@@ -315,6 +317,27 @@ export function useDrillEngine(): UseDrillEngineResult {
     nextCueAtRef.current = firstGap;
     plannedAtRef.current = firstGap;
     startTick();
+
+    // Live verified-turn loop: each scan the camera completes DURING the run is
+    // matched to the cue it answered, closing the cue → turn → confirm circle in
+    // the moment (ding + success haptic + on-screen pulse). One confirm per cue;
+    // a scan that started before its cue fired doesn't count. UX-only — the
+    // summary metrics still come from the authoritative stop() timeline.
+    confirmedCueSeqRef.current = null;
+    verifierRef.current?.onScan?.((scan) => {
+      const store = useDrillStore.getState();
+      if (store.status !== 'running') return;
+      const cue = store.currentCue;
+      if (!cue || scan.tMonoMs < cue.firedAtMonoMs) return;
+      if (cue.side && scan.direction !== cue.side) return; // cued side must match
+      if (confirmedCueSeqRef.current === cue.seq) return;
+      confirmedCueSeqRef.current = cue.seq;
+      store.recordScanConfirm(cue.seq, scan.direction);
+      playConfirm();
+      if (settingsRef.current.hapticsEnabled) {
+        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      }
+    });
 
     // Anchor the camera verifier to the drill-clock ORIGIN (0): the first frame
     // it sees maps to drill-time 0 — the same axis cues use (firedAtMonoMs starts
