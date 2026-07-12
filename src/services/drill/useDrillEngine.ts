@@ -334,6 +334,7 @@ export function useDrillEngine(): UseDrillEngineResult {
       confirmedCueSeqRef.current = cue.seq;
       store.recordScanConfirm(cue.seq, scan.direction);
       playConfirm();
+      void engineRef.current?.speak('Good'); // eyes-off coach confirm
       if (settingsRef.current.hapticsEnabled) {
         void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       }

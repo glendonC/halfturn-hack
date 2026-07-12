@@ -157,11 +157,14 @@ describe('TurnReactDrillBehavior', () => {
     expect(r.phrase).toBe(TURN_REACT_COLORS[0].name);
   });
 
-  it('plays a beep (never speaks) and floors at the reveal window + pad', () => {
+  it('plays a beep + a value-free prompt (NEVER the value) and floors at the reveal window + pad', () => {
     const engine = fakeEngine(800);
     b.presentCue('Blue', engine);
     expect(mockPlayBeep).toHaveBeenCalledTimes(1);
-    expect(engine.spoken).toEqual([]);
+    // The coach says a constant "Check" — the resolved value must stay
+    // on-screen-only, or the player never has to turn.
+    expect(engine.spoken).toEqual(['Check']);
+    expect(engine.spoken).not.toContain('Blue');
     expect(b.minIntervalFloorMs('Blue', engine)).toBe(REVEAL_WINDOW_MS + 250);
   });
 

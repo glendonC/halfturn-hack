@@ -52,8 +52,13 @@ export class TurnReactDrillBehavior implements DrillModeBehavior {
     return { phrase: c.name, nextState: { ...picked.nextState, lastPhrase: c.name } };
   }
 
-  presentCue(): void {
-    playBeep(); // directionless reaction anchor; the value stays on screen only
+  presentCue(_phrase: string, engine: AudioCueEngine): void {
+    playBeep(); // directionless reaction anchor fires FIRST (instant, un-delayed)
+    // Then the coach voice. "Check" is deliberately CONSTANT and value-free:
+    // speaking the resolved phrase (color/number/side) would hand the player
+    // the answer without turning — the ground-truth gating this mode is built
+    // on. The beep stays the reaction-time anchor; the word is coaching.
+    void engine.speak('Check');
   }
 
   minIntervalFloorMs(): number {
