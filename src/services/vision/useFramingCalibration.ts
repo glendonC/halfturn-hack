@@ -1,9 +1,17 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { isInFrame } from '@/constants/visionTuning';
 import type { RawPoseFrame } from './PerceptionBackend';
 import { useCalibrationStore } from './calibration';
 import { computeTorsoYawDeg, resolveYawSign } from './YawFusion';
+import {
+  DEFAULT_AUTO_CAPTURE,
+  appendSample,
+  isPresent,
+  validateCapture,
+  type AutoCaptureSample,
+  type CaptureFailReason,
+} from './framingAutoCapture';
 
 /**
  * Framing/calibration state machine — the logic behind the framing screen,
@@ -13,50 +21,58 @@ import { computeTorsoYawDeg, resolveYawSign } from './YawFusion';
  *   2. the yaw SIGN (which rotation is the player's left, given the front-camera
  *      mirror), via the pure `resolveYawSign`.
  *
- * Pure vision math lives in YawFusion; this hook only sequences the two timed
- * captures and persists the resulting profile. No camera/native imports — the
- * screen wires a `LazyCameraVerifier`'s `onSample`/`onTracking` into it.
- *
- * `coachPulse` is a monotonic signal so the screen can drive eyes-off audio
- * (hold / got-it / retry) without owning the capture timers.
+ * Captures are HANDS-FREE and countdown-anchored: when the player has been in
+ * frame long enough (`isPresent` — presence, not stillness; see
+ * framingAutoCapture's header for why), the hook starts a spoken countdown so
+ * they know exactly when to freeze, runs the timed capture, then judges it
+ * with `validateCapture` — a rejected capture speaks the player-fixable
+ * reason (lost / moving / not turned enough) and re-arms. `capture()` remains
+ * as a manual fallback (it enters the same countdown). All coaching rides on
+ * `coachPulse` since the player faces away from the screen.
  */
 
 export type FramingPhase = 'center' | 'left' | 'ready';
 
-/** Eyes-off coaching beat emitted around each capture. */
-export type FramingCoachKind = 'hold' | 'ok' | 'retry';
+/** Eyes-off coaching beat: countdown start, capture ok/retry, can't-see-you. */
+export type FramingCoachKind = 'countdown' | 'ok' | 'retry' | 'seek';
 
 export interface FramingCoachPulse {
   /** Monotonic id so React effects re-fire on repeated kinds. */
   id: number;
   kind: FramingCoachKind;
+  /** For 'retry': the player-fixable cause, for a targeted spoken line. */
+  reason?: CaptureFailReason;
 }
 
 /** How long each capture averages frames for, ms (exported for the UI's hold-still sweep). */
 export const FRAMING_CAPTURE_MS = 1500;
-/** Minimum in-frame samples for a capture to count (else retry). */
-const MIN_SAMPLES = 5;
+/** Countdown length — sized so the spoken "three, two, one, hold" lands before capture. */
+const COUNTDOWN_MS = 2600;
+/** Speak a "step into frame" nudge after this long without seeing the player. */
+const SEEK_AFTER_MS = 10000;
+/** How often the seek watchdog checks (coarse — it guards a 10s silence). */
+const SEEK_POLL_MS = 2500;
 /** MediaPipe BlazePose shoulder indices (confidence = min shoulder visibility). */
 const L_SHOULDER = 11;
 const R_SHOULDER = 12;
 
 const INSTRUCTIONS: Record<FramingPhase, string> = {
-  center: 'Stand with your BACK to the phone, in frame, then hold still.',
-  left: 'Now turn to your LEFT and hold until capture finishes.',
+  center: 'Stand with your BACK to the phone — when the camera sees you, it counts down and captures.',
+  left: 'Now turn to your LEFT — same drill: countdown, then hold.',
   ready: 'Calibrated. Mount the phone and start when ready.',
 };
 
 /** Short spoken lines for eyes-off coaching (kept distinct from on-screen copy). */
 export const FRAMING_SPOKEN: Record<FramingPhase, string> = {
-  center: 'Back to the phone. Get in frame, tap Capture, then hold still.',
-  left: 'Turn left, tap Capture, then hold.',
+  center: 'Stand with your back to the phone. When I see you, I will count down and capture.',
+  left: 'Now turn to your left.',
   ready: 'Calibrated. Mount the phone and start when ready.',
 };
 
-const mean = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / Math.max(1, xs.length);
-
 export interface FramingCalibration {
   phase: FramingPhase;
+  /** True while the pre-capture countdown is speaking. */
+  countingDown: boolean;
   /** True while a timed capture is averaging frames. */
   capturing: boolean;
   /** Latest tracking confidence (min shoulder visibility), 0..1. */
@@ -65,13 +81,13 @@ export interface FramingCalibration {
   instruction: string;
   /** Whether a calibration profile is already saved ("Use last setup"). */
   hasSaved: boolean;
-  /** Latest capture coaching beat (hold / ok / retry), or null before any capture. */
+  /** Latest coaching beat (countdown / ok / retry / seek), or null before any. */
   coachPulse: FramingCoachPulse | null;
-  /** Wire to the camera's onSample: collects torso-yaw during a capture. */
+  /** Wire to the camera's onSample: feeds presence detection + capture averaging. */
   onSample: (raw: RawPoseFrame) => void;
   /** Wire to the camera's onTracking: drives the in-frame indicator. */
   onTracking: (confidence: number) => void;
-  /** Run the capture for the current phase (center → left → ready). */
+  /** Manual fallback: start the countdown → capture for the current phase. */
   capture: () => void;
 }
 
@@ -80,72 +96,145 @@ export function useFramingCalibration(): FramingCalibration {
   const setProfile = useCalibrationStore((s) => s.setProfile);
 
   const [phase, setPhase] = useState<FramingPhase>('center');
+  const [countingDown, setCountingDown] = useState(false);
   const [capturing, setCapturing] = useState(false);
   const [confidence, setConfidence] = useState(0);
   const [coachPulse, setCoachPulse] = useState<FramingCoachPulse | null>(null);
 
   const samplesRef = useRef<number[]>([]);
-  const capturingRef = useRef(false);
+  const busyRef = useRef(false); // countdown OR capture in flight
+  const capturingRef = useRef(false); // set synchronously with the capture window
   const baselineRef = useRef<number | null>(null);
   const pulseIdRef = useRef(0);
 
-  const pulse = useCallback((kind: FramingCoachKind) => {
+  const windowRef = useRef<AutoCaptureSample[]>([]);
+  const armedAtRef = useRef(0);
+  const lastSeenRef = useRef(Date.now());
+  const phaseRef = useRef<FramingPhase>('center');
+  const timeoutsRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  useEffect(() => {
+    phaseRef.current = phase;
+  }, [phase]);
+
+  // Countdown/capture timers must not outlive the screen.
+  useEffect(
+    () => () => {
+      timeoutsRef.current.forEach(clearTimeout);
+    },
+    [],
+  );
+
+  const later = useCallback((fn: () => void, ms: number) => {
+    timeoutsRef.current.push(setTimeout(fn, ms));
+  }, []);
+
+  const pulse = useCallback((kind: FramingCoachKind, reason?: CaptureFailReason) => {
     pulseIdRef.current += 1;
-    setCoachPulse({ id: pulseIdRef.current, kind });
+    setCoachPulse({ id: pulseIdRef.current, kind, reason });
   }, []);
 
-  const onSample = useCallback((raw: RawPoseFrame) => {
-    if (!capturingRef.current) return;
-    const conf = Math.min(raw.visibility?.[L_SHOULDER] ?? 0, raw.visibility?.[R_SHOULDER] ?? 0);
-    if (!isInFrame(conf)) return;
-    samplesRef.current.push(computeTorsoYawDeg(raw));
-  }, []);
+  /** Judge a finished capture and advance the phase machine. */
+  const settleCapture = useCallback(
+    (capturePhase: 'center' | 'left') => {
+      const result = validateCapture(samplesRef.current, capturePhase, baselineRef.current);
+      if (__DEV__) {
+        const s = result.stats;
+        console.log(
+          `[framing] ${capturePhase} capture ${result.ok ? 'ok' : `rejected (${result.reason})`}` +
+            (s
+              ? ` n=${s.n} median=${s.medianDeg.toFixed(1)}° mad=${s.madDeg.toFixed(1)}° drift=${s.driftDeg.toFixed(1)}°`
+              : ' n=0'),
+        );
+      }
+      if (!result.ok) {
+        pulse('retry', result.reason);
+        return;
+      }
+      if (capturePhase === 'center') {
+        baselineRef.current = result.avgYawDeg;
+        pulse('ok');
+        setPhase('left');
+        return;
+      }
+      const yawSign = resolveYawSign(baselineRef.current as number, result.avgYawDeg);
+      setProfile({
+        neutralYawBaselineDeg: baselineRef.current as number,
+        yawSign,
+        capturedAtEpochMs: Date.now(),
+      });
+      pulse('ok');
+      setPhase('ready');
+    },
+    [pulse, setProfile],
+  );
 
-  const runCapture = useCallback(
-    (onDone: (avg: number | null) => void) => {
+  /** Countdown → timed capture → validation, for the current phase. */
+  const beginCountdown = useCallback(() => {
+    const capturePhase = phaseRef.current;
+    if (busyRef.current || capturePhase === 'ready') return;
+    busyRef.current = true;
+    setCountingDown(true);
+    pulse('countdown');
+    later(() => {
+      setCountingDown(false);
       samplesRef.current = [];
       capturingRef.current = true;
       setCapturing(true);
-      pulse('hold');
-      setTimeout(() => {
+      later(() => {
         capturingRef.current = false;
         setCapturing(false);
-        const xs = samplesRef.current;
-        onDone(xs.length >= MIN_SAMPLES ? mean(xs) : null);
+        busyRef.current = false;
+        windowRef.current = [];
+        // Refractory before presence can re-arm, so ok/retry lines can play.
+        armedAtRef.current = Date.now() + DEFAULT_AUTO_CAPTURE.rearmMs;
+        settleCapture(capturePhase as 'center' | 'left');
       }, FRAMING_CAPTURE_MS);
-    },
-    [pulse],
-  );
+    }, COUNTDOWN_MS);
+  }, [later, pulse, settleCapture]);
 
-  const capture = useCallback(() => {
-    if (capturingRef.current) return;
-    if (phase === 'center') {
-      runCapture((avg) => {
-        if (avg == null) {
-          pulse('retry');
-          return;
-        }
-        baselineRef.current = avg;
-        pulse('ok');
-        setPhase('left');
-      });
-    } else if (phase === 'left') {
-      runCapture((avg) => {
-        const baseline = baselineRef.current;
-        if (avg == null || baseline == null) {
-          pulse('retry');
-          return;
-        }
-        const yawSign = resolveYawSign(baseline, avg);
-        setProfile({ neutralYawBaselineDeg: baseline, yawSign, capturedAtEpochMs: Date.now() });
-        pulse('ok');
-        setPhase('ready');
-      });
+  const beginCountdownRef = useRef(beginCountdown);
+  useEffect(() => {
+    beginCountdownRef.current = beginCountdown;
+  }, [beginCountdown]);
+
+  const onSample = useCallback((raw: RawPoseFrame) => {
+    const conf = Math.min(raw.visibility?.[L_SHOULDER] ?? 0, raw.visibility?.[R_SHOULDER] ?? 0);
+    if (!isInFrame(conf)) return;
+    const now = Date.now();
+    lastSeenRef.current = now;
+    if (capturingRef.current) {
+      samplesRef.current.push(computeTorsoYawDeg(raw));
+      return;
     }
-  }, [phase, pulse, runCapture, setProfile]);
+    if (busyRef.current || phaseRef.current === 'ready') return;
+    windowRef.current = appendSample(windowRef.current, {
+      tMs: now,
+      yawDeg: computeTorsoYawDeg(raw),
+    });
+    if (isPresent({ samples: windowRef.current, nowMs: now, armedAtMs: armedAtRef.current })) {
+      beginCountdownRef.current();
+    }
+  }, []);
+
+  // Seek watchdog: presence only runs when samples ARRIVE, so a player who
+  // never enters frame would otherwise get silence. Nudge every ~10s unseen.
+  useEffect(() => {
+    if (phase === 'ready') return;
+    const id = setInterval(() => {
+      if (busyRef.current) return;
+      const now = Date.now();
+      if (now - lastSeenRef.current >= SEEK_AFTER_MS) {
+        lastSeenRef.current = now; // re-arm so the nudge repeats, not spams
+        pulse('seek');
+      }
+    }, SEEK_POLL_MS);
+    return () => clearInterval(id);
+  }, [phase, pulse]);
 
   return {
     phase,
+    countingDown,
     capturing,
     confidence,
     instruction: INSTRUCTIONS[phase],
@@ -153,6 +242,6 @@ export function useFramingCalibration(): FramingCalibration {
     coachPulse,
     onSample,
     onTracking: setConfidence,
-    capture,
+    capture: beginCountdown,
   };
 }

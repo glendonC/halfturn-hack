@@ -8,8 +8,15 @@ import {
   type PoseOverlayFeed,
   type PoseOverlayFrame,
 } from '@/services/vision';
-import { glass, glassRadius, glassType, light, spacing } from '@/theme';
-import { TRACKING_LEVEL_COLOR } from './TrackingRing';
+import { accents, glass, glassRadius, glassType, light, spacing } from '@/theme';
+
+/** Meter fill per health bucket — length encodes health, one accent color. */
+const LEVEL_FRACTION: Record<TrackingLevel, number> = {
+  none: 0,
+  poor: 0.3,
+  ok: 0.65,
+  good: 1,
+};
 
 /** Treat the subject as lost this long after frames stop arriving. */
 const STALE_MS = 600;
@@ -43,8 +50,10 @@ interface VisionChecklistProps {
 
 /**
  * Live "what vision sees" checklist for framing: Body / Shoulders / Hips, each
- * with a tracking-health dot (shoulders drive yaw, hips the turn discriminator —
- * the two signals calibration actually needs). Subscribes to the pose feed but
+ * with a thin tracking-health meter (shoulders drive yaw, hips the turn
+ * discriminator — the two signals calibration actually needs). Health is
+ * encoded as fill LENGTH in the single accent color — quieter and more
+ * instrument-like than traffic-light dots. Subscribes to the pose feed but
  * QUANTIZES to buckets before setState, so it re-renders only when a signal
  * changes bucket — never at frame rate.
  */
@@ -67,20 +76,22 @@ export function VisionChecklist({ feed, style }: VisionChecklistProps) {
 
   return (
     <GlassSurface radius={glassRadius.pill} intensity="regular" fill={glass.fill} style={[styles.bar, style]}>
-      <ChecklistItem label="Body" color={seen.body ? TRACKING_LEVEL_COLOR.good : TRACKING_LEVEL_COLOR.none} />
+      <ChecklistItem label="Body" fraction={seen.body ? 1 : 0} />
       <View style={styles.divider} />
-      <ChecklistItem label="Shoulders" color={TRACKING_LEVEL_COLOR[seen.shoulders]} />
+      <ChecklistItem label="Shoulders" fraction={LEVEL_FRACTION[seen.shoulders]} />
       <View style={styles.divider} />
-      <ChecklistItem label="Hips" color={TRACKING_LEVEL_COLOR[seen.hips]} />
+      <ChecklistItem label="Hips" fraction={LEVEL_FRACTION[seen.hips]} />
     </GlassSurface>
   );
 }
 
-function ChecklistItem({ label, color }: { label: string; color: string }) {
+function ChecklistItem({ label, fraction }: { label: string; fraction: number }) {
   return (
     <View style={styles.item}>
-      <View style={[styles.dot, { backgroundColor: color }]} />
       <Text style={styles.label}>{label}</Text>
+      <View style={styles.track}>
+        <View style={[styles.fill, { width: `${fraction * 100}%` }]} />
+      </View>
     </View>
   );
 }
@@ -89,12 +100,19 @@ const styles = StyleSheet.create({
   bar: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm,
-    gap: spacing.sm,
+    gap: spacing.md,
   },
-  item: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  dot: { width: 8, height: 8, borderRadius: 4 },
-  label: { ...glassType.caption, color: light.inkSoft, fontWeight: '600' },
-  divider: { width: StyleSheet.hairlineWidth, height: 14, backgroundColor: light.hairline },
+  item: { alignItems: 'center', gap: 5 },
+  label: { ...glassType.caption, fontSize: 11, color: light.inkSoft, fontWeight: '600' },
+  track: {
+    width: 44,
+    height: 3,
+    borderRadius: 1.5,
+    backgroundColor: 'rgba(24,20,37,0.10)',
+    overflow: 'hidden',
+  },
+  fill: { height: '100%', borderRadius: 1.5, backgroundColor: accents.home.solid },
+  divider: { width: StyleSheet.hairlineWidth, height: 20, backgroundColor: light.hairline },
 });

@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { PoseOverlay, VisionChecklist, trackingLevelColor } from '@/components';
+import { ScanFieldOverlay, VisionChecklist } from '@/components';
 import {
   GlassCluster,
   GlassScreen,
@@ -53,6 +53,17 @@ const FRAMING_STEPS: { key: FramingPhase; label: string }[] = [
   { key: 'ready', label: 'Ready' },
 ];
 
+/** One live status for the whole flow — vision state and capture state, merged. */
+type FramingStage = 'searching' | 'locked' | 'countdown' | 'capturing' | 'ready';
+
+const STATUS_COPY: Record<FramingStage, string> = {
+  searching: 'Looking for you…',
+  locked: 'Camera sees you',
+  countdown: 'Get ready…',
+  capturing: 'Hold still…',
+  ready: 'Calibrated',
+};
+
 /**
  * Turn & React framing / calibration (dev build only — reached from setup when
  * VISION_ENABLED). Presentational: the capture state machine + yaw-sign math
@@ -99,13 +110,13 @@ export default function FramingScreen() {
     void engineRef.current.speak(FRAMING_SPOKEN[cal.phase]);
   }, [cal.phase]);
 
-  // Capture beats: hold / got-it / retry.
+  // Capture beats: countdown / got-it / targeted retry / can't-see-you.
   useEffect(() => {
     const pulse = cal.coachPulse;
     if (!pulse) return;
     const haptics = settings.hapticsEnabled;
-    if (pulse.kind === 'hold') {
-      void engineRef.current.speak('Hold');
+    if (pulse.kind === 'countdown') {
+      void engineRef.current.speak('Capturing in three, two, one. Hold still.');
       if (haptics) void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       return;
     }
@@ -114,20 +125,42 @@ export default function FramingScreen() {
       if (haptics) void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       return;
     }
-    // retry
-    void engineRef.current.speak('Could not see you. Step into frame and try again.');
+    if (pulse.kind === 'seek') {
+      void engineRef.current.speak('I can’t see you. Step into frame.');
+      if (haptics) void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
+      return;
+    }
+    // retry — say the player-fixable cause, not a generic failure.
+    const retryLine =
+      pulse.reason === 'moving'
+        ? 'Too much movement. Hold really still this time.'
+        : pulse.reason === 'not_turned'
+          ? 'Turn further to your left, then hold.'
+          : 'I lost you. Step into frame and hold.';
+    void engineRef.current.speak(retryLine);
     if (haptics) void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
   }, [cal.coachPulse, settings.hapticsEnabled]);
 
   const ready = cal.phase === 'ready';
   const showLastSetup = !ready && cal.hasSaved;
+  // Captures auto-start on a spoken countdown; the button is a manual fallback.
+  const stage: FramingStage = ready
+    ? 'ready'
+    : cal.capturing
+      ? 'capturing'
+      : cal.countingDown
+        ? 'countdown'
+        : isInFrame(cal.confidence)
+          ? 'locked'
+          : 'searching';
+  const busy = cal.capturing || cal.countingDown;
   const primaryLabel = ready
     ? 'Start drill'
     : cal.capturing
       ? 'Hold…'
-      : cal.phase === 'center'
-        ? 'Capture center'
-        : 'Capture left';
+      : cal.countingDown
+        ? 'Get ready…'
+        : 'Capture now';
   const primaryIcon = ready ? Icons.Play : Icons.Camera;
 
   return (
@@ -141,10 +174,10 @@ export default function FramingScreen() {
               onTracking={cal.onTracking}
               onPosePoints={poseFeed.publish}
             />
-            <PoseOverlay feed={poseFeed} />
+            <ScanFieldOverlay feed={poseFeed} />
             <GlassSurface radius={glassRadius.pill} intensity="regular" fill={glass.fill} style={styles.trackPill}>
-              <View style={[styles.trackDot, { backgroundColor: trackingLevelColor(cal.confidence) }]} />
-              <Text style={styles.trackText}>{isInFrame(cal.confidence) ? 'In frame' : 'Step into frame'}</Text>
+              <StatusDot stage={stage} />
+              <Text style={styles.trackText}>{STATUS_COPY[stage]}</Text>
             </GlassSurface>
             <View style={styles.checklistWrap} pointerEvents="none">
               <VisionChecklist feed={poseFeed} />
@@ -183,7 +216,7 @@ export default function FramingScreen() {
             label={primaryLabel}
             icon={primaryIcon}
             onPress={ready ? startDrill : cal.capture}
-            disabled={cal.capturing}
+            disabled={busy}
             loading={cal.capturing}
             flex={showLastSetup ? 1.35 : 1}
           />
@@ -191,6 +224,59 @@ export default function FramingScreen() {
       </View>
     </GlassScreen>
   );
+}
+
+/**
+ * Status dot for the live pill: a slow breathing pulse while the camera is
+ * still looking for the player, a steady accent dot once it has them (and
+ * through countdown/capture/ready) — state reads at a glance, no traffic lights.
+ */
+function StatusDot({ stage }: { stage: FramingStage }) {
+  const anim = useRef(new Animated.Value(0)).current;
+  const searching = stage === 'searching';
+
+  useEffect(() => {
+    if (!searching) {
+      anim.setValue(0);
+      return;
+    }
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(anim, {
+          toValue: 1,
+          duration: 900,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+        Animated.timing(anim, {
+          toValue: 0,
+          duration: 900,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [searching, anim]);
+
+  if (searching) {
+    return (
+      <Animated.View
+        style={[
+          styles.statusDot,
+          styles.statusDotSearching,
+          {
+            opacity: anim.interpolate({ inputRange: [0, 1], outputRange: [0.35, 0.9] }),
+            transform: [
+              { scale: anim.interpolate({ inputRange: [0, 1], outputRange: [0.8, 1.1] }) },
+            ],
+          },
+        ]}
+      />
+    );
+  }
+  return <View style={[styles.statusDot, styles.statusDotLive]} />;
 }
 
 /**
@@ -345,7 +431,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
   },
-  trackDot: { width: 9, height: 9, borderRadius: 5 },
+  statusDot: { width: 8, height: 8, borderRadius: 4 },
+  statusDotSearching: { backgroundColor: light.inkFaint },
+  statusDotLive: { backgroundColor: accents.home.solid },
   trackText: { ...glassType.caption, color: light.inkSoft, fontWeight: '700' },
 
   checklistWrap: {

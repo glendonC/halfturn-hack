@@ -2,6 +2,7 @@ export { Button } from './Button';
 export {
   CameraSquircle,
   PoseOverlay,
+  ScanFieldOverlay,
   TrackingRing,
   VisionChecklist,
   VisionDiagnostics,
