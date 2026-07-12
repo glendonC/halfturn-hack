@@ -1,285 +1,311 @@
 import { useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  Alert,
+  FlatList,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import {
-  GlassActionPill,
-  GlassPageHeader,
-  GlassScreen,
-  Icon,
-  Icons,
-} from '@/components/glass';
-import { CUE_ORDER, CUES } from '@/constants/cues';
-import { clearAllSessions, deleteSessions, listSessions } from '@/services/db';
-import { accents, animateNext, colors, glass, glassRadius, glassType, glow, light, spacing } from '@/theme';
-import type { CueCounts, DrillSessionSummary } from '@/types';
+import { GlassActionPill, GlassScreen, Icon, Icons, ScrollEdgeFades } from '@/components/glass';
+import { deleteSessions, getHistoryStats, listSessions, type HistoryStats } from '@/services/db';
+import { accents, animateNext, glassType, light, spacing } from '@/theme';
+import type { DrillSessionSummary } from '@/types';
 import { formatDuration, formatSessionDate, pluralize } from '@/utils/format';
+import { weeklySessionCounts } from '@/utils/stats';
 
-/** Space the floating nav reserves at the bottom. */
 const NAV_CLEARANCE = 96;
+const TREND_WEEKS = 8;
 
-/** Slim multi-segment bar showing a session's cue mix at a glance. */
-function MiniBar({ counts, total }: { counts: CueCounts; total: number }) {
-  if (total <= 0) return <View style={styles.miniBar} />;
+function ActivityBars({ values }: { values: number[] }) {
+  const max = Math.max(...values, 1);
   return (
-    <View style={styles.miniBar}>
-      {CUE_ORDER.map((id) => {
-        const c = counts[id] ?? 0;
-        if (c === 0) return null;
-        return <View key={id} style={{ flex: c, backgroundColor: colors[CUES[id].colorToken] }} />;
+    <View style={styles.chart} accessibilityLabel={`Sessions over the last ${TREND_WEEKS} weeks: ${values.join(', ')}`}>
+      {values.map((value, index) => {
+        const height = value === 0 ? 3 : Math.max(12, Math.round((value / max) * 76));
+        const current = index === values.length - 1;
+        return (
+          <View key={index} style={styles.barColumn}>
+            <Text style={[styles.barValue, value === 0 && styles.barValueMuted]}>{value > 0 ? value : ''}</Text>
+            <View style={[styles.bar, { height }, current && styles.barCurrent]} />
+            <Text style={[styles.barLabel, current && styles.barLabelCurrent]}>{current ? 'NOW' : `W${index + 1}`}</Text>
+          </View>
+        );
       })}
     </View>
   );
 }
 
-/** Selection checkbox — empty glass circle, or filled coral check when selected. */
 function SelectMark({ selected }: { selected: boolean }) {
   return (
-    <View
-      style={[styles.selectMark, selected && styles.selectMarkOn]}
-      accessibilityElementsHidden
-      importantForAccessibility="no"
-    >
-      {selected ? <Icon icon={Icons.Check} size={14} color={light.white} strokeWidth={3} /> : null}
+    <View style={[styles.selectMark, selected && styles.selectMarkOn]}>
+      {selected ? <Icon icon={Icons.Check} size={13} color={light.white} strokeWidth={3} /> : null}
     </View>
+  );
+}
+
+function SessionRow({
+  session,
+  selecting,
+  selected,
+  onPress,
+  onLongPress,
+}: {
+  session: DrillSessionSummary;
+  selecting: boolean;
+  selected: boolean;
+  onPress: () => void;
+  onLongPress: () => void;
+}) {
+  const mode = session.config.mode === 'turn-react' ? 'Turn & React' : 'Audio cues';
+  const then = new Date(session.startedAt);
+  const today = new Date();
+  const startOfDay = (date: Date) => new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+  const dayDiff = Math.round((startOfDay(today) - startOfDay(then)) / (24 * 60 * 60 * 1000));
+  const day = dayDiff === 0
+    ? 'Today'
+    : dayDiff === 1
+      ? 'Yesterday'
+      : then.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  const time = then.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+  return (
+    <Pressable
+      onPress={selecting ? onPress : undefined}
+      onLongPress={onLongPress}
+      delayLongPress={350}
+      accessibilityRole={selecting ? 'checkbox' : undefined}
+      accessibilityState={selecting ? { checked: selected } : undefined}
+      accessibilityLabel={`${formatSessionDate(session.startedAt)}, ${mode}, ${pluralize(session.totalCues, 'cue')}`}
+      style={({ pressed }) => [styles.rowPressable, pressed && styles.rowPressed]}
+    >
+      <View style={[styles.sessionRow, selected && styles.sessionRowSelected]}>
+        {selecting ? <SelectMark selected={selected} /> : null}
+        <Text style={styles.dayCell} numberOfLines={1}>{day}</Text>
+        <Text style={styles.timeCell} numberOfLines={1}>{time}</Text>
+        <Text style={[styles.modeCell, !session.completed && styles.stoppedMode]} numberOfLines={1}>
+          {session.completed ? mode : `${mode} (stopped)`}
+        </Text>
+        <Text style={styles.durationCell} numberOfLines={1}>{formatDuration(session.actualDurationSec)}</Text>
+        <Text style={styles.cuesCell} numberOfLines={1}>{session.totalCues}</Text>
+      </View>
+    </Pressable>
   );
 }
 
 export default function HistoryScreen() {
   const insets = useSafeAreaInsets();
   const [sessions, setSessions] = useState<DrillSessionSummary[] | null>(null);
+  const [stats, setStats] = useState<HistoryStats | null>(null);
   const [selecting, setSelecting] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
+  const [scrollY, setScrollY] = useState(0);
+  const [viewportHeight, setViewportHeight] = useState(0);
+  const [contentHeight, setContentHeight] = useState(0);
 
   const load = useCallback(async () => {
     try {
-      const list = await listSessions();
+      const [list, summary] = await Promise.all([listSessions(), getHistoryStats()]);
       setSessions(list);
+      setStats(summary);
     } catch (err) {
       console.warn('[history] load failed', err);
       setSessions([]);
+      setStats({ totalSessions: 0, totalCues: 0, totalDurationSec: 0, sessionsThisWeek: 0 });
     }
   }, []);
 
-  useFocusEffect(
-    useCallback(() => {
-      void load();
-      setSelecting(false);
-      setSelected(new Set());
-    }, [load]),
-  );
+  useFocusEffect(useCallback(() => {
+    void load();
+    setSelecting(false);
+    setSelected(new Set());
+  }, [load]));
 
-  const selectedCount = selected.size;
-  const allIds = useMemo(() => (sessions ?? []).map((s) => s.id), [sessions]);
-  const allSelected = allIds.length > 0 && selectedCount === allIds.length;
-  const hasSessions = (sessions?.length ?? 0) > 0;
+  const weekly = useMemo(() => weeklySessionCounts(sessions ?? [], TREND_WEEKS), [sessions]);
+  const allIds = useMemo(() => (sessions ?? []).map((session) => session.id), [sessions]);
+  const allSelected = allIds.length > 0 && selected.size === allIds.length;
 
-  const enterSelect = (initialId?: string) => {
+  const enterSelect = (id?: string) => {
     animateNext();
     setSelecting(true);
-    setSelected(initialId ? new Set([initialId]) : new Set());
+    setSelected(id ? new Set([id]) : new Set());
   };
-
   const exitSelect = () => {
     animateNext();
     setSelecting(false);
     setSelected(new Set());
   };
-
-  const toggleOne = (id: string) => {
-    setSelected((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
-  const toggleAll = () => {
-    setSelected(allSelected ? new Set() : new Set(allIds));
-  };
-
-  const confirmDeleteSelected = () => {
-    if (selectedCount === 0) return;
-    const n = selectedCount;
-    Alert.alert(
-      n === 1 ? 'Delete session?' : `Delete ${n} sessions?`,
-      n === 1
-        ? 'This removes the drill from your history.'
-        : 'This permanently removes the selected drills from your history.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            await deleteSessions(Array.from(selected));
-            setSelected(new Set());
-            setSelecting(false);
-            await load();
-          },
-        },
-      ],
-    );
-  };
-
-  const confirmClearAll = () => {
-    Alert.alert('Clear all history?', 'This permanently deletes every saved drill.', [
+  const toggleOne = (id: string) => setSelected((current) => {
+    const next = new Set(current);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    return next;
+  });
+  const toggleAll = () => setSelected(allSelected ? new Set() : new Set(allIds));
+  const confirmDelete = () => {
+    if (selected.size === 0) return;
+    const count = selected.size;
+    Alert.alert(`Delete ${pluralize(count, 'session')}?`, 'This permanently removes the selected training history.', [
       { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Clear all',
-        style: 'destructive',
-        onPress: async () => {
-          await clearAllSessions();
-          setSelected(new Set());
-          setSelecting(false);
-          await load();
-        },
-      },
+      { text: 'Delete', style: 'destructive', onPress: async () => {
+        await deleteSessions(Array.from(selected));
+        exitSelect();
+        await load();
+      } },
     ]);
   };
 
-  const headerActions = !hasSessions ? undefined : selecting ? (
-    <>
+  const headerActions = (sessions?.length ?? 0) > 0 ? selecting ? (
+    <View style={styles.headerActions}>
       <GlassActionPill label={allSelected ? 'None' : 'All'} onPress={toggleAll} />
-      <GlassActionPill
-        label={selectedCount === 0 ? 'Delete' : `Delete ${selectedCount}`}
-        icon={Icons.Trash2}
-        danger
-        disabled={selectedCount === 0}
-        onPress={confirmDeleteSelected}
-      />
-      <GlassActionPill label="Done" icon={Icons.Check} active accent="home" onPress={exitSelect} />
-    </>
-  ) : (
-    <>
-      <GlassActionPill label="Clear" icon={Icons.Trash2} danger onPress={confirmClearAll} />
-      <GlassActionPill label="Select" onPress={() => enterSelect()} accent="home" />
-    </>
-  );
+      <GlassActionPill label="Delete" icon={Icons.Trash2} danger disabled={selected.size === 0} onPress={confirmDelete} />
+      <GlassActionPill label="Done" onPress={exitSelect} active accent="home" />
+    </View>
+  ) : <GlassActionPill label="Select" onPress={() => enterSelect()} accent="home" /> : null;
 
   return (
-    <GlassScreen padded={false} accent="home">
-      <FlatList
-        data={sessions ?? []}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={[styles.list, { paddingBottom: insets.bottom + NAV_CLEARANCE }]}
-        showsVerticalScrollIndicator={false}
-        extraData={{ selecting, selectedCount }}
-        ListHeaderComponent={<GlassPageHeader title="History" actions={headerActions} />}
-        renderItem={({ item }) => {
-          const isOn = selected.has(item.id);
-          return (
-            <Pressable
-              onPress={() => {
-                if (selecting) toggleOne(item.id);
-                else enterSelect(item.id);
-              }}
-              accessibilityRole={selecting ? 'checkbox' : 'button'}
-              accessibilityState={selecting ? { checked: isOn } : undefined}
-              accessibilityLabel={
-                selecting
-                  ? `${formatSessionDate(item.startedAt)}, ${pluralize(item.totalCues, 'cue')}`
-                  : `Select ${formatSessionDate(item.startedAt)}`
-              }
-              accessibilityHint={selecting ? undefined : 'Enters select mode for this session'}
-            >
-              <View style={[styles.cardShadow, selecting && isOn && styles.cardShadowSelected]}>
-                <View style={[styles.card, selecting && isOn && styles.cardSelected]}>
-                  <View style={styles.cardBody}>
-                    {selecting ? <SelectMark selected={isOn} /> : null}
-                    <View style={styles.cardMain}>
-                      <View style={styles.cardHeader}>
-                        <Text style={styles.date}>{formatSessionDate(item.startedAt)}</Text>
-                        <View style={styles.badges}>
-                          {item.verification ? (
-                            <Text style={styles.verifiedTag}>◉ {item.verification.scansDetected} turns</Text>
-                          ) : null}
-                          {!item.completed ? <Text style={styles.stoppedTag}>stopped</Text> : null}
-                        </View>
-                      </View>
-                      <View style={styles.metaRow}>
-                        <Text style={styles.meta}>{formatDuration(item.actualDurationSec)}</Text>
-                        <Text style={styles.dot}>·</Text>
-                        <Text style={styles.meta}>{pluralize(item.totalCues, 'cue')}</Text>
-                      </View>
-                      <MiniBar counts={item.cueCounts} total={item.totalCues} />
-                    </View>
+    <GlassScreen scrollUnderTop transitionOnFocus padded={false} accent="home">
+      <View style={styles.flex}>
+        <FlatList
+          data={sessions ?? []}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={[
+            styles.list,
+            { paddingTop: insets.top + spacing.md, paddingBottom: insets.bottom + NAV_CLEARANCE },
+          ]}
+          showsVerticalScrollIndicator={false}
+          extraData={{ selecting, selected: selected.size }}
+          onScroll={(event: NativeSyntheticEvent<NativeScrollEvent>) => setScrollY(Math.max(0, event.nativeEvent.contentOffset.y))}
+          scrollEventThrottle={16}
+          onLayout={(event) => setViewportHeight(event.nativeEvent.layout.height)}
+          onContentSizeChange={(_width, height) => setContentHeight(height)}
+          ListHeaderComponent={
+          <View style={styles.header}>
+            <View style={styles.titleRow}>
+              <View style={styles.titleBlock}>
+                <Text style={styles.title}>History</Text>
+              </View>
+              {headerActions}
+            </View>
+            {(sessions?.length ?? 0) > 0 ? (
+              <View style={styles.overview}>
+                <View style={styles.overviewHeading}>
+                  <View>
+                    <Text style={styles.panelLabel}>ACTIVITY</Text>
+                    <Text style={styles.panelTitle}>Last {TREND_WEEKS} weeks</Text>
                   </View>
+                  <Text style={styles.weekFigure}>{pluralize(stats?.sessionsThisWeek ?? 0, 'session')} this week</Text>
+                </View>
+                <ActivityBars values={weekly} />
+                <View style={styles.summaryRow}>
+                  <View style={styles.summaryItem}><Text style={styles.summaryValue}>{stats?.totalSessions ?? 0}</Text><Text style={styles.summaryLabel}>SESSIONS</Text></View>
+                  <View style={styles.summaryDivider} />
+                  <View style={styles.summaryItem}><Text style={styles.summaryValue}>{formatDuration(stats?.totalDurationSec ?? 0)}</Text><Text style={styles.summaryLabel}>TRAINING</Text></View>
+                  <View style={styles.summaryDivider} />
+                  <View style={styles.summaryItem}><Text style={styles.summaryValue}>{stats?.totalCues ?? 0}</Text><Text style={styles.summaryLabel}>CUES</Text></View>
                 </View>
               </View>
-            </Pressable>
-          );
-        }}
-        ListEmptyComponent={
-          sessions === null ? (
-            <Text style={styles.empty}>Loading…</Text>
-          ) : (
-            <View style={styles.emptyWrap}>
-              <Text style={styles.emptyTitle}>No drills yet</Text>
-              <Text style={styles.empty}>Finish a session on the Home tab and it'll show up here.</Text>
-            </View>
-          )
-        }
-      />
+            ) : null}
+            {(sessions?.length ?? 0) > 0 ? (
+              <View>
+                <Text style={styles.sectionLabel}>RECENT SESSIONS</Text>
+                <View style={styles.tableHeader}>
+                  <Text style={styles.dayHeader}>DATE</Text>
+                  <Text style={styles.timeHeader}>TIME</Text>
+                  <Text style={styles.modeHeader}>SESSION</Text>
+                  <Text style={styles.durationHeader}>LENGTH</Text>
+                  <Text style={styles.cuesHeader}>CUES</Text>
+                </View>
+              </View>
+            ) : null}
+          </View>
+          }
+          ItemSeparatorComponent={() => <View style={styles.separator} />}
+          renderItem={({ item }) => (
+          <SessionRow
+            session={item}
+            selecting={selecting}
+            selected={selected.has(item.id)}
+            onPress={() => toggleOne(item.id)}
+            onLongPress={() => { if (!selecting) enterSelect(item.id); }}
+          />
+          )}
+          ListEmptyComponent={sessions === null ? (
+          <Text style={styles.loading}>Loading history…</Text>
+        ) : (
+          <View style={styles.emptyWrap}>
+            <View style={styles.emptyIcon}><Icon icon={Icons.CalendarDays} size={22} color={accents.home.solid} /></View>
+            <Text style={styles.emptyTitle}>No sessions yet</Text>
+            <Text style={styles.emptyText}>Your completed training sessions will appear here.</Text>
+          </View>
+          )}
+        />
+        <ScrollEdgeFades
+          top={scrollY > 4}
+          bottom={contentHeight > viewportHeight && scrollY + viewportHeight < contentHeight - 4}
+          topInset={insets.top}
+        />
+      </View>
     </GlassScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  list: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm, gap: spacing.md },
+  flex: { flex: 1 },
+  list: { paddingHorizontal: spacing.lg },
+  header: { gap: spacing.lg, paddingBottom: spacing.sm },
+  titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: spacing.md },
+  titleBlock: { flex: 1 },
+  title: { ...glassType.hero, color: light.ink, fontSize: 36, lineHeight: 42, fontWeight: '300', letterSpacing: 0 },
+  headerActions: { flexDirection: 'row', gap: 6, alignItems: 'center', flexShrink: 0 },
 
-  cardShadow: { borderRadius: glassRadius.card, ...glow.card },
-  cardShadowSelected: { shadowOpacity: 0.14 },
-  card: {
-    backgroundColor: glass.fill,
-    borderRadius: glassRadius.card,
-    borderCurve: 'continuous',
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: glass.border,
-    padding: spacing.lg,
-    gap: spacing.sm,
-  },
-  cardSelected: {
-    backgroundColor: glass.fillStrong,
-    borderColor: accents.data.solid,
-  },
-  cardBody: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
-  cardMain: { flex: 1, gap: spacing.sm },
-  cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  date: { ...glassType.subtitle, fontSize: 16 },
-  badges: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  verifiedTag: { ...glassType.caption, color: accents.field.solid, fontWeight: '700' },
-  stoppedTag: { ...glassType.caption, color: accents.data.solid, fontWeight: '700' },
-  metaRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  meta: { ...glassType.label, color: light.inkMuted },
-  dot: { color: light.inkFaint },
-  miniBar: {
-    flexDirection: 'row',
-    height: 8,
-    borderRadius: glassRadius.pill,
-    overflow: 'hidden',
-    backgroundColor: 'rgba(24,20,37,0.06)',
-    marginTop: spacing.xs,
-  },
+  overview: { backgroundColor: 'rgba(255,255,255,0.64)', borderWidth: StyleSheet.hairlineWidth, borderColor: light.hairline, borderRadius: 8, padding: spacing.lg, gap: spacing.lg, overflow: 'hidden' },
+  overviewHeading: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between', gap: spacing.md },
+  panelLabel: { ...glassType.overline, color: light.inkFaint, letterSpacing: 0 },
+  panelTitle: { ...glassType.subtitle, color: light.ink, fontSize: 17, marginTop: 3 },
+  weekFigure: { ...glassType.caption, color: light.inkMuted },
+  chart: { height: 116, flexDirection: 'row', alignItems: 'flex-end', gap: 6 },
+  barColumn: { flex: 1, height: '100%', justifyContent: 'flex-end', alignItems: 'center', gap: 5 },
+  barValue: { ...glassType.caption, color: light.inkMuted, fontVariant: ['tabular-nums'] },
+  barValueMuted: { color: light.inkFaint },
+  bar: { width: '100%', maxWidth: 34, minHeight: 3, backgroundColor: 'rgba(24,20,37,0.22)', borderRadius: 2 },
+  barCurrent: { backgroundColor: light.ink },
+  barLabel: { fontSize: 8, lineHeight: 10, fontWeight: '700', color: light.inkFaint, letterSpacing: 0 },
+  barLabelCurrent: { color: light.ink },
+  summaryRow: { flexDirection: 'row', alignItems: 'center', borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: light.hairline, paddingTop: spacing.md },
+  summaryItem: { flex: 1, gap: 2 },
+  summaryValue: { color: light.ink, fontSize: 18, lineHeight: 22, fontWeight: '600', fontVariant: ['tabular-nums'], letterSpacing: 0 },
+  summaryLabel: { fontSize: 9, lineHeight: 12, fontWeight: '700', color: light.inkFaint, letterSpacing: 0 },
+  summaryDivider: { width: StyleSheet.hairlineWidth, height: 26, backgroundColor: light.hairline, marginHorizontal: spacing.md },
+  sectionLabel: { ...glassType.overline, color: light.inkMuted, letterSpacing: 0, marginTop: spacing.sm },
+  tableHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingTop: spacing.md, paddingBottom: spacing.xs, paddingHorizontal: spacing.sm },
+  dayHeader: { width: 66, fontSize: 8, fontWeight: '700', color: light.inkFaint, letterSpacing: 0 },
+  timeHeader: { width: 64, fontSize: 8, fontWeight: '700', color: light.inkFaint, letterSpacing: 0 },
+  modeHeader: { flex: 1, fontSize: 8, fontWeight: '700', color: light.inkFaint, letterSpacing: 0 },
+  durationHeader: { width: 46, textAlign: 'right', fontSize: 8, fontWeight: '700', color: light.inkFaint, letterSpacing: 0 },
+  cuesHeader: { width: 30, textAlign: 'right', fontSize: 8, fontWeight: '700', color: light.inkFaint, letterSpacing: 0 },
 
-  selectMark: {
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    borderWidth: 1.5,
-    borderColor: 'rgba(24,20,37,0.18)',
-    backgroundColor: 'rgba(255,255,255,0.55)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  selectMarkOn: {
-    borderColor: accents.data.solid,
-    backgroundColor: accents.data.solid,
-  },
+  rowPressable: { marginHorizontal: -spacing.sm },
+  rowPressed: { opacity: 0.72 },
+  sessionRow: { minHeight: 44, flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: spacing.sm, paddingHorizontal: spacing.sm, borderRadius: 8 },
+  sessionRowSelected: { backgroundColor: 'rgba(24,20,37,0.05)' },
+  dayCell: { width: 66, fontSize: 12, lineHeight: 16, fontWeight: '600', color: light.ink, letterSpacing: 0 },
+  timeCell: { width: 64, fontSize: 11, lineHeight: 16, color: light.inkMuted, fontVariant: ['tabular-nums'], letterSpacing: 0 },
+  modeCell: { flex: 1, minWidth: 0, fontSize: 11, lineHeight: 16, color: light.inkSoft, letterSpacing: 0 },
+  stoppedMode: { color: light.inkFaint },
+  durationCell: { width: 46, textAlign: 'right', fontSize: 11, lineHeight: 16, fontWeight: '600', color: light.ink, fontVariant: ['tabular-nums'], letterSpacing: 0 },
+  cuesCell: { width: 30, textAlign: 'right', fontSize: 11, lineHeight: 16, color: light.inkMuted, fontVariant: ['tabular-nums'], letterSpacing: 0 },
+  separator: { height: StyleSheet.hairlineWidth, backgroundColor: light.hairline },
+  selectMark: { width: 24, height: 24, borderRadius: 12, borderWidth: 1.5, borderColor: 'rgba(24,20,37,0.2)', alignItems: 'center', justifyContent: 'center', marginTop: 2 },
+  selectMarkOn: { borderColor: accents.home.solid, backgroundColor: accents.home.solid },
 
-  empty: { ...glassType.body, textAlign: 'center', lineHeight: 22 },
-  emptyWrap: { alignItems: 'center', gap: spacing.sm, paddingTop: spacing.huge, paddingHorizontal: spacing.lg },
-  emptyTitle: { ...glassType.title, color: light.inkSoft },
+  loading: { ...glassType.body, textAlign: 'center', color: light.inkMuted, paddingTop: spacing.huge },
+  emptyWrap: { alignItems: 'center', paddingTop: spacing.huge, gap: spacing.sm, paddingHorizontal: spacing.xl },
+  emptyIcon: { width: 44, height: 44, borderRadius: 8, backgroundColor: accents.home.wash, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.xs },
+  emptyTitle: { ...glassType.subtitle, color: light.ink },
+  emptyText: { ...glassType.body, color: light.inkMuted, textAlign: 'center', lineHeight: 21 },
 });
