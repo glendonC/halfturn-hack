@@ -13,6 +13,8 @@ import {
 import { glassType, light } from '@/theme';
 import type { RawPoseFrame } from './PerceptionBackend';
 import { recordFrameStat, resetDiagnostics } from './diagnostics';
+import { resolvePoseModel } from './poseModel';
+import { usePoseModelStore } from './poseModelStore';
 import { feedRawFrame, toRawPoseFrame } from './backends/MediaPipeBackend';
 import {
   createPoseOverlaySmoother,
@@ -32,7 +34,6 @@ import {
  * the pure YawFusion + detectScans behind the verifier — unchanged.
  */
 
-const POSE_MODEL = 'pose_landmarker_lite.task';
 const L_SHOULDER = 11;
 const R_SHOULDER = 12;
 
@@ -60,6 +61,11 @@ export function CameraVerifierView({
 }: CameraVerifierProps) {
   const { hasPermission, requestPermission } = useCameraPermission();
 
+  // The active pose variant. Subscribing (rather than reading once) means the dev model
+  // picker takes effect live: `model` is in usePoseDetection's detector-creation deps, so
+  // changing the filename tears down and re-creates the native detector with no rebuild.
+  const model = resolvePoseModel(usePoseModelStore((s) => s.modelId));
+
   // Presentation-only jitter filter for the skeleton overlay (fresh per mount).
   // Date.now() is safe here: the smoother only needs monotonic time; these
   // timestamps never reach the drill clock / reaction-time path.
@@ -86,7 +92,7 @@ export function CameraVerifierView({
             : null;
           onPosePoints(overlaySmoother.smooth(frame, Date.now()));
         }
-        const raw = toRawPoseFrame(bundle);
+        const raw = toRawPoseFrame(bundle, model.modelId);
         if (!raw) return;
         feedRawFrame(raw); // → the active verifier during a drill (no-op otherwise)
         onSample?.(raw); // → framing/calibration capture
@@ -104,10 +110,10 @@ export function CameraVerifierView({
       },
     },
     RunningMode.LIVE_STREAM,
-    POSE_MODEL,
+    model.file,
     {
       numPoses: 1, // single-subject lock (perception-architecture §3.4)
-      delegate: Delegate.GPU, // lite + GPU for the ~15fps native target
+      delegate: Delegate.GPU, // GPU delegate for the ~15fps native target
       // The iOS front-camera PREVIEW is mirrored (AVCaptureVideoPreviewLayer
       // auto-mirroring) while landmarks arrive unmirrored — but the plugin's
       // iOS default is 'no-mirror', so overlay points would draw horizontally

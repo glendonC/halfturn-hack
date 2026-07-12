@@ -55,7 +55,8 @@ function assertDerivedOnly(bundle: DerivedCaptureBundle): void {
 interface RealFixture {
   id: string;
   bundle: DerivedCaptureBundle;
-  labels: ValidationLabels;
+  /** Undefined when no `<id>.labels.json` exists — the report then scores the cue-derived axes. */
+  labels: ValidationLabels | undefined;
   expected: { peak: unknown; onset: unknown } | null;
 }
 
@@ -70,9 +71,7 @@ function discover(): RealFixture[] {
     out.push({
       id,
       bundle: readJson<DerivedCaptureBundle>(join(REAL_DIR, name)),
-      labels: existsSync(labelsPath)
-        ? readJson<ValidationLabels>(labelsPath)
-        : { sessionId: id, groundTruthTurns: [] },
+      labels: existsSync(labelsPath) ? readJson<ValidationLabels>(labelsPath) : undefined,
       expected: existsSync(expectedPath) ? readJson(expectedPath) : null,
     });
   }
@@ -90,9 +89,9 @@ describe('real derived-fixture replay (golden gate extension)', () => {
     it(`ad-hoc: reports ${basename(HT_CAPTURE)}`, () => {
       const bundle = readJson<DerivedCaptureBundle>(HT_CAPTURE);
       assertDerivedOnly(bundle);
-      const labels: ValidationLabels = HT_LABELS
-        ? readJson<ValidationLabels>(HT_LABELS)
-        : { sessionId: basename(HT_CAPTURE), groundTruthTurns: [] };
+      // No labels file is a first-class mode, not a degraded one: the report falls back to the
+      // cue-derived axes, which is what a model/threshold A/B is scored on in the field.
+      const labels = HT_LABELS ? readJson<ValidationLabels>(HT_LABELS) : undefined;
       // eslint-disable-next-line no-console
       console.log('\n' + formatReport(buildReport(bundle, labels)));
 

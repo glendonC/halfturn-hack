@@ -1,7 +1,12 @@
 import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 
-import { readDiagnostics, VISION_ENABLED, type VisionDiagnostics as Diag } from '@/services/vision';
+import {
+  readDiagnostics,
+  usePoseModelStore,
+  VISION_ENABLED,
+  type VisionDiagnostics as Diag,
+} from '@/services/vision';
 import { colors, typography } from '@/theme';
 
 /** Poll cadence — slow on purpose so the overlay re-renders at ~2fps, not 15. */
@@ -15,11 +20,15 @@ interface VisionDiagnosticsProps {
 /**
  * Dev-only pipeline HUD (effective fps · mean confidence · frame count · mean
  * inference) for on-field tuning. Renders nothing unless `__DEV__ && VISION_ENABLED`,
- * so it's absent outside __DEV__ custom-client builds and in Expo Go. It POLLS the diagnostics ring on a
+ * so it's absent in production and in Expo Go. It POLLS the diagnostics ring on a
  * slow timer rather than subscribing per-frame, keeping it off the hot path.
  */
 export function VisionDiagnostics({ style }: VisionDiagnosticsProps) {
   const [diag, setDiag] = useState<Diag | null>(null);
+  // Which pose variant these numbers came from. During an A/B session the fps/confidence read
+  // IS the measurement, so an unlabeled HUD is how you end up attributing one arm's numbers to
+  // the other.
+  const model = usePoseModelStore((s) => s.modelId);
 
   useEffect(() => {
     if (!ENABLED) return;
@@ -32,7 +41,7 @@ export function VisionDiagnostics({ style }: VisionDiagnosticsProps) {
   return (
     <View style={[styles.wrap, style]} pointerEvents="none">
       <Text style={styles.text}>
-        {diag.effectiveFps.toFixed(0)} fps · conf {diag.meanConfidence.toFixed(2)} ·{' '}
+        {model} · {diag.effectiveFps.toFixed(0)} fps · conf {diag.meanConfidence.toFixed(2)} ·{' '}
         {diag.frameCount} fr · {diag.meanInferenceMs}ms
       </Text>
     </View>

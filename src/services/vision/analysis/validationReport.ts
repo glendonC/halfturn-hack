@@ -19,7 +19,13 @@ import type { CueEvent, ScanVerification } from '@/types';
 import type { DerivedCaptureBundle } from '../frameCapture';
 import { DEFAULT_ONE_EURO_CONFIG, type OneEuroConfig } from '../OneEuroFilter';
 import { smoothPoseSamples } from '../sampleSmoothing';
-import { computeScanVerification, computeTrackingQuality, detectScans } from '../scanDetect';
+import {
+  computeCuedDirectionAccuracy,
+  computeScanVerification,
+  computeTrackingQuality,
+  detectScans,
+  type CuedTurnScore,
+} from '../scanDetect';
 import type { EnrichmentConfig, ReactionMode, ScanEvent, TrackingQuality } from '../types';
 import type { LabeledReaction, LabeledTurn, TurnTimeAnchor, ValidationLabels } from './validationLabels';
 
@@ -113,6 +119,25 @@ export function scoreScanCounts(
   labels: LabeledTurn[],
   toleranceMs: number = ACCEPTANCE_TARGETS.defaultToleranceMs,
 ): CountScore {
+  // No labels at all ⇒ nothing to score against. Precision over an EMPTY ground truth is
+  // undefined, not zero: every predicted scan would count as a false positive and the report
+  // would print "P 0.0%" for a perfectly good unlabeled capture, which reads as a failure.
+  // (A distractor-ONLY label set is different — there the scans really are false positives,
+  // so it still scores.)
+  if (labels.length === 0) {
+    return {
+      toleranceMs,
+      truePositives: 0,
+      falsePositives: 0,
+      falseNegatives: 0,
+      precision: null,
+      recall: null,
+      f1: null,
+      distractorFalsePositives: 0,
+      matches: [],
+    };
+  }
+
   const genuine = labels.filter((l) => !l.distractor);
   const distractors = labels.filter((l) => l.distractor);
   const matches = matchScans(predicted, genuine, toleranceMs);
@@ -330,6 +355,13 @@ export interface ConfigReport {
   count: CountScore;
   direction: DirectionScore;
   reaction: ReactionScore;
+  /**
+   * Label-free scoring off the session's OWN directional cues (see
+   * `computeCuedDirectionAccuracy`). Always computed — it needs no labels — so a capture
+   * alone yields a scorecard. Valid for relative A/B comparisons, NOT for the absolute §7
+   * acceptance bar.
+   */
+  cued: CuedTurnScore;
   quality: TrackingQuality;
   verification: ScanVerification;
   targetsPass: TargetsPass;
@@ -344,6 +376,8 @@ export interface ValidationReport {
   engineLabel: string;
   toleranceMs: number;
   pipelineLatencyMs: number;
+  /** False when scored off the cues alone (no hand-coded labels supplied). */
+  hasLabels: boolean;
   labeled: { genuineTurns: number; distractors: number; reactions: number };
   onDeviceEnrichment: EnrichmentConfig;
   configs: ConfigReport[];
@@ -352,6 +386,9 @@ export interface ValidationReport {
 export interface BuildReportOptions {
   toleranceMs?: number;
 }
+
+/** Stand-in when a capture is scored with no hand-coded labels (cue-derived axes only). */
+const NO_LABELS: ValidationLabels = { sessionId: '(unlabeled)', groundTruthTurns: [] };
 
 function evalTargets(count: CountScore, direction: DirectionScore, reaction: ReactionScore, quality: TrackingQuality): TargetsPass {
   return {
@@ -389,6 +426,7 @@ function makeConfig(
     count,
     direction,
     reaction,
+    cued: computeCuedDirectionAccuracy(scans, bundle.cues, bundle.scanDetectConfig),
     quality,
     verification,
     targetsPass: evalTargets(count, direction, reaction, quality),
@@ -396,34 +434,41 @@ function makeConfig(
 }
 
 /**
- * Score one captured session against its hand-coded labels under all three configs
- * (peak / onset / onset+smooth). The scan-count + direction numbers are identical across
- * peak↔onset (same detection stream) and only move under smoothing; the reaction numbers move
- * peak↔onset (that IS the onset promotion, §4). Pure + deterministic.
+ * Score one captured session under all three configs (peak / onset / onset+smooth). The
+ * scan-count + direction numbers are identical across peak↔onset (same detection stream) and
+ * only move under smoothing; the reaction numbers move peak↔onset (that IS the onset
+ * promotion, §4). Pure + deterministic.
+ *
+ * `labels` is OPTIONAL. Without it, the label-dependent axes (count P/R/F1, hand-coded
+ * direction, reaction MAE/bias) score as null and the report falls back to the cue-derived
+ * `cued` axes, which need no hand-coding — enough to run a model or threshold A/B straight off
+ * a field capture. With labels, both are reported side by side.
  */
 export function buildReport(
   bundle: DerivedCaptureBundle,
-  labels: ValidationLabels,
+  labels?: ValidationLabels,
   opts: BuildReportOptions = {},
 ): ValidationReport {
   const toleranceMs = opts.toleranceMs ?? ACCEPTANCE_TARGETS.defaultToleranceMs;
-  const genuine = labels.groundTruthTurns.filter((l) => !l.distractor).length;
-  const distractors = labels.groundTruthTurns.length - genuine;
+  const l = labels ?? NO_LABELS;
+  const genuine = l.groundTruthTurns.filter((t) => !t.distractor).length;
+  const distractors = l.groundTruthTurns.length - genuine;
   return {
-    sessionId: labels.sessionId,
-    athlete: labels.athlete,
-    distanceM: labels.distanceM,
-    lighting: labels.lighting,
-    coder: labels.coder,
+    sessionId: l.sessionId,
+    athlete: l.athlete,
+    distanceM: l.distanceM,
+    lighting: l.lighting,
+    coder: l.coder,
     engineLabel: bundle.engineLabel,
     toleranceMs,
-    pipelineLatencyMs: labels.pipelineLatencyMs ?? 0,
-    labeled: { genuineTurns: genuine, distractors, reactions: (labels.reactions ?? []).length },
+    pipelineLatencyMs: l.pipelineLatencyMs ?? 0,
+    hasLabels: labels != null,
+    labeled: { genuineTurns: genuine, distractors, reactions: (l.reactions ?? []).length },
     onDeviceEnrichment: bundle.enrichment,
     configs: [
-      makeConfig('peak', 'peak', null, bundle, labels, toleranceMs),
-      makeConfig('onset', 'onset', null, bundle, labels, toleranceMs),
-      makeConfig('onset+smooth', 'onset', DEFAULT_ONE_EURO_CONFIG, bundle, labels, toleranceMs),
+      makeConfig('peak', 'peak', null, bundle, l, toleranceMs),
+      makeConfig('onset', 'onset', null, bundle, l, toleranceMs),
+      makeConfig('onset+smooth', 'onset', DEFAULT_ONE_EURO_CONFIG, bundle, l, toleranceMs),
     ],
   };
 }
@@ -464,7 +509,9 @@ export function formatReport(r: ValidationReport): string {
   );
   lines.push(`engine:  ${r.engineLabel}`);
   lines.push(
-    `labeled: ${r.labeled.genuineTurns} genuine turns, ${r.labeled.distractors} distractors, ${r.labeled.reactions} reactions   tolerance: ±${r.toleranceMs}ms   L_pipe: ${r.pipelineLatencyMs}ms`,
+    r.hasLabels
+      ? `labeled: ${r.labeled.genuineTurns} genuine turns, ${r.labeled.distractors} distractors, ${r.labeled.reactions} reactions   tolerance: ±${r.toleranceMs}ms   L_pipe: ${r.pipelineLatencyMs}ms`
+      : 'labeled: NONE — scored off the session\'s own directional cues (see the cued-* columns)',
   );
   lines.push(
     `on-device run: reaction=${r.onDeviceEnrichment.reactionMode} smoothing=${
@@ -494,6 +541,19 @@ export function formatReport(r: ValidationReport): string {
     );
   }
   lines.push('');
+  lines.push('cue-derived (label-free — the cue\'s own side is the ground truth):');
+  lines.push(
+    `${pad('config', 14)}${pad('cues', 7)}${pad('seen', 7)}${pad('cued-recall', 13)}${pad('cued-dir%', 11)}`,
+  );
+  for (const c of r.configs) {
+    lines.push(
+      `${pad(c.id, 14)}${pad(String(c.cued.cuedTurns), 7)}${pad(String(c.cued.matched), 7)}${pad(
+        pct(c.cued.recall),
+        13,
+      )}${pad(pct(c.cued.accuracy), 11)}`,
+    );
+  }
+  lines.push('');
   lines.push(
     `targets (§7): dir≥${(ACCEPTANCE_TARGETS.directionAccuracy * 100).toFixed(0)}%  F1≥${ACCEPTANCE_TARGETS.countF1}  MAE≤${ACCEPTANCE_TARGETS.reactionMaeMs}  |bias|≤${ACCEPTANCE_TARGETS.reactionBiasMs}  track≥${ACCEPTANCE_TARGETS.trackedTimeRate}  fps≥${ACCEPTANCE_TARGETS.effectiveFps}`,
   );
@@ -509,6 +569,12 @@ export function formatReport(r: ValidationReport): string {
   );
   lines.push(
     '      turn-execution inflation that `onset` removes (§4.1); distances/lighting pool per §7.',
+  );
+  lines.push(
+    '      cued-dir% counts a player who turns the WRONG WAY as a model miss, so it is valid for',
+  );
+  lines.push(
+    '      A/B comparison but is NOT the §7 ≥95% acceptance bar — that needs hand-coded labels.',
   );
   lines.push('====================================================================');
   return lines.join('\n');

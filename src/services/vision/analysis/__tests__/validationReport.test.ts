@@ -115,6 +115,24 @@ describe('scoreScanCounts', () => {
     // The onset label must NOT match the peak time.
     expect(scoreScanCounts(scans, [turn(900, 'right', { timeAnchor: 'onset' })], 50).truePositives).toBe(0);
   });
+
+  it('nulls P/R/F1 with NO labels rather than calling every scan a false positive', () => {
+    // An unlabeled capture (the label-free A/B path) has no ground truth to be precise
+    // against. Scoring it as P=0 would print "0.0%" for a perfectly good session and read as
+    // a failure.
+    const s = scoreScanCounts([evt(500, 'left'), evt(1500, 'right')], [], 350);
+    expect(s.precision).toBeNull();
+    expect(s.recall).toBeNull();
+    expect(s.f1).toBeNull();
+    expect(s.falsePositives).toBe(0);
+  });
+
+  it('still scores a distractor-ONLY label set (there the scans really are false positives)', () => {
+    const s = scoreScanCounts([evt(500, 'left')], [turn(500, 'left', { distractor: true })], 350);
+    expect(s.precision).toBe(0);
+    expect(s.falsePositives).toBe(1);
+    expect(s.distractorFalsePositives).toBe(1);
+  });
 });
 
 describe('scoreDirection', () => {

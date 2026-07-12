@@ -183,6 +183,84 @@ function reactionAnchor(scan: ScanEvent): number {
   return scan.onsetMonoMs ?? scan.startMonoMs ?? scan.tMonoMs;
 }
 
+/**
+ * Cued-turn scoring — the session's own cues used as ground truth.
+ *
+ * A `check_left` / `check_right` cue TELLS the player which way to turn, so the cue's own
+ * `side` is a ground-truth direction label that costs nothing: no reference video, no
+ * hand-coding. That makes direction accuracy and turn recall measurable off any captured
+ * session that used directional cues, which is what lets a model/threshold A/B be scored in
+ * the field instead of at a labeling desk.
+ *
+ * ⚠️ What this is NOT: it conflates PLAYER error (turned the wrong way) with MODEL error
+ * (read the turn backwards) — a player who turns right on a "check left" cue is scored as a
+ * miss. So it is honest for a RELATIVE comparison (the same athlete's compliance is a
+ * confound that cancels across arms) but it is NOT the absolute ≥95% acceptance bar from
+ * docs/scan-tracking-architecture.md §7, which still requires the hand-coded 240fps protocol.
+ * Never report this number as if it were that one.
+ */
+export interface CuedTurnScore {
+  /** Directional cues fired — the ground-truth denominator. */
+  cuedTurns: number;
+  /** Directional cues that got a turn inside their window. */
+  matched: number;
+  /** Matched turns whose detected direction equals the cued side. */
+  correct: number;
+  /** correct / matched. Null when nothing matched. */
+  accuracy: number | null;
+  /** matched / cuedTurns — how many cued turns the detector saw at all. Null when no cues. */
+  recall: number | null;
+}
+
+/**
+ * Pair each DIRECTIONAL cue to at most one detected turn (greedy nearest by peak, one-to-one
+ * so two closely-spaced cues can never both claim one physical turn) and score direction +
+ * recall against the cued side. Pure. Non-directional cues (`side: 'none'` — color, number,
+ * turn, scan, …) carry no ground truth and are ignored entirely.
+ */
+export function computeCuedDirectionAccuracy(
+  scans: ScanEvent[],
+  cues: CueEvent[],
+  cfg: ScanDetectConfig = DEFAULT_SCAN_DETECT_CONFIG,
+): CuedTurnScore {
+  const directional = cues.filter((c) => c.side === 'left' || c.side === 'right');
+  if (directional.length === 0) {
+    return { cuedTurns: 0, matched: 0, correct: 0, accuracy: null, recall: null };
+  }
+
+  const candidates: { cueSeq: number; scanIdx: number; lag: number }[] = [];
+  directional.forEach((cue) => {
+    scans.forEach((s, scanIdx) => {
+      const lag = s.tMonoMs - cue.firedAtMonoMs;
+      if (lag >= 0 && lag <= cfg.scanBeforeWindowMs) {
+        candidates.push({ cueSeq: cue.seq, scanIdx, lag });
+      }
+    });
+  });
+  candidates.sort((a, b) => a.lag - b.lag);
+
+  const sideBySeq = new Map(directional.map((c) => [c.seq, c.side]));
+  const usedCues = new Set<number>();
+  const usedScans = new Set<number>();
+  let matched = 0;
+  let correct = 0;
+  for (const c of candidates) {
+    if (usedCues.has(c.cueSeq) || usedScans.has(c.scanIdx)) continue;
+    usedCues.add(c.cueSeq);
+    usedScans.add(c.scanIdx);
+    matched += 1;
+    if (scans[c.scanIdx].direction === sideBySeq.get(c.cueSeq)) correct += 1;
+  }
+
+  return {
+    cuedTurns: directional.length,
+    matched,
+    correct,
+    accuracy: matched > 0 ? correct / matched : null,
+    recall: matched / directional.length,
+  };
+}
+
 /** Linear-interpolated percentile over an ascending-sorted array (0 ≤ p ≤ 1). */
 function percentile(sorted: number[], p: number): number {
   if (sorted.length === 1) return sorted[0];
@@ -261,6 +339,13 @@ export function computeScanVerification(
     base.meanPoseConfidence = opts.quality.meanPoseConfidence;
     base.effectiveFps = opts.quality.effectiveFps;
   }
+
+  // Cued direction accuracy — populated only when the session actually fired directional
+  // cues, so a run without them (color/number only) carries no key at all rather than a
+  // null one. Keeping it absent means such sessions stay byte-identical to before this
+  // metric existed, which is what the golden fixtures pin.
+  const cued = computeCuedDirectionAccuracy(scans, cues, cfg);
+  if (cued.accuracy != null) base.turnDirectionAccuracy = cued.accuracy;
 
   if (reactionMode === 'peak') {
     // Legacy: first scan after each cue, peak-anchored.

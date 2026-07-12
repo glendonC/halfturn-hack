@@ -1,4 +1,5 @@
 export { CameraSquircle, SQUIRCLE_WIDTH, SQUIRCLE_HEIGHT } from './CameraSquircle';
+export { PoseModelPicker } from './PoseModelPicker';
 export { PoseOverlay } from './PoseOverlay';
 export { ScanFieldOverlay } from './ScanFieldOverlay';
 export { TrackingRing, TRACKING_LEVEL_COLOR, trackingLevelColor } from './TrackingRing';
