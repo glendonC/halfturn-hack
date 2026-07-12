@@ -2,9 +2,9 @@ import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CameraSquircle, VisionDiagnostics } from '@/components/camera';
-import { colors, radius, spacing, typography } from '@/theme';
+import { GlassSurface } from '@/components/glass';
+import { colors, glass, glassRadius, glassType, glow, light, spacing } from '@/theme';
 import { formatClock } from '@/utils/format';
-
 import { CueSurface } from './CueSurface';
 import type { DrillLayoutProps } from './layoutProps';
 import { PausedOverlay } from './PausedOverlay';
@@ -15,24 +15,25 @@ import { TurnReactCueDisplay } from './TurnReactCueDisplay';
 const SQUIRCLE_BOTTOM = 120;
 
 /**
- * FaceTime-style immersive Turn & React layout: cue surface fills the screen;
- * status pill, self-view squircle (with tracking ring), and quiet transport
- * float as overlays. The squircle owns its own tracking state so confidence
- * updates never re-render the cue surface.
+ * FaceTime-style Turn & React layout: cue surface stays full-bleed for outdoor
+ * readability; floating chrome (status + transport) uses the same liquid glass
+ * as Home / framing so the between-drill and in-drill chrome feel continuous.
  */
 export function TurnReactLayout({ engine, cueCount }: DrillLayoutProps) {
   const paused = engine.status === 'paused';
   return (
     <View style={styles.root}>
       <CueSurface>
-        <TurnReactCueDisplay currentCue={paused ? null : engine.currentCue} />
+        <TurnReactCueDisplay currentCue={engine.currentCue} />
       </CueSurface>
 
       <SafeAreaView style={styles.topSafe} edges={['top', 'left', 'right']} pointerEvents="box-none">
         <View style={styles.topRow} pointerEvents="box-none">
-          <View style={styles.statusPill}>
-            <Text style={styles.statusTime}>{formatClock(engine.remainingMs / 1000)}</Text>
-            <Text style={styles.statusMeta}>{cueCount} cues</Text>
+          <View style={[styles.statusShadow, glow.floating]}>
+            <GlassSurface radius={glassRadius.pill} intensity="regular" fill={glass.fill} style={styles.statusPill}>
+              <Text style={styles.statusTime}>{formatClock(engine.remainingMs / 1000)}</Text>
+              <Text style={styles.statusMeta}>{cueCount} cues</Text>
+            </GlassSurface>
           </View>
           <VisionDiagnostics />
         </View>
@@ -68,22 +69,21 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm,
     gap: spacing.sm,
   },
+  statusShadow: { borderRadius: glassRadius.pill },
   statusPill: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
     paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    borderRadius: radius.pill,
-    backgroundColor: 'rgba(7,10,14,0.55)',
+    paddingVertical: spacing.sm,
   },
   statusTime: {
-    ...typography.title,
-    color: colors.textPrimary,
-    fontWeight: '800',
+    ...glassType.subtitle,
+    color: light.ink,
+    fontWeight: '700',
     fontVariant: ['tabular-nums'],
   },
-  statusMeta: { ...typography.caption, color: colors.textSecondary, fontWeight: '700' },
+  statusMeta: { ...glassType.caption, color: light.inkMuted, fontWeight: '600' },
   squircle: { position: 'absolute', right: spacing.lg, bottom: SQUIRCLE_BOTTOM },
   bottomSafe: { position: 'absolute', bottom: 0, left: 0, right: 0 },
   controls: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm, paddingBottom: spacing.sm },

@@ -3,7 +3,7 @@ import { Animated, StyleSheet, Text, View } from 'react-native';
 
 import { CUES } from '@/constants/cues';
 import type { CueEvent } from '@/types';
-import { colors, typography } from '@/theme';
+import { colors, glassType, light } from '@/theme';
 
 interface CueDisplayProps {
   currentCue: CueEvent | null;
@@ -42,6 +42,7 @@ export function CueDisplay({ currentCue, waiting = false }: CueDisplayProps) {
   const tag = isVariable ? def!.label.toUpperCase() : null;
   const showLeft = currentCue?.side === 'left';
   const showRight = currentCue?.side === 'right';
+  const idle = !currentCue;
 
   return (
     <View style={styles.container}>
@@ -54,7 +55,7 @@ export function CueDisplay({ currentCue, waiting = false }: CueDisplayProps) {
         <Animated.View style={{ transform: [{ scale }], alignItems: 'center', flexShrink: 1 }}>
           {tag ? <Text style={[styles.tag, { color: accent }]}>{tag}</Text> : null}
           <Text
-            style={[styles.word, { color: currentCue ? accent : colors.textMuted }]}
+            style={[styles.word, { color: idle ? light.inkFaint : accent }]}
             numberOfLines={2}
             adjustsFontSizeToFit
           >
@@ -71,8 +72,15 @@ const styles = StyleSheet.create({
   container: { flex: 1, justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
   flood: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
   center: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 8 },
-  chevron: { fontSize: 96, fontWeight: '900', marginHorizontal: 4 },
+  chevron: { fontSize: 96, fontWeight: '200', marginHorizontal: 4 },
   chevronSpacer: { width: 28 },
-  tag: { ...typography.title, fontWeight: '800', letterSpacing: 4, marginBottom: 4, opacity: 0.9 },
-  word: { fontSize: 72, fontWeight: '900', letterSpacing: 1, textAlign: 'center' },
+  tag: { ...glassType.overline, letterSpacing: 4, marginBottom: 4, opacity: 0.9 },
+  word: {
+    ...glassType.hero,
+    fontSize: 64,
+    lineHeight: 70,
+    fontWeight: '200',
+    letterSpacing: -1,
+    textAlign: 'center',
+  },
 });

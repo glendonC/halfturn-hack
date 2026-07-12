@@ -1,8 +1,8 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { GlassSurface, Icon, Icons } from '@/components/glass';
 import type { DrillStatus } from '@/types';
-
-import { HUD_NEUTRAL } from './cueColors';
+import { accents, glass, glassRadius, glassType, glow, light, spacing } from '@/theme';
 
 interface TransportControlsProps {
   status: DrillStatus;
@@ -10,94 +10,62 @@ interface TransportControlsProps {
   onResume: () => void;
   onStop: () => void;
   /**
-   * Quiet variant for turn-react: translucent buttons over the cue flood.
-   * Default false = prominent audio-HUD buttons.
+   * Quiet variant for the immersive Turn & React layout: same glass material,
+   * slightly tighter padding so it floats over the cue flood. Default false.
    */
   compact?: boolean;
 }
 
-/** Shared pause / resume / stop chrome for audio and turn-react layouts. */
-export function TransportControls({
-  status,
-  onPause,
-  onResume,
-  onStop,
-  compact = false,
-}: TransportControlsProps) {
+/** Liquid-glass transport bar — Pause/Resume + Stop, same chrome as framing. */
+export function TransportControls({ status, onPause, onResume, onStop, compact = false }: TransportControlsProps) {
   const paused = status === 'paused';
+  const height = compact ? 48 : 56;
 
   return (
-    <View style={styles.col}>
-      <Pressable
-        onPress={paused ? onResume : onPause}
-        accessibilityRole="button"
-        accessibilityLabel={paused ? 'Resume drill' : 'Pause drill'}
-        style={({ pressed }) => [
-          styles.btn,
-          compact && styles.btnCompact,
-          paused ? styles.btnEmphasis : null,
-          pressed && styles.pressed,
-        ]}
-      >
-        <Text
-          style={[
-            styles.btnText,
-            paused && styles.btnTextEmphasis,
-          ]}
+    <View style={styles.row}>
+      <View style={[styles.shadow, { flex: 1.35 }]}>
+        <Pressable
+          onPress={paused ? onResume : onPause}
+          accessibilityRole="button"
+          accessibilityLabel={paused ? 'Resume drill' : 'Pause drill'}
+          style={styles.press}
         >
-          {paused ? 'Resume' : 'Pause'}
-        </Text>
-      </Pressable>
-      <Pressable
-        onPress={onStop}
-        accessibilityRole="button"
-        accessibilityLabel="Stop drill"
-        style={({ pressed }) => [
-          styles.btn,
-          compact && styles.btnCompact,
-          styles.btnDanger,
-          pressed && styles.pressed,
-        ]}
-      >
-        <Text style={[styles.btnText, styles.btnTextDanger]}>Stop</Text>
-      </Pressable>
+          <GlassSurface radius={glassRadius.pill} intensity="regular" fill={glass.fill} style={[styles.pill, { height }]}>
+            <Icon icon={paused ? Icons.Play : Icons.Pause} size={18} color={light.ink} strokeWidth={2} />
+            <Text style={styles.label}>{paused ? 'Resume' : 'Pause'}</Text>
+          </GlassSurface>
+        </Pressable>
+      </View>
+
+      <View style={[styles.shadow, { flex: 1 }]}>
+        <Pressable onPress={onStop} accessibilityRole="button" accessibilityLabel="Stop drill" style={styles.press}>
+          <GlassSurface
+            radius={glassRadius.pill}
+            intensity="regular"
+            fill={glass.fill}
+            tintColor={accents.data.wash}
+            style={[styles.pill, { height }]}
+          >
+            <Icon icon={Icons.X} size={18} color={accents.data.solid} strokeWidth={2.25} />
+            <Text style={[styles.label, { color: accents.data.solid }]}>Stop</Text>
+          </GlassSurface>
+        </Pressable>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  col: { gap: 12 },
-  btn: {
-    minHeight: 64,
-    borderRadius: 14,
+  row: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  shadow: { borderRadius: glassRadius.pill, ...glow.floating },
+  press: { width: '100%' },
+  pill: {
+    width: '100%',
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: 'rgba(0,0,0,0.35)',
-    borderWidth: 2,
-    borderColor: 'rgba(255,255,255,0.35)',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.lg,
   },
-  btnCompact: {
-    minHeight: 56,
-    borderRadius: 12,
-    backgroundColor: 'rgba(0,0,0,0.45)',
-  },
-  btnEmphasis: {
-    backgroundColor: HUD_NEUTRAL.accent,
-    borderColor: HUD_NEUTRAL.accent,
-  },
-  btnDanger: {
-    borderColor: HUD_NEUTRAL.danger,
-  },
-  btnText: {
-    color: '#F2F7F4',
-    fontSize: 22,
-    fontWeight: '800',
-  },
-  btnTextEmphasis: {
-    color: HUD_NEUTRAL.bg,
-  },
-  btnTextDanger: {
-    color: HUD_NEUTRAL.danger,
-  },
-  pressed: { opacity: 0.88 },
+  label: { ...glassType.label, fontSize: 15, color: light.ink, fontWeight: '600' },
 });
