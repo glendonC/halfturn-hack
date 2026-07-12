@@ -103,6 +103,18 @@ export function shoulderHipSeparationDeg(raw: RawPoseFrame): number {
   return computeTorsoYawDeg(raw) - computeHipYawDeg(raw);
 }
 
+/**
+ * Wrap an angle DIFFERENCE to (−180, 180]. Absolute torso yaw lives on a
+ * circle, and the back-to-camera resting stance sits right at the ±180° seam —
+ * so every baseline-relative subtraction in this pipeline MUST wrap, or a
+ * player straddling the seam reads as ±340° swings (field-measured: still
+ * captures rejected with "drift −334°"). Pure.
+ */
+export function wrapDeg180(deltaDeg: number): number {
+  const w = ((deltaDeg % 360) + 540) % 360;
+  return w === 0 ? 180 : w - 180;
+}
+
 /** Mean visibility of the anterior face landmarks (high ⇒ facing the camera). */
 export function meanFaceVis(raw: RawPoseFrame): number {
   const idx = [NOSE, L_EYE, R_EYE, MOUTH_L, MOUTH_R];
@@ -114,7 +126,9 @@ export function meanFaceVis(raw: RawPoseFrame): number {
 /** Map one raw pose frame onto the player's yaw axis. Pure. */
 export function fuse(raw: RawPoseFrame, calib: CalibrationProfile): FusedReading {
   const torsoYawDeg = computeTorsoYawDeg(raw);
-  const yawDeg = (torsoYawDeg - calib.neutralYawBaselineDeg) * calib.yawSign;
+  // Wrapped: the back-turned baseline sits at the ±180° seam, and an unwrapped
+  // subtraction there turns a small physical turn into a ±340° reading.
+  const yawDeg = wrapDeg180(torsoYawDeg - calib.neutralYawBaselineDeg) * calib.yawSign;
   const confidence = Math.min(vis(raw, L_SHOULDER), vis(raw, R_SHOULDER));
   const hipYawDeg = computeHipYawDeg(raw);
   return {
@@ -123,7 +137,7 @@ export function fuse(raw: RawPoseFrame, calib: CalibrationProfile): FusedReading
     confidence,
     torsoYawDeg,
     hipYawDeg,
-    shoulderHipSepDeg: torsoYawDeg - hipYawDeg,
+    shoulderHipSepDeg: wrapDeg180(torsoYawDeg - hipYawDeg),
     hipConfidence: Math.min(vis(raw, L_HIP), vis(raw, R_HIP)),
     faceVis: meanFaceVis(raw),
   };
@@ -131,22 +145,33 @@ export function fuse(raw: RawPoseFrame, calib: CalibrationProfile): FusedReading
 
 /**
  * Average torso yaw across calibration frames → the neutral baseline (the
- * back-to-camera resting orientation), captured during framing.
+ * back-to-camera resting orientation), captured during framing. CIRCULAR mean
+ * (atan2 of summed unit vectors): the back-turned stance straddles the ±180°
+ * seam, where a linear mean of +170° and −170° would read 0° — the exact
+ * opposite direction.
  */
 export function computeNeutralBaselineDeg(frames: RawPoseFrame[]): number {
   if (frames.length === 0) return 0;
-  const sum = frames.reduce((acc, f) => acc + computeTorsoYawDeg(f), 0);
-  return sum / frames.length;
+  let sinSum = 0;
+  let cosSum = 0;
+  for (const f of frames) {
+    const rad = (computeTorsoYawDeg(f) * Math.PI) / 180;
+    sinSum += Math.sin(rad);
+    cosSum += Math.cos(rad);
+  }
+  return (Math.atan2(sinSum, cosSum) * 180) / Math.PI;
 }
 
 /**
  * Resolve the calibration `yawSign` from a neutral baseline + a known LEFT-turn
  * sample. After fuse, a player-left turn MUST read `yawDeg < 0`, where
- * `yawDeg = (torsoYawDeg − baseline) · sign`. So if the measured left turn moved
- * `(torso − baseline)` positive, the sign must flip to −1; otherwise +1. This is
- * the front-camera mirror resolution, kept pure here (the yaw-math home) so the
- * framing hook stays a thin capture state-machine. See `fuse`.
+ * `yawDeg = wrap(torsoYawDeg − baseline) · sign`. So if the measured left turn
+ * moved `wrap(torso − baseline)` positive, the sign must flip to −1; otherwise
+ * +1. The delta is WRAPPED for the same seam reason as `fuse` — unwrapped, a
+ * left turn across ±180° resolves the opposite sign and every direction label
+ * flips. This is the front-camera mirror resolution, kept pure here (the
+ * yaw-math home) so the framing hook stays a thin capture state-machine.
  */
 export function resolveYawSign(neutralBaselineDeg: number, leftTurnDeg: number): 1 | -1 {
-  return leftTurnDeg - neutralBaselineDeg > 0 ? -1 : 1;
+  return wrapDeg180(leftTurnDeg - neutralBaselineDeg) > 0 ? -1 : 1;
 }

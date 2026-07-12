@@ -18,6 +18,8 @@
  *      coach can say exactly what to fix, eyes-off.
  */
 
+import { wrapDeg180 } from './YawFusion';
+
 /** One in-frame observation (wall-clock ms + derived torso yaw). */
 export interface AutoCaptureSample {
   tMs: number;
@@ -65,8 +67,8 @@ export const DEFAULT_AUTO_CAPTURE: AutoCaptureConfig = {
   maxGapMs: 900,
   minPresenceSamples: 8,
   minCaptureSamples: 5,
-  maxDriftDeg: 6,
-  maxMadDeg: 12,
+  maxDriftDeg: 8,
+  maxMadDeg: 15,
   leftMinDeltaDeg: 25,
   rearmMs: 2000,
 };
@@ -144,16 +146,32 @@ const median = (xs: readonly number[]): number => {
   return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
 };
 
-/** Compute the robust window stats (exported for tests / diagnostics). */
+/**
+ * Compute the robust window stats (exported for tests / diagnostics).
+ *
+ * CIRCULAR: yaw is an angle and the back-turned stance sits at the ±180° seam,
+ * so all spread/drift math runs on wrapped deltas from the window's circular
+ * mean — a still player straddling the seam otherwise reads as MAD ≈ 170°
+ * (field-measured before this fix: "drift −334°" on a motionless capture).
+ */
 export function captureStats(samples: readonly CaptureSample[]): CaptureStats {
-  const yaws = samples.map((s) => s.yawDeg);
-  const med = median(yaws);
-  const madDeg = median(yaws.map((y) => Math.abs(y - med)));
-  const half = Math.ceil(yaws.length / 2);
-  const driftDeg = median(yaws.slice(half)) - median(yaws.slice(0, half));
+  let sinSum = 0;
+  let cosSum = 0;
+  for (const s of samples) {
+    const rad = (s.yawDeg * Math.PI) / 180;
+    sinSum += Math.sin(rad);
+    cosSum += Math.cos(rad);
+  }
+  const refDeg = (Math.atan2(sinSum, cosSum) * 180) / Math.PI;
+
+  const deltas = samples.map((s) => wrapDeg180(s.yawDeg - refDeg));
+  const deltaMed = median(deltas);
+  const madDeg = median(deltas.map((d) => Math.abs(d - deltaMed)));
+  const half = Math.ceil(deltas.length / 2);
+  const driftDeg = median(deltas.slice(half)) - median(deltas.slice(0, half));
   return {
     n: samples.length,
-    medianDeg: med,
+    medianDeg: wrapDeg180(refDeg + deltaMed),
     madDeg,
     driftDeg,
     faceVisMedian: median(samples.map((s) => s.faceVis)),
@@ -182,7 +200,7 @@ export function validateCapture(
 
   if (phase === 'left') {
     if (baselineDeg == null) return { ok: false, reason: 'lost', stats: s };
-    if (Math.abs(s.medianDeg - baselineDeg) < cfg.leftMinDeltaDeg) {
+    if (Math.abs(wrapDeg180(s.medianDeg - baselineDeg)) < cfg.leftMinDeltaDeg) {
       return { ok: false, reason: 'not_turned', stats: s };
     }
   }

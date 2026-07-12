@@ -8,6 +8,7 @@ import {
   meanFaceVis,
   resolveYawSign,
   shoulderHipSeparationDeg,
+  wrapDeg180,
 } from '../YawFusion';
 
 const L_SHOULDER = 11;
@@ -199,5 +200,26 @@ describe('fuse — additive hip/separation fields', () => {
     expect(r.hipConfidence).toBeCloseTo(0.7, 5);
     // yawDeg is still the shoulder-derived, baseline-subtracted, signed value — unchanged.
     expect(r.yawDeg).toBeCloseTo(r.torsoYawDeg, 5);
+  });
+});
+
+describe('wrapDeg180 (the ±180° seam)', () => {
+  it('wraps angle differences into (−180, 180]', () => {
+    expect(wrapDeg180(0)).toBe(0);
+    expect(wrapDeg180(316)).toBe(-44);
+    expect(wrapDeg180(-190)).toBe(170);
+    expect(wrapDeg180(180)).toBe(180);
+    expect(wrapDeg180(-180)).toBe(180);
+    expect(wrapDeg180(540)).toBe(180);
+    expect(wrapDeg180(-44)).toBe(-44);
+  });
+
+  it('resolveYawSign wraps the calibration delta across the seam', () => {
+    // Back-turned baseline −156°, left capture reads +150°: linear delta is
+    // +306 (would resolve −1); the true circular delta is −54 → sign +1.
+    expect(resolveYawSign(-156, 150)).toBe(1);
+    // And the plain no-seam case is unchanged.
+    expect(resolveYawSign(0, 40)).toBe(-1);
+    expect(resolveYawSign(0, -40)).toBe(1);
   });
 });

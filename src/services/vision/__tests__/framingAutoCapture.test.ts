@@ -125,6 +125,29 @@ describe('validateCapture — left', () => {
   });
 });
 
+describe('validateCapture — the ±180° seam (back-turned stance)', () => {
+  it('accepts a still player whose yaw straddles the wrap seam', () => {
+    // Physically still at the back-to-camera stance: readings flicker between
+    // +178 and −178. Linear stats read this as MAD ≈ 178 / drift ≈ −356.
+    const seam = win([178, -179, 179, -178, 178, -179, 179, -178]);
+    const result = validateCapture(seam, 'center', null);
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(Math.abs(result.avgYawDeg)).toBeGreaterThan(170);
+  });
+
+  it('judges the left-turn delta circularly across the seam', () => {
+    // Baseline −156 (back turned); left capture reads +150: linear delta 306,
+    // true circular delta −54 — clearly turned, must pass.
+    expect(validateCapture(win([150, 151, 149, 150, 150]), 'left', -156).ok).toBe(true);
+    // And a re-captured neutral on the other side of the seam is still caught:
+    // baseline −170 vs +180 is only 10° apart circularly.
+    expect(validateCapture(win([180, 179, -180, 180, 179]), 'left', -170)).toMatchObject({
+      ok: false,
+      reason: 'not_turned',
+    });
+  });
+});
+
 describe('captureStats', () => {
   it('reports robust median / MAD / drift / face visibility', () => {
     const stats = captureStats(win([0, 1, 2, 100, 1, 1, 0, 1], 0.2));
