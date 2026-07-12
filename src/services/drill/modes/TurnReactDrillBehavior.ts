@@ -1,4 +1,5 @@
 import { REVEAL_WINDOW_MS, pickTurnReactColor } from '@/constants/turnReact';
+import { CUE_GATE, isReadyForCue } from '@/constants/visionTuning';
 import { playBeep, primeBeep, primeConfirm, type AudioCueEngine } from '@/services/audio';
 import { getPoseVerifierAsync, type PoseVerifier } from '@/services/vision';
 import type { DrillConfig } from '@/types';
@@ -63,6 +64,19 @@ export class TurnReactDrillBehavior implements DrillModeBehavior {
 
   minIntervalFloorMs(): number {
     return REVEAL_WINDOW_MS + REVEAL_PAD_MS;
+  }
+
+  /**
+   * Hold a due cue until the camera sees the player RESET (fresh in-frame
+   * sample near neutral yaw) — a cue that fires mid-recovery feels out of sync
+   * and pollutes reaction time. Fires unconditionally in the no-camera preview
+   * and once the hold hits its cap (a lost/occluded player must not stall the
+   * drill — they can still hear the beep).
+   */
+  allowCueNow(verifier: PoseVerifier | null, overdueMs: number, drillMs: number): boolean {
+    if (!verifier?.available || !verifier.latest) return true; // beep-only preview
+    if (overdueMs >= CUE_GATE.maxHoldMs) return true; // stall valve
+    return isReadyForCue(verifier.latest(), drillMs);
   }
 
   async resolveVerifier(): Promise<PoseVerifier> {

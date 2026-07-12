@@ -83,6 +83,11 @@ export class RealPoseVerifier implements PoseVerifier {
     this.scanCb = cb;
   }
 
+  /** Most recent live sample (null before the first frame / after start reset). */
+  latest(): PoseSample | null {
+    return this.samples.length > 0 ? this.samples[this.samples.length - 1] : null;
+  }
+
   start(sessionT0Mono: number): void {
     if (this.started) return;
     this.started = true;

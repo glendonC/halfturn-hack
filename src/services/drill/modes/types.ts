@@ -55,6 +55,15 @@ export interface DrillModeBehavior {
   /** Floor for the next-cue gap so a cue never overruns the utterance/reveal. */
   minIntervalFloorMs(phrase: string, engine: AudioCueEngine): number;
 
+  /**
+   * Optional gate consulted each tick once a cue is DUE: return false to HOLD
+   * it. Turn-react holds until the live camera sees the player reset (fresh
+   * sample, in frame, near-neutral yaw) so a cue never fires mid-recovery;
+   * `overdueMs` (how long the cue has been held) lets the gate cap the hold so
+   * the drill can't stall. Absent (audio mode) ⇒ cues fire the moment they're due.
+   */
+  allowCueNow?(verifier: PoseVerifier | null, overdueMs: number, drillMs: number): boolean;
+
   /** Resolve the pose verifier for the run (real for turn-react, no-op else). */
   resolveVerifier(): Promise<PoseVerifier>;
 }

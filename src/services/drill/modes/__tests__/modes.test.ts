@@ -177,3 +177,40 @@ describe('TurnReactDrillBehavior', () => {
     expect(v.available).toBe(true);
   });
 });
+
+describe('TurnReactDrillBehavior — cue gating (allowCueNow)', () => {
+  const b = getDrillModeBehavior('turn-react');
+  const verifierWith = (latest: unknown) =>
+    ({ available: true, latest: () => latest }) as never;
+
+  it('fires unconditionally without a live camera (beep-only preview)', () => {
+    expect(b.allowCueNow!(null, 0, 10_000)).toBe(true);
+    expect(b.allowCueNow!({ available: false } as never, 0, 10_000)).toBe(true);
+  });
+
+  it('holds while the player is mid-turn and releases once reset to neutral', () => {
+    const turned = verifierWith({ tMonoMs: 9_900, yawDeg: 55, confidence: 0.9 });
+    expect(b.allowCueNow!(turned, 0, 10_000)).toBe(false);
+    const reset = verifierWith({ tMonoMs: 9_900, yawDeg: 4, confidence: 0.9 });
+    expect(b.allowCueNow!(reset, 0, 10_000)).toBe(true);
+  });
+
+  it('holds on stale or low-confidence tracking', () => {
+    const stale = verifierWith({ tMonoMs: 5_000, yawDeg: 0, confidence: 0.9 });
+    expect(b.allowCueNow!(stale, 0, 10_000)).toBe(false);
+    const weak = verifierWith({ tMonoMs: 9_900, yawDeg: 0, confidence: 0.2 });
+    expect(b.allowCueNow!(weak, 0, 10_000)).toBe(false);
+  });
+
+  it('never stalls the drill: the hold cap fires the cue regardless', () => {
+    const lost = verifierWith(null);
+    expect(b.allowCueNow!(lost, 0, 10_000)).toBe(false);
+    expect(b.allowCueNow!(lost, 5_000, 10_000)).toBe(true);
+  });
+});
+
+describe('AudioDrillBehavior — no cue gate', () => {
+  it('does not implement allowCueNow (cues fire the moment they are due)', () => {
+    expect(getDrillModeBehavior('audio').allowCueNow).toBeUndefined();
+  });
+});

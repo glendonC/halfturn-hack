@@ -291,7 +291,13 @@ export function useDrillEngine(): UseDrillEngineResult {
       return;
     }
     if (drillMs >= nextCueAtRef.current) {
-      fireCue(drillMs);
+      // Mode gate: turn-react holds a due cue until the camera sees the player
+      // reset (re-checked every tick, capped by the gate itself); audio mode has
+      // no gate and fires immediately.
+      const overdueMs = drillMs - nextCueAtRef.current;
+      const allow =
+        behaviorRef.current?.allowCueNow?.(verifierRef.current, overdueMs, drillMs) ?? true;
+      if (allow) fireCue(drillMs);
     }
   }, [finalize, fireCue]);
 

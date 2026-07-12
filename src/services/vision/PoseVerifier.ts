@@ -1,4 +1,4 @@
-import type { ScanEvent, TrackingQuality } from './types';
+import type { PoseSample, ScanEvent, TrackingQuality } from './types';
 
 /**
  * The single seam camera verification plugs into.
@@ -30,6 +30,12 @@ export interface PoseVerifier {
    * still the one {@link stop} resolves. Verifiers that don't sample omit it.
    */
   onScan?(cb: (scan: ScanEvent) => void): void;
+  /**
+   * Most recent live sample (optional) — the "where is the player RIGHT NOW"
+   * readout behind cue gating (hold a due cue until the player has reset).
+   * Null before the first frame; stale while paused (frames are dropped).
+   */
+  latest?(): PoseSample | null;
   /** Stop sampling and resolve the detected scan timeline. */
   stop(): Promise<ScanEvent[]>;
   /**
