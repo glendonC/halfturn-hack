@@ -8,17 +8,12 @@ import {
   GlassCueDistribution,
   GlassPageHeader,
   GlassScreen,
-  GlassStat,
-  GradientSquircle,
-  Icon,
-  Icons,
   Sparkline,
-  type IconComponent,
 } from '@/components/glass';
 import { getHistoryStats, listSessions, type HistoryStats } from '@/services/db';
-import { accents, colors, glassRadius, glassType, glow, light, spacing, type AccentKey } from '@/theme';
+import { accents, colors, glassRadius, glassType, light, spacing, type AccentKey } from '@/theme';
 import type { DrillSessionSummary } from '@/types';
-import { formatDuration, pluralize } from '@/utils/format';
+import { formatDuration } from '@/utils/format';
 import { aggregateCueCounts, leftRightSplit, weeklySessionCounts } from '@/utils/stats';
 
 /** Space the floating nav reserves at the bottom. */
@@ -26,16 +21,12 @@ const NAV_CLEARANCE = 96;
 /** Weeks of history shown in the hero trend line. */
 const TREND_WEEKS = 8;
 
-/** One frosted bento tile: an accent icon chip over a big stat. */
-function StatTile({ icon, value, label, accent }: { icon: IconComponent; value: string; label: string; accent: AccentKey }) {
+function MetricCell({ value, label, accent }: { value: string; label: string; accent: AccentKey }) {
   return (
-    <View style={styles.tileShadow}>
-      <View style={styles.tile}>
-        <View style={[styles.tileIcon, { backgroundColor: accents[accent].wash }]}>
-          <Icon icon={icon} size={16} color={accents[accent].solid} strokeWidth={2} />
-        </View>
-        <GlassStat size="md" value={value} label={label} accent={accent} />
-      </View>
+    <View style={styles.metricCell}>
+      <View style={[styles.metricKey, { backgroundColor: accents[accent].solid }]} />
+      <Text style={styles.metricValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>{value}</Text>
+      <Text style={styles.metricLabel}>{label}</Text>
     </View>
   );
 }
@@ -82,7 +73,7 @@ export default function StatsScreen() {
   const empty = !loading && totalSessions === 0;
 
   return (
-    <GlassScreen scroll accent="home" contentStyle={{ paddingBottom: insets.bottom + NAV_CLEARANCE }}>
+    <GlassScreen scroll scrollUnderTop transitionOnFocus accent="home" contentStyle={{ paddingBottom: insets.bottom + NAV_CLEARANCE }}>
       <GlassPageHeader title="Stats" />
 
       {empty ? (
@@ -92,33 +83,33 @@ export default function StatsScreen() {
         </View>
       ) : (
         <>
-          {/* Signature hero: the headline count + its weekly trend. */}
-          <GradientSquircle accent="home" style={styles.hero}>
-            <View style={styles.heroPad}>
-              <View style={styles.heroTop}>
-                <View style={styles.heroFigure}>
-                  <Text style={styles.heroLabel}>Sessions</Text>
-                  <Text style={styles.heroNumber} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.5}>
-                    {totalSessions}
-                  </Text>
-                </View>
-                <View style={styles.sparkWrap}>
-                  <Sparkline data={derived.weekly} color={accents.home.solid} height={56} />
-                  <Text style={styles.sparkCaption}>Last {TREND_WEEKS} weeks</Text>
-                </View>
+          <View style={styles.trendPanel}>
+            <View style={styles.trendHeader}>
+              <View>
+                <Text style={styles.panelLabel}>SESSIONS</Text>
+                <Text style={styles.heroNumber}>{totalSessions}</Text>
               </View>
-              <Text style={styles.heroNote}>
-                {thisWeek > 0 ? `${pluralize(thisWeek, 'session')} this week — keep it up.` : 'No sessions yet this week.'}
-              </Text>
+              <View style={styles.weekReadout}>
+                <Text style={styles.weekValue}>{thisWeek}</Text>
+                <Text style={styles.weekLabel}>THIS WEEK</Text>
+              </View>
             </View>
-          </GradientSquircle>
+            <Sparkline data={derived.weekly} color={accents.home.solid} height={72} strokeWidth={2.5} />
+            <Text style={styles.trendCaption}>Weekly sessions over the last {TREND_WEEKS} weeks</Text>
+          </View>
 
-          {/* Bento of aggregate totals. */}
-          <View style={styles.grid}>
-            <StatTile icon={Icons.Timer} value={formatDuration(stats?.totalDurationSec ?? 0)} label="Total time" accent="field" />
-            <StatTile icon={Icons.MessageSquareText} value={String(stats?.totalCues ?? 0)} label="Cues fired" accent="vocab" />
-            <StatTile icon={Icons.Repeat} value={formatDuration(avgSessionSec)} label="Avg session" accent="voice" />
-            <StatTile icon={Icons.Trophy} value={`${completionPct}%`} label="Completed" accent="feedback" />
+          <View style={styles.metricsPanel}>
+            <View style={styles.metricsRow}>
+              <MetricCell value={formatDuration(stats?.totalDurationSec ?? 0)} label="TOTAL TIME" accent="field" />
+              <View style={styles.verticalDivider} />
+              <MetricCell value={String(stats?.totalCues ?? 0)} label="CUES FIRED" accent="vocab" />
+            </View>
+            <View style={styles.horizontalDivider} />
+            <View style={styles.metricsRow}>
+              <MetricCell value={formatDuration(avgSessionSec)} label="AVG SESSION" accent="voice" />
+              <View style={styles.verticalDivider} />
+              <MetricCell value={`${completionPct}%`} label="COMPLETED" accent="feedback" />
+            </View>
           </View>
 
           {/* Left / right shoulder-check balance. */}
@@ -133,10 +124,10 @@ export default function StatsScreen() {
                   </View>
                   <Text style={styles.balanceEnd}>{derived.balance.right} R</Text>
                 </View>
-                <Text style={styles.note}>
-                  {Math.round((derived.balance.left / balanceTotal) * 100)}% left ·{' '}
-                  {Math.round((derived.balance.right / balanceTotal) * 100)}% right
-                </Text>
+                <View style={styles.balanceSummary}>
+                  <Text style={styles.note}>{Math.round((derived.balance.left / balanceTotal) * 100)}% left</Text>
+                  <Text style={styles.note}>{Math.round((derived.balance.right / balanceTotal) * 100)}% right</Text>
+                </View>
               </>
             ) : (
               <Text style={styles.note}>No shoulder-check cues fired yet. Add Check Left / Check Right on Home.</Text>
@@ -154,30 +145,30 @@ export default function StatsScreen() {
 }
 
 const styles = StyleSheet.create({
-  hero: { marginBottom: spacing.md },
-  heroPad: { padding: spacing.xl, gap: spacing.md },
-  heroTop: { flexDirection: 'row', alignItems: 'flex-end', gap: spacing.lg },
-  heroFigure: { justifyContent: 'flex-end' },
-  heroLabel: { ...glassType.overline, color: 'rgba(24,20,37,0.55)' },
-  heroNumber: { ...glassType.hero, fontSize: 60, lineHeight: 64, color: light.ink },
-  sparkWrap: { flex: 1, gap: 4 },
-  sparkCaption: { ...glassType.caption, color: 'rgba(24,20,37,0.5)', textAlign: 'right' },
-  heroNote: { ...glassType.caption, color: 'rgba(24,20,37,0.6)' },
-
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.md },
-  tileShadow: { flexBasis: '47%', flexGrow: 1, borderRadius: glassRadius.card, ...glow.card },
-  tile: {
-    borderRadius: glassRadius.card,
-    borderCurve: 'continuous',
+  trendPanel: {
+    backgroundColor: 'rgba(255,255,255,0.64)',
     borderWidth: StyleSheet.hairlineWidth,
-    borderColor: 'rgba(255,255,255,0.75)',
-    backgroundColor: 'rgba(255,255,255,0.55)',
+    borderColor: light.hairline,
+    borderRadius: 8,
     padding: spacing.lg,
-    gap: spacing.md,
-    minHeight: 112,
-    justifyContent: 'space-between',
+    gap: spacing.sm,
   },
-  tileIcon: { width: 30, height: 30, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  trendHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
+  panelLabel: { ...glassType.overline, color: light.inkMuted, letterSpacing: 0 },
+  heroNumber: { fontSize: 42, lineHeight: 47, fontWeight: '300', color: light.ink, fontVariant: ['tabular-nums'], letterSpacing: 0 },
+  weekReadout: { alignItems: 'flex-end' },
+  weekValue: { fontSize: 22, lineHeight: 27, fontWeight: '600', color: accents.home.solid, fontVariant: ['tabular-nums'], letterSpacing: 0 },
+  weekLabel: { ...glassType.overline, color: light.inkFaint, letterSpacing: 0 },
+  trendCaption: { ...glassType.caption, color: light.inkFaint },
+
+  metricsPanel: { marginTop: spacing.md, backgroundColor: 'rgba(255,255,255,0.56)', borderWidth: StyleSheet.hairlineWidth, borderColor: light.hairline, borderRadius: 8, padding: spacing.lg },
+  metricsRow: { flexDirection: 'row', minHeight: 72 },
+  metricCell: { flex: 1, justifyContent: 'center', alignItems: 'flex-start', paddingHorizontal: spacing.sm },
+  metricKey: { width: 18, height: 3, borderRadius: 2, marginBottom: spacing.sm },
+  metricValue: { fontSize: 23, lineHeight: 28, fontWeight: '500', color: light.ink, fontVariant: ['tabular-nums'], letterSpacing: 0 },
+  metricLabel: { fontSize: 9, lineHeight: 12, fontWeight: '700', color: light.inkFaint, letterSpacing: 0, marginTop: 2 },
+  verticalDivider: { width: StyleSheet.hairlineWidth, backgroundColor: light.hairline },
+  horizontalDivider: { height: StyleSheet.hairlineWidth, backgroundColor: light.hairline },
 
   card: { marginTop: spacing.md },
   balanceRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
@@ -190,6 +181,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     backgroundColor: 'rgba(24,20,37,0.06)',
   },
+  balanceSummary: { flexDirection: 'row', justifyContent: 'space-between' },
   note: { ...glassType.caption, color: 'rgba(24,20,37,0.55)', lineHeight: 16 },
 
   emptyWrap: { alignItems: 'center', gap: spacing.sm, paddingTop: spacing.huge, paddingHorizontal: spacing.lg },
