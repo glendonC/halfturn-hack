@@ -72,8 +72,11 @@ export {
 export { useCalibrationStore } from './calibration';
 export {
   useFramingCalibration,
+  FRAMING_SPOKEN,
   type FramingCalibration,
   type FramingPhase,
+  type FramingCoachKind,
+  type FramingCoachPulse,
 } from './useFramingCalibration';
 export { LazyCameraVerifier } from './LazyCameraVerifier';
 export type { CameraVerifierProps } from './CameraVerifierView';

@@ -12,6 +12,7 @@ export {
   CalendarDays,
   Bell,
   Plus,
+  ChevronLeft,
   ChevronRight,
   SquarePen,
   X,
@@ -28,6 +29,7 @@ export {
   Speaker,
   // Drill / stats
   Play,
+  Pause,
   Camera,
   Repeat,
   Timer,
