@@ -3,7 +3,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { CameraSquircle, VisionDiagnostics } from '@/components/camera';
 import { GlassSurface } from '@/components/glass';
-import { colors, glass, glassRadius, glassType, glow, light, spacing } from '@/theme';
+import { glass, glassRadius, glassType, glow, light, spacing } from '@/theme';
 import { formatClock } from '@/utils/format';
 import { CueSurface } from './CueSurface';
 import type { DrillLayoutProps } from './layoutProps';
@@ -59,7 +59,7 @@ export function TurnReactLayout({ engine, cueCount }: DrillLayoutProps) {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: colors.background },
+  root: { flex: 1, backgroundColor: light.base },
   topSafe: { position: 'absolute', top: 0, left: 0, right: 0 },
   topRow: {
     flexDirection: 'row',

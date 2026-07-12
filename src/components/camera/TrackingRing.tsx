@@ -9,7 +9,7 @@ import { colors } from '@/theme';
  * muted gray, not an alarming red, so the UI doesn't flash before the pipeline
  * has produced a frame. See constants/visionTuning `trackingLevel`.
  */
-const LEVEL_COLOR: Record<TrackingLevel, string> = {
+export const TRACKING_LEVEL_COLOR: Record<TrackingLevel, string> = {
   none: colors.borderStrong,
   poor: colors.danger,
   ok: colors.warning,
@@ -18,7 +18,7 @@ const LEVEL_COLOR: Record<TrackingLevel, string> = {
 
 /** Map a tracking confidence (0..1) to its health color. */
 export function trackingLevelColor(confidence: number): string {
-  return LEVEL_COLOR[trackingLevel(confidence)];
+  return TRACKING_LEVEL_COLOR[trackingLevel(confidence)];
 }
 
 interface TrackingRingProps {

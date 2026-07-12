@@ -7,13 +7,14 @@ import {
   RunningMode,
   usePoseDetection,
   type PoseDetectionResultBundle,
+  type ViewCoordinator,
 } from 'react-native-mediapipe-posedetection';
 
-import { colors, typography } from '@/theme';
-
-import { feedRawFrame, toRawPoseFrame } from './backends/MediaPipeBackend';
-import { recordFrameStat, resetDiagnostics } from './diagnostics';
+import { glassType, light } from '@/theme';
 import type { RawPoseFrame } from './PerceptionBackend';
+import { recordFrameStat, resetDiagnostics } from './diagnostics';
+import { feedRawFrame, toRawPoseFrame } from './backends/MediaPipeBackend';
+import { landmarksToOverlayFrame, type PoseOverlayFrame } from './poseOverlay';
 
 /**
  * DEV-BUILD ONLY camera + MediaPipe Pose preview. Reached only via the lazy
@@ -39,6 +40,11 @@ export interface CameraVerifierProps {
   onSample?: (raw: RawPoseFrame) => void;
   /** Latest tracking confidence (min shoulder visibility) for the health overlay. */
   onTracking?: (confidence: number) => void;
+  /**
+   * VIEW-space skeleton points per frame (null = no pose this frame), for the
+   * framing pose overlay / checklist. Conversion runs only when this is wired.
+   */
+  onPosePoints?: (frame: PoseOverlayFrame | null) => void;
 }
 
 export function CameraVerifierView({
@@ -46,6 +52,7 @@ export function CameraVerifierView({
   activeCamera = 'front',
   onSample,
   onTracking,
+  onPosePoints,
 }: CameraVerifierProps) {
   const { hasPermission, requestPermission } = useCameraPermission();
 
@@ -60,7 +67,15 @@ export function CameraVerifierView({
 
   const solution = usePoseDetection(
     {
-      onResults: (bundle: PoseDetectionResultBundle) => {
+      onResults: (bundle: PoseDetectionResultBundle, vc: ViewCoordinator) => {
+        // Overlay path: normalized image landmarks → view space via the
+        // library's ViewCoordinator (it owns rotation/mirror/cover-crop math).
+        if (onPosePoints) {
+          const image = bundle.results?.[0]?.landmarks?.[0];
+          onPosePoints(
+            image?.length ? landmarksToOverlayFrame(image, vc.getFrameDims(bundle), vc) : null,
+          );
+        }
         const raw = toRawPoseFrame(bundle);
         if (!raw) return;
         feedRawFrame(raw); // → the active verifier during a drill (no-op otherwise)
@@ -94,9 +109,7 @@ export function CameraVerifierView({
   if (!hasPermission) {
     return (
       <View style={[styles.fallback, style]}>
-        <Text style={styles.fallbackText}>
-          Camera permission is needed for Turn &amp; React.
-        </Text>
+        <Text style={styles.fallbackText}>Camera permission is needed for Turn &amp; React.</Text>
       </View>
     );
   }
@@ -114,16 +127,6 @@ export default CameraVerifierView;
 
 const styles = StyleSheet.create({
   camera: { flex: 1 },
-  fallback: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.surface,
-    padding: 16,
-  },
-  fallbackText: {
-    ...typography.body,
-    color: colors.textMuted,
-    textAlign: 'center',
-  },
+  fallback: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: light.mist, padding: 16 },
+  fallbackText: { ...glassType.body, color: light.inkMuted, textAlign: 'center' },
 });

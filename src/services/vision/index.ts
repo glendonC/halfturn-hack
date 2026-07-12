@@ -73,11 +73,23 @@ export { useCalibrationStore } from './calibration';
 export {
   useFramingCalibration,
   FRAMING_SPOKEN,
+  FRAMING_CAPTURE_MS,
   type FramingCalibration,
   type FramingPhase,
   type FramingCoachKind,
   type FramingCoachPulse,
 } from './useFramingCalibration';
+export {
+  POSE_OVERLAY_LANDMARKS,
+  POSE_OVERLAY_IDX,
+  POSE_OVERLAY_EDGES,
+  createPoseOverlayFeed,
+  landmarksToOverlayFrame,
+  type PoseViewPoint,
+  type PoseOverlayFrame,
+  type PoseOverlayFeed,
+  type OverlayViewConverter,
+} from './poseOverlay';
 export { LazyCameraVerifier } from './LazyCameraVerifier';
 export type { CameraVerifierProps } from './CameraVerifierView';
 export {

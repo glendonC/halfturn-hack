@@ -1,7 +1,8 @@
-import { createRng } from '@/utils/rng';
-
+import { CUES } from '@/constants/cues';
+import { mulberry32 } from '@/utils/random';
 import {
   TURN_REACT_COLORS,
+  TURN_REACT_CUE_FLOODS,
   getTurnReactColor,
   pickTurnReactColor,
 } from '../turnReact';
@@ -35,9 +36,20 @@ describe('turn-react color palette', () => {
   });
 
   it('pickTurnReactColor returns a palette member', () => {
-    const rng = createRng(42);
+    const rng = mulberry32(42);
     for (let i = 0; i < 20; i += 1) {
       expect(TURN_REACT_COLORS).toContain(pickTurnReactColor(rng));
+    }
+  });
+});
+
+describe('turn-react cue floods', () => {
+  it('covers every colorToken in the cue catalog with a flood/text pair', () => {
+    for (const cue of Object.values(CUES)) {
+      const pair = TURN_REACT_CUE_FLOODS[cue.colorToken];
+      expect(pair).toBeDefined();
+      expect(pair.flood).toMatch(/^#[0-9A-Fa-f]{6}$/);
+      expect(pair.text).toMatch(/^#[0-9A-Fa-f]{6}$/);
     }
   });
 });

@@ -32,8 +32,8 @@ export interface FramingCoachPulse {
   kind: FramingCoachKind;
 }
 
-/** How long each capture averages frames for, ms. */
-const CAPTURE_MS = 1500;
+/** How long each capture averages frames for, ms (exported for the UI's hold-still sweep). */
+export const FRAMING_CAPTURE_MS = 1500;
 /** Minimum in-frame samples for a capture to count (else retry). */
 const MIN_SAMPLES = 5;
 /** MediaPipe BlazePose shoulder indices (confidence = min shoulder visibility). */
@@ -112,7 +112,7 @@ export function useFramingCalibration(): FramingCalibration {
         setCapturing(false);
         const xs = samplesRef.current;
         onDone(xs.length >= MIN_SAMPLES ? mean(xs) : null);
-      }, CAPTURE_MS);
+      }, FRAMING_CAPTURE_MS);
     },
     [pulse],
   );

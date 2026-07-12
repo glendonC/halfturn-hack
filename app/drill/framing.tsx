@@ -1,10 +1,10 @@
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Animated, Easing, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { trackingLevelColor } from '@/components';
+import { PoseOverlay, VisionChecklist, trackingLevelColor } from '@/components';
 import {
   GlassCluster,
   GlassScreen,
@@ -21,9 +21,12 @@ import {
   primeBeep,
 } from '@/services/audio';
 import {
+  FRAMING_CAPTURE_MS,
   FRAMING_SPOKEN,
   LazyCameraVerifier,
+  createPoseOverlayFeed,
   useFramingCalibration,
+  type FramingPhase,
 } from '@/services/vision';
 import { useSettings } from '@/state';
 import {
@@ -43,12 +46,20 @@ import {
  */
 const BAR = 52;
 
+/** The calibration journey, in phase order (drives the stepper). */
+const FRAMING_STEPS: { key: FramingPhase; label: string }[] = [
+  { key: 'center', label: 'Back to camera' },
+  { key: 'left', label: 'Turn left' },
+  { key: 'ready', label: 'Ready' },
+];
+
 /**
  * Turn & React framing / calibration (dev build only — reached from setup when
  * VISION_ENABLED). Presentational: the capture state machine + yaw-sign math
  * live in `useFramingCalibration`; this screen just renders the camera, the
- * in-frame indicator, and the per-phase capture control — plus eyes-off audio
- * coaching, since the player faces away from the phone during capture.
+ * live recognition feedback (pose skeleton + what-vision-sees checklist), and
+ * the per-phase capture control — plus eyes-off audio coaching, since the
+ * player faces away from the phone during capture.
  */
 export default function FramingScreen() {
   const router = useRouter();
@@ -56,6 +67,10 @@ export default function FramingScreen() {
   const settings = useSettings();
   const cal = useFramingCalibration();
   const startDrill = useCallback(() => router.replace('/drill/active'), [router]);
+
+  // Per-frame skeleton/visibility data flows camera → feed → overlay components,
+  // so ~15fps updates re-render only the overlays, never this screen.
+  const [poseFeed] = useState(createPoseOverlayFeed);
 
   // Same remount trick as GlassTabBar — Liquid Glass can stick on first paint.
   const [glassEpoch, setGlassEpoch] = useState(0);
@@ -120,16 +135,27 @@ export default function FramingScreen() {
       <View style={styles.body}>
         <View style={[styles.cameraShadow, glow.card]}>
           <View style={styles.cameraBox}>
-            <LazyCameraVerifier style={styles.camera} onSample={cal.onSample} onTracking={cal.onTracking} />
+            <LazyCameraVerifier
+              style={styles.camera}
+              onSample={cal.onSample}
+              onTracking={cal.onTracking}
+              onPosePoints={poseFeed.publish}
+            />
+            <PoseOverlay feed={poseFeed} />
             <GlassSurface radius={glassRadius.pill} intensity="regular" fill={glass.fill} style={styles.trackPill}>
               <View style={[styles.trackDot, { backgroundColor: trackingLevelColor(cal.confidence) }]} />
               <Text style={styles.trackText}>{isInFrame(cal.confidence) ? 'In frame' : 'Step into frame'}</Text>
             </GlassSurface>
+            <View style={styles.checklistWrap} pointerEvents="none">
+              <VisionChecklist feed={poseFeed} />
+            </View>
+            <CaptureSweep active={cal.capturing} />
           </View>
         </View>
 
         <View style={styles.copy}>
           <Text style={styles.kicker}>Framing · Turn & React</Text>
+          <PhaseStepper phase={cal.phase} />
           <Text style={styles.instruction}>{cal.instruction}</Text>
         </View>
       </View>
@@ -164,6 +190,79 @@ export default function FramingScreen() {
         </GlassCluster>
       </View>
     </GlassScreen>
+  );
+}
+
+/**
+ * Three-beat calibration stepper (Back to camera → Turn left → Ready). Done
+ * steps get an accent check, the current step reads in ink — a glanceable
+ * "where am I in setup" for the moments the player IS looking at the phone.
+ */
+function PhaseStepper({ phase }: { phase: FramingPhase }) {
+  const current = FRAMING_STEPS.findIndex((s) => s.key === phase);
+  return (
+    <View style={styles.stepper}>
+      {FRAMING_STEPS.map((step, i) => {
+        const done = i < current || phase === 'ready';
+        const active = i === current && !done;
+        return (
+          <View key={step.key} style={styles.step}>
+            <View
+              style={[
+                styles.stepDot,
+                done && styles.stepDotDone,
+                active && styles.stepDotActive,
+              ]}
+            >
+              {done ? (
+                <Icon icon={Icons.Check} size={11} color={light.white} strokeWidth={3} />
+              ) : (
+                <Text style={[styles.stepNum, active && styles.stepNumActive]}>{i + 1}</Text>
+              )}
+            </View>
+            <Text style={[styles.stepLabel, (done || active) && styles.stepLabelActive]} numberOfLines={1}>
+              {step.label}
+            </Text>
+            {i < FRAMING_STEPS.length - 1 ? <View style={styles.stepLine} /> : null}
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+/**
+ * Thin hold-still sweep along the camera's bottom edge, timed to the capture
+ * window — eyes-on companion feedback while the spoken "Hold" coaches the player.
+ */
+function CaptureSweep({ active }: { active: boolean }) {
+  const anim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (!active) {
+      anim.setValue(0);
+      return;
+    }
+    anim.setValue(0);
+    const sweep = Animated.timing(anim, {
+      toValue: 1,
+      duration: FRAMING_CAPTURE_MS,
+      easing: Easing.linear,
+      useNativeDriver: false, // width % animation
+    });
+    sweep.start();
+    return () => sweep.stop();
+  }, [active, anim]);
+
+  if (!active) return null;
+  return (
+    <View style={styles.sweepTrack} pointerEvents="none">
+      <Animated.View
+        style={[
+          styles.sweepFill,
+          { width: anim.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] }) },
+        ]}
+      />
+    </View>
   );
 }
 
@@ -249,8 +348,50 @@ const styles = StyleSheet.create({
   trackDot: { width: 9, height: 9, borderRadius: 5 },
   trackText: { ...glassType.caption, color: light.inkSoft, fontWeight: '700' },
 
+  checklistWrap: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: spacing.md,
+    alignItems: 'center',
+  },
+
+  sweepTrack: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    height: 4,
+    backgroundColor: 'rgba(24,20,37,0.10)',
+  },
+  sweepFill: { height: '100%', backgroundColor: accents.home.solid },
+
   copy: { gap: spacing.sm, paddingBottom: spacing.xs },
   kicker: { ...glassType.overline, color: accents.home.solid },
+
+  stepper: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  step: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 },
+  stepDot: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(24,20,37,0.08)',
+  },
+  stepDotActive: { backgroundColor: accents.home.wash, borderWidth: 1.5, borderColor: accents.home.solid },
+  stepDotDone: { backgroundColor: accents.home.solid },
+  stepNum: { ...glassType.caption, fontSize: 11, color: light.inkFaint, fontWeight: '700' },
+  stepNumActive: { color: accents.home.solid },
+  stepLabel: { ...glassType.caption, color: light.inkFaint, fontWeight: '600' },
+  stepLabelActive: { color: light.inkSoft },
+  stepLine: {
+    width: 14,
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: 'rgba(24,20,37,0.18)',
+    marginLeft: spacing.xs,
+  },
+
   instruction: { ...glassType.subtitle, color: light.ink, lineHeight: 24 },
 
   footer: {

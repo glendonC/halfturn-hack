@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { LazyCameraVerifier, VISION_ENABLED } from '@/services/vision';
-import { colors, typography } from '@/theme';
+import { glass, glassType, light } from '@/theme';
 import { TrackingRing } from './TrackingRing';
 
 /** Smart-mirror self-view dimensions (FaceTime-style PiP). */
@@ -51,13 +51,14 @@ const styles = StyleSheet.create({
     width: SQUIRCLE_WIDTH,
     height: SQUIRCLE_HEIGHT,
     borderRadius: SQUIRCLE_RADIUS,
+    borderCurve: 'continuous',
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: colors.borderStrong,
-    backgroundColor: colors.backgroundDeep,
+    borderColor: glass.border,
+    backgroundColor: light.mist,
   },
   cam: { flex: 1 },
   placeholder: { alignItems: 'center', justifyContent: 'center', gap: 2, paddingHorizontal: 8 },
-  placeholderText: { ...typography.label, color: colors.textSecondary, fontWeight: '800' },
-  placeholderSub: { ...typography.caption, color: colors.textMuted, textAlign: 'center' },
+  placeholderText: { ...glassType.label, color: light.inkSoft, fontWeight: '700' },
+  placeholderSub: { ...glassType.caption, color: light.inkFaint, textAlign: 'center' },
 });

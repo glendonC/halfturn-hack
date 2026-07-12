@@ -347,7 +347,7 @@ export default function ProfileScreen() {
         <Divider />
         <GlassToggleRow
           label="Landscape in Turn & React"
-          description="Rotate to landscape for a wider cue at distance."
+          description="Rotate the live cue while a run is active — for a mounted phone read at distance. Setup stays portrait."
           value={settings.turnReactLandscape}
           onValueChange={(v) => setSetting('turnReactLandscape', v)}
           accent="field"
