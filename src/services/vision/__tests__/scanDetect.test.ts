@@ -7,7 +7,7 @@ function trace(yaws: number[], { startMs = 0, periodMs = 33, confidence = 0.9 } 
   return yaws.map((yawDeg, i) => ({ tMonoMs: startMs + i * periodMs, yawDeg, confidence }));
 }
 
-describe('detectScans - sign convention (locks player-left == yawDeg<0)', () => {
+describe('detectScans — sign convention (locks player-left == yawDeg<0)', () => {
   it('a cued-LEFT half-turn (negative yaw) is detected as direction "left"', () => {
     // 0 -> -40 (enter), hold, return to 0. ~9 samples over ~264ms.
     const samples = trace([0, 0, -30, -40, -45, -40, -30, -10, 0]);
@@ -29,7 +29,7 @@ describe('detectScans - sign convention (locks player-left == yawDeg<0)', () => 
   });
 });
 
-describe('detectScans - debounce / hysteresis / confidence', () => {
+describe('detectScans — debounce / hysteresis / confidence', () => {
   it('ignores a small head-bob below the enter threshold', () => {
     expect(detectScans(trace([0, 10, 18, 12, 0]))).toHaveLength(0);
   });

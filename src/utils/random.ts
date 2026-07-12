@@ -32,7 +32,7 @@ export function randomFloat(rng: Rng, min: number, max: number): number {
 
 export function pick<T>(rng: Rng, arr: readonly T[]): T {
   if (arr.length === 0) throw new Error('pick() called on an empty array');
-  return arr[Math.floor(rng() * arr.length)]!;
+  return arr[Math.floor(rng() * arr.length)];
 }
 
 export interface Weighted<T> {
@@ -50,7 +50,7 @@ export function weightedPick<T>(rng: Rng, items: readonly Weighted<T>[]): T {
     r -= Math.max(0, item.weight);
     if (r < 0) return item.value;
   }
-  return items[items.length - 1]!.value;
+  return items[items.length - 1].value;
 }
 
 /** True with probability p (clamped to [0, 1]). */

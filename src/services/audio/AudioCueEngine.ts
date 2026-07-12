@@ -15,7 +15,7 @@ export interface SpeakOptions {
  */
 export interface AudioCueEngine {
   /** Apply settings (voice/rate/pitch/volume) and warm the backend. */
-  prepare(settings?: Settings): Promise<void>;
+  prepare(settings: Settings): Promise<void>;
   /** Speak a phrase; resolves once the utterance has been dispatched. */
   speak(phrase: string, options?: SpeakOptions): Promise<void>;
   /** Estimated utterance duration in ms (used to floor cue intervals). */

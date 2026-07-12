@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 import { CUE_ORDER } from '@/constants/cues';
-import { createDefaultDrillConfig, DEFAULT_DRILL_CONFIG, MIN_INTERVAL_SPAN } from '@/constants/defaults';
+import { DEFAULT_DRILL_CONFIG, MIN_INTERVAL_SPAN } from '@/constants/defaults';
 import type { CueId, DrillConfig } from '@/types';
 import { zustandStorage } from './storage';
 
@@ -47,8 +47,8 @@ export const useDrillConfigStore = create<DrillConfigStore>()(
       storage: zustandStorage,
       partialize: (s) => ({ config: s.config }),
       migrate: (persisted) => {
-        const p = persisted as { config?: Partial<DrillConfig> & Record<string, unknown> } | undefined;
-        return { config: createDefaultDrillConfig(p?.config ?? {}) };
+        const p = persisted as { config?: Partial<DrillConfig> } | undefined;
+        return { config: { ...DEFAULT_DRILL_CONFIG, ...(p?.config ?? {}) } };
       },
     },
   ),

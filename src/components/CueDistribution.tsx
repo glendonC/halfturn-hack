@@ -2,15 +2,15 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { CUE_ORDER, CUES } from '@/constants/cues';
 import type { CueCounts } from '@/types';
-import { colors, glassRadius, glassType, light } from '@/theme';
+import { colors, radius, spacing, typography } from '@/theme';
 
-interface GlassCueDistributionProps {
+interface CueDistributionProps {
   counts: CueCounts;
   total: number;
 }
 
-/** Light-glass cue distribution: cue-colored bars that pop, ink labels/counts. */
-export function GlassCueDistribution({ counts, total }: GlassCueDistributionProps) {
+/** Horizontal bar list showing how cues were distributed across a session. */
+export function CueDistribution({ counts, total }: CueDistributionProps) {
   const rows = CUE_ORDER.filter((id) => (counts[id] ?? 0) > 0);
   if (rows.length === 0) {
     return <Text style={styles.empty}>No cues fired.</Text>;
@@ -30,11 +30,13 @@ export function GlassCueDistribution({ counts, total }: GlassCueDistributionProp
               {cue.label}
             </Text>
             <View style={styles.barTrack}>
-              <View style={[styles.barFill, { backgroundColor: accent, width: `${(count / max) * 100}%` }]} />
+              <View
+                style={[styles.barFill, { backgroundColor: accent, width: `${(count / max) * 100}%` }]}
+              />
             </View>
             <Text style={styles.count}>
               {count}
-              <Text style={styles.pct}>{`  ${pct}%`}</Text>
+              <Text style={styles.pct}>  {pct}%</Text>
             </Text>
           </View>
         );
@@ -44,12 +46,18 @@ export function GlassCueDistribution({ counts, total }: GlassCueDistributionProp
 }
 
 const styles = StyleSheet.create({
-  list: { gap: 8 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  label: { ...glassType.label, color: light.inkMuted, width: 92 },
-  barTrack: { flex: 1, height: 10, borderRadius: glassRadius.pill, backgroundColor: 'rgba(24,20,37,0.07)', overflow: 'hidden' },
-  barFill: { height: '100%', borderRadius: glassRadius.pill },
-  count: { ...glassType.label, color: light.ink, width: 70, textAlign: 'right' },
-  pct: { ...glassType.caption },
-  empty: { ...glassType.body },
+  list: { gap: spacing.sm },
+  row: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  label: { ...typography.label, color: colors.textSecondary, width: 92 },
+  barTrack: {
+    flex: 1,
+    height: 10,
+    borderRadius: radius.pill,
+    backgroundColor: colors.surfaceAlt,
+    overflow: 'hidden',
+  },
+  barFill: { height: '100%', borderRadius: radius.pill },
+  count: { ...typography.label, color: colors.textPrimary, width: 70, textAlign: 'right' },
+  pct: { ...typography.caption, color: colors.textMuted },
+  empty: { ...typography.body, color: colors.textMuted },
 });

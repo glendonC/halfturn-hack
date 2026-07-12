@@ -1,6 +1,8 @@
 /**
  * Lightweight unique-ish ID generator (no external uuid dependency).
- * Combines a time component, a monotonic counter, and randomness.
+ * Combines a time component, a monotonic counter, and randomness — collision
+ * risk is negligible for a local-first single-device app, and IDs sort roughly
+ * by creation time.
  */
 
 let counter = 0;
@@ -15,9 +17,4 @@ export function generateId(prefix = 'id'): string {
 
 export function sessionId(): string {
   return generateId('sess');
-}
-
-/** Prefer {@link generateId}; kept for existing call sites. */
-export function createId(prefix = 'id'): string {
-  return generateId(prefix);
 }

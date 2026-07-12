@@ -5,7 +5,7 @@
  * palette still dresses the frozen live-drill layouts (tuned for outdoor
  * glanceability); everything the player touches *between* drills — Home,
  * Settings, History, Summary, the nav — lives in this bright frosted world so
- * the glass surfaces and pastel accents stay readable between drills.
+ * the glass surfaces and pastel accents read the way the reference does.
  *
  * Accents are not arbitrary pastels: each one is keyed to a real part of the
  * drill (audio routing, TTS voice, cue vocabulary, field display) so the color
@@ -90,7 +90,7 @@ interface Accent {
 }
 
 export const accents: Record<AccentKey, Accent> = {
-  // Signature yellow → lavender bloom (home hero).
+  // Signature yellow → lavender bloom (the reference hero).
   home: { gradient: ['#FCEBA4', '#F2D9E6', '#CDBEF5', '#B7C3F4'], solid: '#8E77E6', wash: 'rgba(190,171,245,0.16)' },
   // Audio routing — mint → sky (teal cue family).
   audio: { gradient: ['#BEF3E4', '#A6D8F2'], solid: '#1FB49A', wash: 'rgba(45,212,191,0.14)' },
@@ -109,7 +109,7 @@ export const accents: Record<AccentKey, Accent> = {
 /**
  * Whole-screen background: a lavender sky up top fading to warm pearl below, so
  * a bright over-exposed white bloom (painted separately in GlassScreen) can sit
- * on it as a soft ghosted hero glow.
+ * on it the way the reference's ghosted hero does.
  */
 export const bloom = {
   colors: ['#C9C3DF', '#E6E1F1', '#F2EFF6', '#EFECF5'] as const,
@@ -125,7 +125,8 @@ const systemFont = Platform.select({ ios: 'System', android: 'sans-serif', defau
 
 /**
  * Light-context type. Leans on SF's ultralight weights for the big display
- * numerals + small wide-tracked uppercase overlines — while staying on the zero-asset system face.
+ * numerals + small wide-tracked uppercase overlines — the reference's
+ * "21K / 29.60 · KM" treatment — while staying on the zero-asset system face.
  */
 export const glassType = {
   hero: { fontFamily: systemFont, fontSize: 72, fontWeight: '200', letterSpacing: -1.5, color: light.ink },

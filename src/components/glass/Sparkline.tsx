@@ -14,7 +14,7 @@ interface SparklineProps {
 
 /**
  * A minimal trend line: a soft area fill under a rounded stroke, with a dot on
- * the latest point (the intended look's "you are here" marker). Self-measures its
+ * the latest point (the reference's "you are here" marker). Self-measures its
  * width so it flexes to whatever column it sits in. `react-native-svg` only.
  */
 export function Sparkline({ data, color, height = 52, strokeWidth = 2, style }: SparklineProps) {

@@ -35,7 +35,7 @@ const SCANS: ScanEvent[] = [
   { tMonoMs: 66, direction: 'left', peakYawDeg: -30, startMonoMs: 66, endMonoMs: 132, confidence: 0.9 },
 ];
 const CUES: CueEvent[] = [
-  { seq: 0, cueId: 'turn', category: 'action', phrase: 'Turn', side: 'none', firedAtEpochMs: 0, firedAtMonoMs: 40, plannedOffsetMs: 40 },
+  { seq: 0, cueId: 'turn', category: 'action', phrase: 'Turn', side: 'none', firedAtMonoMs: 40, firedAtEpochMs: 0, plannedOffsetMs: 40 },
 ];
 const ENRICH = { smoothing: null, reactionMode: 'peak' as const };
 

@@ -1,19 +1,17 @@
 import type { ComponentType } from 'react';
 
 import type { DrillLayout } from '@/services/drill';
-
 import { AudioDrillLayout } from './AudioDrillLayout';
-import { TurnReactLayout } from './TurnReactLayout';
 import type { DrillLayoutProps } from './layoutProps';
+import { TurnReactLayout } from './TurnReactLayout';
 
 /**
- * UI registry keyed by DrillLayout. Active screen resolves MODE_LAYOUT[mode]
- * then renders from here — no mode string branches in the route.
+ * Layout id → running-drill component. The active screen resolves the run's mode
+ * to a `DrillLayout` (via `MODE_LAYOUT`) and renders the matching component here,
+ * so it never branches on the mode. Adding a mode = a new `MODE_LAYOUT` entry +
+ * (if it needs a new look) a new entry here — the active screen is untouched.
  */
-export const DRILL_LAYOUTS: Record<
-  DrillLayout,
-  ComponentType<DrillLayoutProps>
-> = {
+export const DRILL_LAYOUTS: Record<DrillLayout, ComponentType<DrillLayoutProps>> = {
   'audio-hud': AudioDrillLayout,
   'turn-react-facetime': TurnReactLayout,
 };

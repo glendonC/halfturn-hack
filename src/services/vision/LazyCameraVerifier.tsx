@@ -11,7 +11,7 @@ const VISION_ENABLED = process.env.EXPO_PUBLIC_VISION === '1';
  * (VISION_ENABLED). The dynamic import keeps react-native-vision-camera and the
  * MediaPipe pose module out of the Expo Go bundle's EVALUATED graph; this file
  * itself imports no native code (the CameraVerifierProps import is type-only and
- * is erased). Screens render <LazyCameraVerifier/> unconditionally - it returns
+ * is erased). Screens render <LazyCameraVerifier/> unconditionally — it returns
  * null in Expo Go (so turn-react there is the beep-only preview).
  */
 export function LazyCameraVerifier(props: CameraVerifierProps) {
@@ -25,7 +25,7 @@ export function LazyCameraVerifier(props: CameraVerifierProps) {
         if (mounted) setComp(() => m.CameraVerifierView);
       })
       .catch(() => {
-        // Native module unavailable - leave unmounted; the drill still runs (the
+        // Native module unavailable — leave unmounted; the drill still runs (the
         // verifier simply receives no frames and yields 0 scans).
       });
     return () => {

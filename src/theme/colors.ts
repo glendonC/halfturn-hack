@@ -64,13 +64,6 @@ export const colors = {
   cueVariableColor: palette.purple,
   cueVariableNumber: palette.amber,
   cueNeutral: palette.teal,
-
-  // Aliases for screens still on the earlier token names
-  bg: palette.ink800,
-  bgElevated: palette.ink600,
-  text: palette.white,
-  accent: palette.teal,
-  accentDim: 'rgba(45, 212, 191, 0.45)',
 } as const;
 
 export type ColorToken = keyof typeof colors;

@@ -19,7 +19,7 @@ interface GlassStatProps {
 const NUMERAL_SIZE: Record<StatSize, number> = { sm: 26, md: 34, lg: 50 };
 
 /**
- * Signature readout: a large light-weight numeral over a small
+ * The reference's signature readout: a large light-weight numeral over a small
  * wide-tracked uppercase label. The one place big numbers earn their size.
  */
 export function GlassStat({ value, label, accent, color, size = 'md', align = 'left', style }: GlassStatProps) {

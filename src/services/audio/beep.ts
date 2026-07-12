@@ -10,7 +10,7 @@ import { createAudioPlayer } from 'expo-audio';
  */
 
 // Asset module (Metro returns an opaque asset id); RN's global require types it.
-// eslint-disable-next-line @typescript-eslint/no-require-imports
+// eslint-disable-next-line @typescript-eslint/no-var-requires
 const BEEP_SOURCE = require('../../../assets/sounds/beep.wav');
 
 type BeepPlayer = ReturnType<typeof createAudioPlayer>;
@@ -27,7 +27,6 @@ export function primeBeep(): void {
     player = null; // best-effort; turn-react still works with haptics only
   }
 }
-
 
 /**
  * Pre-create the verified-turn confirm sound: the same beep sample sped up so

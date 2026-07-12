@@ -52,12 +52,17 @@ export function GlassSurface({
   const native = getNativeGlass();
   if (native) {
     const { GlassView } = native;
+    // Prefer an explicit tint; otherwise reuse `fill` so the native material gets a
+    // light wash. Important: `colorScheme` alone does not re-apply UIGlassEffect
+    // (expo-glass-effect setColorScheme skips updateEffect), so without a tint the
+    // view can stick in the system dark glass until something remounts it.
+    const resolvedTint = tintColor ?? fill;
     return (
       <GlassView
         glassEffectStyle={glassStyle}
         isInteractive={interactive}
         colorScheme="light"
-        tintColor={tintColor}
+        tintColor={resolvedTint}
         style={[shape, border, style]}
       >
         {children}

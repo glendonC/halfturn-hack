@@ -34,7 +34,8 @@ const SIZES: Record<Size, { padV: number; font: number; icon: number }> = {
 };
 
 /**
- * The action primitive. `primary` is a confident solid ink pill (echoing the dark Home circle); `secondary` is frosted glass; `danger` is the
+ * The action primitive. `primary` is a confident solid ink pill (echoing the
+ * reference's dark Home circle); `secondary` is frosted glass; `danger` is the
  * warm coral accent. Pass `accent` to tint a primary button to a section color.
  */
 export function GlassButton({

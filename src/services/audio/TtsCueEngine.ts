@@ -1,10 +1,7 @@
 import * as Speech from 'expo-speech';
 
 import type { Settings } from '@/types';
-import { DEFAULT_SETTINGS } from '@/constants/defaults';
-
 import type { AudioCueEngine, SpeakOptions } from './AudioCueEngine';
-import { configureAudioSession } from './audioMode';
 import { estimateSpeechMs } from './estimate';
 import { resolveVoiceId } from './voices';
 
@@ -22,15 +19,12 @@ import { resolveVoiceId } from './voices';
  *   the language so cues don't fall back to the compact robotic system default.
  */
 export class TtsCueEngine implements AudioCueEngine {
-  private settings: Settings = { ...DEFAULT_SETTINGS };
+  private settings: Settings | null = null;
   private voiceId: string | undefined;
 
-  async prepare(settings?: Settings): Promise<void> {
-    if (settings) {
-      this.settings = { ...this.settings, ...settings };
-    }
-    await configureAudioSession(this.settings.audioOutputMode);
-    this.voiceId = await resolveVoiceId(this.settings);
+  async prepare(settings: Settings): Promise<void> {
+    this.settings = settings;
+    this.voiceId = await resolveVoiceId(settings);
     // Warm the TTS engine with a near-silent priming utterance so the first
     // real cue isn't delayed by cold-start latency (~500-900ms on iOS).
     try {
@@ -39,7 +33,7 @@ export class TtsCueEngine implements AudioCueEngine {
         volume: 0,
         rate: this.rate,
         pitch: this.pitch,
-        language: this.settings.language,
+        language: settings.language,
         voice: this.voiceId,
       });
     } catch {
@@ -62,14 +56,14 @@ export class TtsCueEngine implements AudioCueEngine {
     }
     const s = this.settings;
     // Re-resolve if prepare hasn't run yet (e.g. framing coach before warm-up).
-    if (!this.voiceId) {
+    if (!this.voiceId && s) {
       this.voiceId = await resolveVoiceId(s);
     }
     Speech.speak(phrase, {
-      language: s.language,
+      language: s?.language ?? 'en-US',
       rate: this.rate,
       pitch: this.pitch,
-      volume: s.cueVolume,
+      volume: s?.cueVolume ?? 1,
       voice: this.voiceId,
       // iOS: let the system manage its own session so ducking/mixing works.
       useApplicationAudioSession: false,
@@ -78,11 +72,6 @@ export class TtsCueEngine implements AudioCueEngine {
       onStopped: () => onDone?.(),
       onError: () => onDone?.(),
     });
-  }
-
-  /** Readiness line for pre-drill headphone check. */
-  async testSound(): Promise<void> {
-    await this.speak('HalfTurn ready');
   }
 
   async stop(): Promise<void> {
@@ -94,10 +83,10 @@ export class TtsCueEngine implements AudioCueEngine {
   }
 
   private get rate(): number {
-    return this.settings.speechRate;
+    return this.settings?.speechRate ?? 1;
   }
 
   private get pitch(): number {
-    return this.settings.speechPitch;
+    return this.settings?.speechPitch ?? 1;
   }
 }

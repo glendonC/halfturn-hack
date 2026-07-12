@@ -3,8 +3,7 @@ import { persist } from 'zustand/middleware';
 
 import { CUE_ORDER } from '@/constants/cues';
 import { DEFAULT_SETTINGS } from '@/constants/defaults';
-import type { CueType, Settings } from '@/types';
-
+import type { CueId, Settings } from '@/types';
 import { zustandStorage } from './storage';
 
 interface SettingsStore {
@@ -12,7 +11,7 @@ interface SettingsStore {
   setSetting: <K extends keyof Settings>(key: K, value: Settings[K]) => void;
   setSettings: (patch: Partial<Settings>) => void;
   /** Toggle a cue in the app-wide vocabulary (keeps catalog order). */
-  toggleVocabulary: (id: CueType) => void;
+  toggleVocabulary: (id: CueId) => void;
   reset: () => void;
 }
 
@@ -22,8 +21,7 @@ export const useSettingsStore = create<SettingsStore>()(
       settings: DEFAULT_SETTINGS,
       setSetting: (key, value) =>
         set((s) => ({ settings: { ...s.settings, [key]: value } })),
-      setSettings: (patch) =>
-        set((s) => ({ settings: { ...s.settings, ...patch } })),
+      setSettings: (patch) => set((s) => ({ settings: { ...s.settings, ...patch } })),
       toggleVocabulary: (id) =>
         set((s) => {
           const has = s.settings.enabledVocabulary.includes(id);
