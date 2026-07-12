@@ -3,7 +3,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { isInFrame } from '@/constants/visionTuning';
 import type { RawPoseFrame } from './PerceptionBackend';
 import { useCalibrationStore } from './calibration';
-import { computeTorsoYawDeg, resolveYawSign } from './YawFusion';
+import { computeTorsoYawDeg, meanFaceVis, resolveYawSign } from './YawFusion';
 import {
   DEFAULT_AUTO_CAPTURE,
   appendSample,
@@ -11,6 +11,7 @@ import {
   validateCapture,
   type AutoCaptureSample,
   type CaptureFailReason,
+  type CaptureSample,
 } from './framingAutoCapture';
 
 /**
@@ -101,7 +102,7 @@ export function useFramingCalibration(): FramingCalibration {
   const [confidence, setConfidence] = useState(0);
   const [coachPulse, setCoachPulse] = useState<FramingCoachPulse | null>(null);
 
-  const samplesRef = useRef<number[]>([]);
+  const samplesRef = useRef<CaptureSample[]>([]);
   const busyRef = useRef(false); // countdown OR capture in flight
   const capturingRef = useRef(false); // set synchronously with the capture window
   const baselineRef = useRef<number | null>(null);
@@ -143,7 +144,7 @@ export function useFramingCalibration(): FramingCalibration {
         console.log(
           `[framing] ${capturePhase} capture ${result.ok ? 'ok' : `rejected (${result.reason})`}` +
             (s
-              ? ` n=${s.n} median=${s.medianDeg.toFixed(1)}° mad=${s.madDeg.toFixed(1)}° drift=${s.driftDeg.toFixed(1)}°`
+              ? ` n=${s.n} median=${s.medianDeg.toFixed(1)}° mad=${s.madDeg.toFixed(1)}° drift=${s.driftDeg.toFixed(1)}° faceVis=${s.faceVisMedian.toFixed(2)}`
               : ' n=0'),
         );
       }
@@ -204,7 +205,7 @@ export function useFramingCalibration(): FramingCalibration {
     const now = Date.now();
     lastSeenRef.current = now;
     if (capturingRef.current) {
-      samplesRef.current.push(computeTorsoYawDeg(raw));
+      samplesRef.current.push({ yawDeg: computeTorsoYawDeg(raw), faceVis: meanFaceVis(raw) });
       return;
     }
     if (busyRef.current || phaseRef.current === 'ready') return;

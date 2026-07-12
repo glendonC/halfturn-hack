@@ -51,28 +51,40 @@ describe('isPresent', () => {
   });
 });
 
+/** Capture samples from raw yaws; back-turned face visibility by default. */
+const win = (yaws: readonly number[], faceVis = 0.1) =>
+  yaws.map((yawDeg) => ({ yawDeg, faceVis }));
+
 describe('validateCapture — center', () => {
-  it('accepts a still window and returns its median', () => {
-    const result = validateCapture([2, 2.5, 1.5, 2, 2, 2], 'center', null);
+  it('accepts a still, back-turned window and returns its median', () => {
+    const result = validateCapture(win([2, 2.5, 1.5, 2, 2, 2]), 'center', null);
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.avgYawDeg).toBe(2);
   });
 
   it('tolerates single-frame sensor spikes on a still player', () => {
     // A σ-based gate fails this window (std ≈ 10°); the robust gate must not.
-    const spiky = [2, 2, 30, 2, 1.5, 2, 2, 2];
-    const result = validateCapture(spiky, 'center', null);
+    const result = validateCapture(win([2, 2, 30, 2, 1.5, 2, 2, 2]), 'center', null);
     expect(result.ok).toBe(true);
     if (result.ok) expect(result.avgYawDeg).toBe(2);
   });
 
+  it('rejects a player FACING the camera (yaw alone cannot tell front from back)', () => {
+    expect(validateCapture(win([2, 2, 2, 2, 2, 2], 0.95), 'center', null)).toMatchObject({
+      ok: false,
+      reason: 'facing',
+    });
+  });
+
   it('rejects too few samples as lost', () => {
-    const result = validateCapture([2, 2], 'center', null);
-    expect(result).toMatchObject({ ok: false, reason: 'lost' });
+    expect(validateCapture(win([2, 2]), 'center', null)).toMatchObject({
+      ok: false,
+      reason: 'lost',
+    });
   });
 
   it('rejects a turn-in-progress as moving (sustained drift)', () => {
-    const turning = [0, 3, 6, 9, 12, 15, 18, 21]; // halves' medians 10.5° apart
+    const turning = win([0, 3, 6, 9, 12, 15, 18, 21]); // halves' medians 10.5° apart
     expect(validateCapture(turning, 'center', null)).toMatchObject({
       ok: false,
       reason: 'moving',
@@ -80,7 +92,7 @@ describe('validateCapture — center', () => {
   });
 
   it('rejects chaotic tracking as moving (MAD sanity bound)', () => {
-    const chaos = [0, 30, -25, 28, -30, 26, -28, 25];
+    const chaos = win([0, 30, -25, 28, -30, 26, -28, 25]);
     expect(validateCapture(chaos, 'center', null)).toMatchObject({
       ok: false,
       reason: 'moving',
@@ -90,22 +102,26 @@ describe('validateCapture — center', () => {
 
 describe('validateCapture — left', () => {
   it('accepts a still window turned well away from the baseline', () => {
-    expect(validateCapture([40, 41, 39, 40, 40], 'left', 0).ok).toBe(true);
+    expect(validateCapture(win([40, 41, 39, 40, 40]), 'left', 0).ok).toBe(true);
+  });
+
+  it('does NOT face-check the left capture (a profile face is expected)', () => {
+    expect(validateCapture(win([40, 41, 39, 40, 40], 0.8), 'left', 0).ok).toBe(true);
   });
 
   it('is sign-agnostic about the turn direction', () => {
-    expect(validateCapture([-40, -41, -39, -40, -40], 'left', 0).ok).toBe(true);
+    expect(validateCapture(win([-40, -41, -39, -40, -40]), 'left', 0).ok).toBe(true);
   });
 
   it('rejects a re-captured neutral stance as not_turned', () => {
-    expect(validateCapture([10, 10, 10, 10, 10], 'left', 0)).toMatchObject({
+    expect(validateCapture(win([10, 10, 10, 10, 10]), 'left', 0)).toMatchObject({
       ok: false,
       reason: 'not_turned',
     });
   });
 
   it('rejects when no baseline exists', () => {
-    expect(validateCapture([40, 40, 40, 40, 40], 'left', null)).toMatchObject({
+    expect(validateCapture(win([40, 40, 40, 40, 40]), 'left', null)).toMatchObject({
       ok: false,
       reason: 'lost',
     });
@@ -113,12 +129,13 @@ describe('validateCapture — left', () => {
 });
 
 describe('captureStats', () => {
-  it('reports robust median / MAD / drift', () => {
-    const stats = captureStats([0, 1, 2, 100, 1, 1, 0, 1]);
+  it('reports robust median / MAD / drift / face visibility', () => {
+    const stats = captureStats(win([0, 1, 2, 100, 1, 1, 0, 1], 0.2));
     expect(stats.n).toBe(8);
     expect(stats.medianDeg).toBe(1);
     expect(stats.madDeg).toBeLessThanOrEqual(1);
     expect(Math.abs(stats.driftDeg)).toBeLessThanOrEqual(1.5);
+    expect(stats.faceVisMedian).toBe(0.2);
   });
 });
 

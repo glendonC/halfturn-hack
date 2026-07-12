@@ -44,6 +44,12 @@ export interface AutoCaptureConfig {
   /** LEFT only: min |capture mean − neutral baseline| (else: 'not_turned').
    * Sign-agnostic — `resolveYawSign` owns which rotation is "left". */
   leftMinDeltaDeg: number;
+  /** CENTER only: max median face visibility. The yaw math is front/back
+   * SYMMETRIC (a square chest and a square back both read ~0°), so facing the
+   * camera during the back-to-camera capture would pass silently and INVERT
+   * the yaw sign for the real back-turned stance — the face is the only tell
+   * (else: 'facing'). */
+  maxBackFaceVis: number;
   /** Refractory after any capture ends before presence can re-arm. */
   rearmMs: number;
 }
@@ -56,6 +62,7 @@ export const DEFAULT_AUTO_CAPTURE: AutoCaptureConfig = {
   maxDriftDeg: 6,
   maxMadDeg: 12,
   leftMinDeltaDeg: 25,
+  maxBackFaceVis: 0.6,
   rearmMs: 2000,
 };
 
@@ -100,7 +107,14 @@ export function isPresent({
 }
 
 /** Why a captured window was rejected — drives the targeted spoken retry line. */
-export type CaptureFailReason = 'lost' | 'moving' | 'not_turned';
+export type CaptureFailReason = 'lost' | 'moving' | 'not_turned' | 'facing';
+
+/** One in-frame observation collected during a capture window. */
+export interface CaptureSample {
+  yawDeg: number;
+  /** Mean anterior-face-landmark visibility (high ⇒ facing the camera). */
+  faceVis: number;
+}
 
 /** Robust window statistics — always returned so the field can be TUNED from
  * logged reality instead of guessed thresholds. */
@@ -111,6 +125,8 @@ export interface CaptureStats {
   madDeg: number;
   /** median(2nd half) − median(1st half): signed turn-in-progress estimate. */
   driftDeg: number;
+  /** Median face visibility — the back-vs-facing discriminator. */
+  faceVisMedian: number;
 }
 
 export type CaptureValidation =
@@ -124,29 +140,42 @@ const median = (xs: readonly number[]): number => {
 };
 
 /** Compute the robust window stats (exported for tests / diagnostics). */
-export function captureStats(yawsDeg: readonly number[]): CaptureStats {
-  const med = median(yawsDeg);
-  const madDeg = median(yawsDeg.map((y) => Math.abs(y - med)));
-  const half = Math.ceil(yawsDeg.length / 2);
-  const driftDeg = median(yawsDeg.slice(half)) - median(yawsDeg.slice(0, half));
-  return { n: yawsDeg.length, medianDeg: med, madDeg, driftDeg };
+export function captureStats(samples: readonly CaptureSample[]): CaptureStats {
+  const yaws = samples.map((s) => s.yawDeg);
+  const med = median(yaws);
+  const madDeg = median(yaws.map((y) => Math.abs(y - med)));
+  const half = Math.ceil(yaws.length / 2);
+  const driftDeg = median(yaws.slice(half)) - median(yaws.slice(0, half));
+  return {
+    n: samples.length,
+    medianDeg: med,
+    madDeg,
+    driftDeg,
+    faceVisMedian: median(samples.map((s) => s.faceVis)),
+  };
 }
 
 /**
- * Judge a completed capture from its collected in-frame yaw samples. Pure:
- * every rejection names the player-fixable cause. All statistics are robust
+ * Judge a completed capture from its collected in-frame samples. Pure: every
+ * rejection names the player-fixable cause. All statistics are robust
  * (median/MAD) because per-frame yaw carries heavy-tailed sensor spikes that a
  * mean/σ would misread as player movement.
  */
 export function validateCapture(
-  yawsDeg: readonly number[],
+  samples: readonly CaptureSample[],
   phase: 'center' | 'left',
   baselineDeg: number | null,
   cfg: AutoCaptureConfig = DEFAULT_AUTO_CAPTURE,
 ): CaptureValidation {
-  const stats = yawsDeg.length > 0 ? captureStats(yawsDeg) : null;
-  if (yawsDeg.length < cfg.minCaptureSamples) return { ok: false, reason: 'lost', stats };
+  const stats = samples.length > 0 ? captureStats(samples) : null;
+  if (samples.length < cfg.minCaptureSamples) return { ok: false, reason: 'lost', stats };
   const s = stats as CaptureStats;
+
+  // CENTER must be a BACK: a visible face here would calibrate the yaw sign
+  // for the wrong stance (checked first — fixing it changes everything else).
+  if (phase === 'center' && s.faceVisMedian > cfg.maxBackFaceVis) {
+    return { ok: false, reason: 'facing', stats: s };
+  }
 
   if (Math.abs(s.driftDeg) > cfg.maxDriftDeg || s.madDeg > cfg.maxMadDeg) {
     return { ok: false, reason: 'moving', stats: s };
