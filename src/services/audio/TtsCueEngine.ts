@@ -6,6 +6,7 @@ import { DEFAULT_SETTINGS } from '@/constants/defaults';
 import type { AudioCueEngine, SpeakOptions } from './AudioCueEngine';
 import { configureAudioSession } from './audioMode';
 import { estimateSpeechMs } from './estimate';
+import { resolveVoiceId } from './voices';
 
 /**
  * Cue engine backed by the device text-to-speech (expo-speech).
@@ -15,16 +16,21 @@ import { estimateSpeechMs } from './estimate';
  *   each cue so cues fire on time instead of stacking up.
  * - `Speech.pause()/resume()` are iOS/web only — never used here; the drill
  *   engine pauses by calling `stop()`.
- * - `volume`/`voice` are best-effort (often ignored on iOS).
+ * - Device volume is the primary loudness control; we still pass `volume` for
+ *   Android + future-proofing.
+ * - When `settings.voiceId` is null we resolve an Enhanced/natural voice for
+ *   the language so cues don't fall back to the compact robotic system default.
  */
 export class TtsCueEngine implements AudioCueEngine {
   private settings: Settings = { ...DEFAULT_SETTINGS };
+  private voiceId: string | undefined;
 
   async prepare(settings?: Settings): Promise<void> {
     if (settings) {
       this.settings = { ...this.settings, ...settings };
     }
     await configureAudioSession(this.settings.audioOutputMode);
+    this.voiceId = await resolveVoiceId(this.settings);
     // Warm the TTS engine with a near-silent priming utterance so the first
     // real cue isn't delayed by cold-start latency (~500-900ms on iOS).
     try {
@@ -34,6 +40,7 @@ export class TtsCueEngine implements AudioCueEngine {
         rate: this.rate,
         pitch: this.pitch,
         language: this.settings.language,
+        voice: this.voiceId,
       });
     } catch {
       // ignore — warm-up is best-effort
@@ -54,12 +61,16 @@ export class TtsCueEngine implements AudioCueEngine {
       }
     }
     const s = this.settings;
+    // Re-resolve if prepare hasn't run yet (e.g. framing coach before warm-up).
+    if (!this.voiceId) {
+      this.voiceId = await resolveVoiceId(s);
+    }
     Speech.speak(phrase, {
       language: s.language,
       rate: this.rate,
       pitch: this.pitch,
       volume: s.cueVolume,
-      voice: s.voiceId ?? undefined,
+      voice: this.voiceId,
       // iOS: let the system manage its own session so ducking/mixing works.
       useApplicationAudioSession: false,
       onStart: () => onStart?.(),

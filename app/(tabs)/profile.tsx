@@ -1,5 +1,5 @@
 import Constants from 'expo-constants';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -9,17 +9,31 @@ import {
   GlassScreen,
   GlassSegmented,
   GlassSlider,
+  GlassSurface,
   GlassToggleRow,
   GradientSquircle,
   Icon,
   Icons,
 } from '@/components/glass';
 import { RATE_BOUNDS, VOLUME_BOUNDS } from '@/constants/defaults';
-import { configureAudioSession, getAudioCueEngine } from '@/services/audio';
+import {
+  configureAudioSession,
+  getAudioCueEngine,
+  listNaturalVoices,
+  type VoiceOption,
+} from '@/services/audio';
 import { clearAllSessions } from '@/services/db';
 import { useProfileStore } from '@/state/useProfileStore';
 import { useSettingsStore } from '@/state/useSettingsStore';
-import { glassRadius, glassType, hitSlop, light, spacing } from '@/theme';
+import {
+  accents,
+  glass,
+  glassRadius,
+  glassType,
+  hitSlop,
+  light,
+  spacing,
+} from '@/theme';
 import type { AudioOutputMode } from '@/types';
 
 /** Space the floating nav reserves at the bottom, so the last card clears it. */
@@ -46,8 +60,19 @@ export default function ProfileScreen() {
   const setDisplayName = useProfileStore((s) => s.setDisplayName);
 
   const [name, setName] = useState(displayName ?? '');
+  const [voices, setVoices] = useState<VoiceOption[]>([]);
   const nameRef = useRef<TextInput>(null);
   const initials = initialsOf(name);
+
+  useEffect(() => {
+    let cancelled = false;
+    void listNaturalVoices(settings.language).then((list) => {
+      if (!cancelled) setVoices(list);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [settings.language]);
 
   const commitName = () => {
     const trimmed = name.trim();
@@ -66,6 +91,20 @@ export default function ProfileScreen() {
     }
   };
 
+  const pickVoice = (id: string | null) => {
+    setSetting('voiceId', id);
+    void (async () => {
+      try {
+        await configureAudioSession(settings.audioOutputMode);
+        const engine = getAudioCueEngine(settings.audioSource);
+        await engine.prepare({ ...settings, voiceId: id });
+        void engine.speak('Check left.');
+      } catch {
+        // best-effort preview
+      }
+    })();
+  };
+
   const clearHistory = () => {
     Alert.alert('Clear all history?', 'This permanently deletes every saved drill.', [
       { text: 'Cancel', style: 'cancel' },
@@ -73,9 +112,20 @@ export default function ProfileScreen() {
     ]);
   };
 
+  const selectedVoice = voices.find((v) => v.identifier === settings.voiceId);
+  const speakerLabel = settings.voiceId == null ? 'Auto' : (selectedVoice?.name ?? 'Custom');
+  const speakerDetail =
+    settings.voiceId == null
+      ? 'Best natural Apple voice available'
+      : (selectedVoice?.detail ?? 'Natural');
+
+  const voiceChips: { id: string | null; label: string }[] = [
+    { id: null, label: 'Auto' },
+    ...voices.map((v) => ({ id: v.identifier, label: v.name })),
+  ];
+
   return (
     <GlassScreen scroll accent="voice" contentStyle={{ paddingBottom: insets.bottom + NAV_CLEARANCE }}>
-      {/* Identity header - the surface that makes this tab "you", not a second setup screen. */}
       <View style={styles.header}>
         <GradientSquircle accent="voice" radius={glassRadius.squircle} style={styles.avatar}>
           <View style={styles.avatarInner}>
@@ -128,12 +178,45 @@ export default function ProfileScreen() {
           accent="audio"
         />
         <Text style={styles.note}>
-          When a cue plays, duck your music or let it keep going. Output - AirPods, Bluetooth, or the speaker - is picked
+          When a cue plays, duck your music or let it keep going. Output — AirPods, Bluetooth, or the speaker — is picked
           automatically by iOS.
         </Text>
       </GlassCard>
 
-      <GlassCard title="Voice" style={styles.card}>
+      <GlassCard title="Voice" subtitle={`${speakerLabel} · ${speakerDetail}`} style={styles.card}>
+        <View style={styles.chipRow}>
+          {voiceChips.map((chip) => {
+            const selected =
+              chip.id == null ? settings.voiceId == null : settings.voiceId === chip.id;
+            return (
+              <Pressable
+                key={chip.id ?? 'auto'}
+                onPress={() => pickVoice(chip.id)}
+                accessibilityRole="radio"
+                accessibilityState={{ selected }}
+                accessibilityLabel={chip.label}
+                style={styles.chipPress}
+              >
+                <GlassSurface
+                  radius={glassRadius.pill}
+                  intensity="regular"
+                  fill={selected ? glass.fillStrong : glass.fillSubtle}
+                  tintColor={selected ? accents.voice.wash : undefined}
+                  style={styles.chip}
+                >
+                  <Text style={[styles.chipLabel, selected && styles.chipLabelSelected]}>{chip.label}</Text>
+                </GlassSurface>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        {voices.length === 0 ? (
+          <Text style={styles.note}>
+            Download Samantha, Zoe, Ava, or Tom (Enhanced) in iOS Settings → Accessibility → Spoken Content → Voices.
+          </Text>
+        ) : null}
+
         <GlassSlider
           label="Volume"
           value={settings.cueVolume}
@@ -214,6 +297,12 @@ const styles = StyleSheet.create({
 
   groupHeading: { ...glassType.overline, color: 'rgba(24,20,37,0.45)', marginBottom: spacing.sm, marginLeft: spacing.xs },
   card: { marginBottom: spacing.md },
+
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  chipPress: {},
+  chip: { paddingVertical: 10, paddingHorizontal: spacing.lg },
+  chipLabel: { ...glassType.label, fontSize: 14, color: light.inkMuted, fontWeight: '600' },
+  chipLabelSelected: { color: accents.voice.solid, fontWeight: '700' },
 
   note: { ...glassType.caption, color: 'rgba(24,20,37,0.55)', lineHeight: 16 },
   divider: { height: StyleSheet.hairlineWidth, backgroundColor: 'rgba(24,20,37,0.12)' },

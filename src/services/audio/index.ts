@@ -13,3 +13,4 @@ export {
   type AudioCueEngineOptions,
   type SpeakCueVars,
 } from './types';
+export { listNaturalVoices, listVoicesForLanguage, resolveVoiceId, type VoiceOption } from './voices';

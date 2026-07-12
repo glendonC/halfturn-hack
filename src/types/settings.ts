@@ -14,7 +14,7 @@ export interface Settings {
   speechRate: number;
   /** TTS pitch (0.5 … 2.0; 1.0 = normal). */
   speechPitch: number;
-  /** Selected TTS voice id, or null for the system default. */
+  /** Selected TTS voice id, or null to auto-pick the best Enhanced/natural voice. */
   voiceId: string | null;
   /** BCP-47 language for TTS, e.g. "en-US". */
   language: string;
@@ -28,8 +28,8 @@ export interface Settings {
   hapticsEnabled: boolean;
   /** Keep the screen awake during a drill. */
   keepAwake: boolean;
-  /** Max out screen brightness while a drill runs. Off by default. */
+  /** Max out screen brightness while a drill runs (outdoor visibility). Off by default. */
   brightnessBoost: boolean;
-  /** Rotate to landscape during Turn & React. Off by default. */
+  /** Rotate to landscape during a Turn & React drill (bigger cue at distance). Off by default. */
   turnReactLandscape: boolean;
 }
