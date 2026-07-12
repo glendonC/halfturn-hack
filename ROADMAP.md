@@ -1,125 +1,112 @@
-# Roadmap
+# HalfTurn Roadmap
 
-Phased delivery with **seams first**. Every phase must leave the long-term intelligence path open — interfaces, nullable verification fields, and Expo-Go-safe guards — even when the feature itself ships later.
+The MVP (Phase 1) is deliberately small: a local-first audio coach that’s
+testable on a field today. Everything below is **designed for** but not built,
+with the seams already in place so each phase is additive.
 
----
-
-## Phase 1 — Audio MVP (this weekend)
-
-**Goal:** Field-testable solo cue drill. No camera required.
-
-### Shipped (hack)
-
-- Cue catalog with fixed cues + color/number variables; resolved `phrase` on each `CueEvent`
-- Pure scheduler with speech-duration floor (`estimateSpeechMs`) and optional `avoidLastN`
-- TTS via `TtsCueEngine`; turn-react preview uses on-screen cues + Expo-Go-safe onset beep
-- Setup + Settings: duration, interval, balance, countdown, voice rate/pitch, cue mix
-- Dual clocks + `plannedOffsetMs`; SQLite history with phrase timeline
-- `NullPoseVerifier` only — verification stays null/unknown on audio and turn-react preview
-
-### Explicitly out of scope (still)
-
-- Camera, pose, verification UI (Phase 2 / issue #9)
-- Cloud accounts / sync
-- Shipping large recorded voice packs (ClipCueEngine seam only)
-
-### Seams to freeze now
-
-| Seam | Why |
-| ---- | --- |
-| `DrillEngine` / scheduler (pure TS) | Cue scheduling independent of React / TTS |
-| `AudioCueEngine` interface | Swap TTS → recorded packs later |
-| `DrillSession` / `CueEvent` types | Verification fields **nullable** from day one |
-| Dual clocks (`wallMs` + `drillMs`) | Reaction timing later without rewriting history |
-| `PoseVerifier` + `NullPoseVerifier` stubs | Phase 2 plugs in without touching drill core |
+> ⚠️ **Update:** Phase 2 (Turn & React camera mode) has since **landed** and is
+> field-testable in a dev build — the section below understates current status.
+> See [README → Turn & React](./README.md) and
+> [`docs/phase-2-field-ui.md`](./docs/phase-2-field-ui.md).
 
 ---
 
-## Phase 2 — Turn & React verification
+## Phase 1 — MVP ✅ (this repo)
 
-**Goal:** Phone mounted facing the player; screen as cue surface; on-device pose verifies torso/shoulder reorientation after (or before) cues.
+Audio cue engine, drill setup, eyes-free active HUD, local history, settings.
+Runs in Expo Go. See [README](./README.md).
 
-**Hack status:** visual cue shell + beep already land in Expo Go; pure scanDetect / filters / YawFusion / PerceptionBackend registry / RealPoseVerifier ship behind `canUseNativeVision()`. Expo Go keeps `NullPoseVerifier`. Custom-client camera preview is a lazy shell until VisionCamera/MediaPipe packages are linked into `CameraVerifierView`.
+**Seams already shipped for later phases**
 
-### Ship
+- `CueEvent` timeline persisted per session with **dual clocks** (wall-clock +
+  drill-monotonic).
+- `cue_events` SQLite table (written now, read in Phase 2).
+- `DrillSession.verification` nullable column.
+- `src/services/vision`: `PoseVerifier` interface + `NullPoseVerifier` + a pure
+  `detectScans()` / `computeScanVerification()` algorithm.
+- `AudioCueEngine` interface with a `ClipCueEngine` placeholder for voice packs.
+- Unused sync columns (`synced_at`, `server_id`, `dirty`, `deleted_at`) + string
+  IDs for a future cloud sync.
 
-- Mount / setup guidance (distance, framing, neutral stance = back-to-camera)
-- Visual cue surface on device (mirrors or replaces audio for this mode) — **preview exists; verification does not**
-- `PerceptionBackend` adapter: first concrete stack = MediaPipe Pose (lite) on VisionCamera
-- Pure scan-detection over a yaw (and later multi-signal) sample stream
-- Onset-based reaction windows; anticipation penalty; occlusion policy (drop / mark unknown)
-- Session timeline with optional `verification` on each `CueEvent`
-- Expo-Go guard: vision modules never imported on the audio-only path; `NullPoseVerifier` always available
+---
 
-### Explicitly out of scope
+## Phase 2 — Camera verification (the headline feature)
 
-- Gaze / eye tracking claims
-- Cloud upload of frames or landmarks
-- Coach dashboard
+> 📐 **Detailed build spec:** [`docs/phase-2-camera-spec.md`](./docs/phase-2-camera-spec.md) —
+> the "turn‑and‑react" mode (phone mounted facing you, screen as the cue surface), staged
+> into 2.0 / 2.x‑a / 2.x‑b with exit criteria.
+> 🧠 **Perception stack + modular architecture:** [`docs/phase-2-perception-architecture.md`](./docs/phase-2-perception-architecture.md) —
+> the latency-weighted CV-engine decision and the swappable `PerceptionBackend` design for long-term intelligence.
 
-### Seams to leave open
+**Goal:** verify the player _actually_ scanned — count scans, measure reaction
+time, and check whether they scanned **before** receiving/turning.
 
-| Seam | Why |
-| ---- | --- |
-| `PerceptionBackend` | MediaPipe today → MoveNet / ExecuTorch / Nitro later |
-| `PoseVerifier` | UI and drill logic depend only on this |
-| `YawSample` stream + pure detectors | Intelligence evolves in TS, not native |
-| Occlusion / confidence policy | Honest “unknown” beats fake scores |
-| Baseline drift correction | Per-session neutral yaw calibration |
+### Metrics (already defined as pure reducers in `src/services/vision`)
+
+- **Scans / minute** and **left vs right scan balance**
+- **Reaction time** = `scan.tMonoMs − cue.firedAtMonoMs` (pure subtraction,
+  thanks to the shared drill-clock axis recorded in the MVP)
+- **Scanned-before-action rate** — for each action cue (`turn`, `man_on`,
+  `open_body`), was there a scan in the lookback window beforehand?
+
+### Detecting a “scan” (designed in `scanDetect.ts`)
+
+A scan = head/shoulder **yaw** crosses an enter threshold, holds past a debounce,
+then returns under an exit threshold (hysteresis), with a refractory gap between
+scans. Yaw is derived from pose landmarks (nose vs shoulder-midpoint, preferably
+world landmarks for scale-invariance). The algorithm is a **pure function over a
+yaw sample stream**, unit-testable today against synthetic traces.
+
+### Stack — decide at Phase-2 start, not pinned now
+
+Real-time pose on RN New Arch via **VisionCamera frame processors + MediaPipe
+Pose Landmarker** (deriving yaw). Two concrete paths; pick when starting:
+
+- **Path A (lowest risk):** VisionCamera **v4** + `react-native-worklets-core` +
+  `react-native-mediapipe-posedetection` (ships an Expo config plugin).
+- **Path B (forward-looking):** VisionCamera **v5** (Nitro) +
+  `react-native-worklets` + a v5-compatible pose frame-processor plugin.
+
+> ⚠️ VisionCamera (any version) needs a **custom dev client / EAS build** and
+> cannot run in Expo Go. Phase 2 graduates the dev loop from “Expo Go on a field”
+> to a dev build — a known, accepted step. All camera code stays behind the lazy
+> `getPoseVerifier()` factory so the MVP bundle never imports it.
+
+### Realistic caveats
+
+On-device pose is ~15–30 fps and battery/thermally heavy outdoors; derived yaw is
+noisy at distance / low light (needs confidence gating); thresholds will need
+tuning against real field footage.
 
 ---
 
 ## Phase 3 — Smarter training
 
-**Goal:** Training that adapts to verified behavior, not just a louder metronome.
-
-### Ship
-
-- Voice packs (recorded) behind `AudioCuePlayer`
-- Adaptive difficulty: interval, cue mix, and reaction windows from recent verified sessions
-- Drill programs / progressions (e.g. scan-before-turn emphasis)
-- Goals and streaks grounded in **evidence-weighted** metrics (see METRICS.md)
-- Richer local analytics: scanned-before-action rate, blind-side balance, anticipation rate
-
-### Seams to leave open
-
-| Seam | Why |
-| ---- | --- |
-| `DrillProgram` / difficulty policy | Swap heuristics → learned policies later |
-| Metric definitions versioned | Don’t break history when formulas change |
-| Multi-signal fusion inputs | Yaw + later hip/shoulder asymmetry, etc. |
+- **Voice packs** (`ClipCueEngine`): recorded coach voices via `expo-audio`
+  (also more reliable in iOS silent mode than TTS).
+- **Drill programs**: structured sessions, progressions, warmups.
+- **Adaptive difficulty**: shorten intervals / add cue types as performance
+  improves (using the verification metrics).
+- **Streaks & goals**: weekly scan targets, reminders.
 
 ---
 
-## Phase 4 — Optional cloud sync / coach dashboard
+## Phase 4 — Optional cloud (coach / team)
 
-**Goal:** Schema-ready insight for coaches/teams — **not** required for a useful product.
+Only if real users need it — the MVP stays local-first.
 
-### Ship (only if needed)
-
-- Account + sync of **derived** session summaries and metric aggregates
-- Coach/team read views over verified timelines
-- Export / share session reports
-
-### Hard constraints
-
-- Raw frames and landmarks **never** sync
-- Opt-in only; local-first remains the default
-- Schema versioning from Phase 1 types so we don’t retrofit IDs later
-
-### Seams to leave open
-
-| Seam | Why |
-| ---- | --- |
-| `SessionRepository` (local → syncing) | UI talks to repository, not storage engine |
-| Nullable remote IDs on sessions | Offline-created rows remain valid |
-| Metric payload version field | Coaches can interpret old sessions |
+- **Auth + sync** via Supabase or Convex. The schema already has string IDs and
+  `dirty`/`synced_at`/`server_id`/`deleted_at` for last-write-wins reconciliation.
+- **Coach / team dashboard**: assign drills, compare players’ scan metrics over
+  time, leaderboards.
+- Keep device-local settings (audio/haptics) unsynced; sync only progress + drill
+  programs.
 
 ---
 
-## Non-goals (near-term)
+## Possible later (not committed)
 
-- Multiplayer / live opponent simulation
-- Claiming continuous gaze or “peripheral vision training”
-- Shipping vision code that breaks Expo Go for Phase 1 testers
-- Baking a single pose SDK into screens or drill reducers
+- AI-generated drill plans (server-side LLM) personalized to a player’s scan
+  metrics — strictly optional, never required for core training.
+- Apple Watch / wearable haptics as a second eyes-free cue channel.
+- Android background-audio mode for pocket training.

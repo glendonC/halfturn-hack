@@ -2,11 +2,10 @@ module.exports = function (api) {
   api.cache(true);
   return {
     presets: ['babel-preset-expo'],
-    // worklets-core: VisionCamera v4 frame processors (no-op without 'worklet').
-    // reanimated plugin must be last when present.
-    plugins: [
-      ['react-native-worklets-core/plugin'],
-      'react-native-reanimated/plugin',
-    ],
+    // Enables react-native-vision-camera v4 frame processors (worklets). It only
+    // transforms functions carrying the 'worklet' directive, so it is a no-op for
+    // the Expo Go bundle (which reaches none) and Phase-1 audio-only is unchanged.
+    // NOTE: if react-native-reanimated is ever added, its plugin must come LAST.
+    plugins: [['react-native-worklets-core/plugin']],
   };
 };

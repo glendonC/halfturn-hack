@@ -9,10 +9,14 @@
       "distribution": "internal",
       "env": {
         "EXPO_PUBLIC_VISION": "1"
+      },
+      "ios": {
+        "image": "macos-sequoia-15.6-xcode-16.4"
       }
     },
     "preview": {
-      "distribution": "internal"
+      "extends": "development",
+      "developmentClient": false
     },
     "production": {
       "autoIncrement": true
